@@ -136,6 +136,9 @@ try { dailyPlayedKey = localStorage.getItem('veil_daily_played') || ''; } catch 
 let dailyStreak = 0, dailyStreakDate = '';
 try { dailyStreak = parseInt(localStorage.getItem('veil_daily_streak') || '0', 10) || 0; } catch (e) {}
 try { dailyStreakDate = localStorage.getItem('veil_daily_streak_date') || ''; } catch (e) {}
+let onboarded = false;                 // has the player completed the first-run teach?
+try { onboarded = localStorage.getItem('veil_onboarded') === '1'; } catch (e) {}
+let onboarding = false, firstMoveDone = false;
 let level = 1;
 let score = 0, dispScore = 0;
 let highScore = 0;
@@ -312,6 +315,11 @@ function doCapture() {
     shakeAmt = reduceMotion ? 0 : Math.min(10, 2.5 + area * 0.04);
     sfxCapture(combo);
     hintActive = false;
+    if (onboarding) {                    // first-ever capture: the "whoa" beat
+      onboarding = false; onboarded = true;
+      try { localStorage.setItem('veil_onboarded', '1'); } catch (e) {}
+      banner = { text: 'THE COSMOS REVEALS', sub: 'enclose more to clear the level', t: 2.4 };
+    }
   }
 
   // veil-as-discovery: capturing uncovers whatever the dark was hiding here
@@ -531,6 +539,7 @@ function arrive() {
 function updatePlayer(dt) {
   // Continuously honor a held joystick direction so a turn lands at the next valid cell.
   if (joyActive && joyDir && !buffered) buffered = joyDir;
+  if (onboarding && !firstMoveDone && !player.stopped) firstMoveDone = true;
   if (player.stopped) {
     const ax = player.to % COLS, ay = (player.to / COLS) | 0, nd = chooseDir(ax, ay);
     if (nd) {
@@ -654,6 +663,7 @@ function initLevel(lv) {
 function startGame(seed?: number) {
   score = 0; dispScore = 0; lives = 3;
   gameSeed = seed != null ? (seed >>> 0) : (Math.random() * 0xffffffff) >>> 0;
+  onboarding = !onboarded && !isDaily; firstMoveDone = false;
   initLevel(1);
 }
 function winLevel() {
@@ -1029,9 +1039,8 @@ function drawMenu() {
   glowText('draw light into the dark', cx, cyc - 26 + bob, 15, '#8fb4ff', { blur: 8, spacing: 4, weight: 600 });
   const blink = 0.55 + 0.45 * Math.sin(menuT * 3);
   glowText('PRESS ANY KEY  ·  TAP TO BEGIN', cx, cyc + 28, 16, '#dff1ff', { blur: 12, alpha: blink, weight: 700, spacing: 2 });
-  glowText('ARROWS / WASD move      enclose space to reveal the cosmos', cx, cyc + 70, 12, '#7f97c8', { blur: 0, spacing: 1 });
-  glowText('grab power-ups in the open      bold cuts score big', cx, cyc + 90, 12, '#7f97c8', { blur: 0, spacing: 1 });
-  glowText('P pause      M mute      R reduce motion ' + (reduceMotion ? '(on)' : ''), cx, cyc + 110, 12, '#7f97c8', { blur: 0, spacing: 1 });
+  glowText('drag to steer      enclose space to reveal the cosmos', cx, cyc + 72, 12, '#7f97c8', { blur: 0, spacing: 1 });
+  glowText('uncover caches in the dark      beware the rifts', cx, cyc + 92, 12, '#7f97c8', { blur: 0, spacing: 1 });
   if (highScore > 0) glowText('BEST  ' + fmtScore(highScore), cx, cyc + 146, 13, pal.edge, { blur: 8, weight: 700, spacing: 2 });
 
   // daily challenge entry
@@ -1117,6 +1126,19 @@ function drawTouchUI() {
     ctx.globalAlpha = 0.5; ctx.fillStyle = pal.edge;
     ctx.beginPath(); ctx.arc(tx, ty, CELL * 0.95, 0, TAU); ctx.fill();
     ctx.restore();
+  }
+
+  // first-run coach: teach drag-to-steer until the player first moves
+  if (onboarding && !firstMoveDone && state === 'playing') {
+    const ox = CW / 2, oy = CH - 120 - safeBottom;
+    const pulse = 0.5 + 0.5 * Math.sin(time * 3);
+    ctx.save();
+    ctx.globalAlpha = 0.45 + 0.3 * pulse; ctx.strokeStyle = pal.edge2; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(ox, oy, 34, 0, TAU); ctx.stroke();
+    ctx.globalAlpha = 0.7; ctx.fillStyle = pal.edge;
+    ctx.beginPath(); ctx.arc(ox + Math.cos(time * 2) * 16, oy + Math.sin(time * 2) * 16, 14, 0, TAU); ctx.fill();
+    ctx.restore();
+    glowText('DRAG ANYWHERE TO STEER', ox, oy - 58, 15, '#dff1ff', { blur: 12, weight: 800, spacing: 2, alpha: 0.6 + 0.4 * pulse });
   }
 }
 function render() {
