@@ -606,30 +606,51 @@ function genEnemies(lv) {
   const out = [];
   const drifters = Math.min(2 + Math.floor((lv - 1) / 2), 7);
   const chasers = lv >= 3 ? Math.min(1 + Math.floor((lv - 3) / 3), 2) : 0;
+  const sentinels = lv >= 2 ? Math.min(1 + Math.floor((lv - 2) / 3), 3) : 0;   // punish edge-camping
+  const sleepers = lv >= 4 ? Math.min(1 + Math.floor((lv - 4) / 3), 3) : 0;    // dormant under the veil
   const spd = Math.min(115 + 8 * (lv - 1), 205);
   const sc = centerPx((COLS >> 1));
-  function place(type, speed) {
-    let x, y, tries = 0, cx = 2, cy = 2;
+  function spawnCell(minGap, needEmpty) {
+    let x = sc.x, y = sc.y, tries = 0, cx = 2, cy = 2;
     do {
       cx = 2 + rng.int(COLS - 4); cy = 2 + rng.int(ROWS - 4);
       x = (cx + 0.5) * CELL; y = (cy + 0.5) * CELL; tries++;
-    } while ((Math.hypot(x - sc.x, y - sc.y) < CELL * 7 || grid[cy * COLS + cx] === OBSTACLE) && tries < 60);
-    const comp = speed * 0.7071;
-    out.push({ x, y, vx: (rng.next() < 0.5 ? -1 : 1) * comp, vy: (rng.next() < 0.5 ? -1 : 1) * comp,
+    } while ((Math.hypot(x - sc.x, y - sc.y) < CELL * minGap
+      || (needEmpty ? grid[cy * COLS + cx] !== EMPTY : grid[cy * COLS + cx] === OBSTACLE)) && tries < 60);
+    return { x, y };
+  }
+  function place(type, speed) {
+    const p = spawnCell(7, false), comp = speed * 0.7071;
+    out.push({ x: p.x, y: p.y, vx: (rng.next() < 0.5 ? -1 : 1) * comp, vy: (rng.next() < 0.5 ? -1 : 1) * comp,
       r: CELL * 0.42, type, speed, comp, steerT: rng.range(0.2, 0.6) });
+  }
+  function placeSleeper(speed) {
+    const p = spawnCell(6, true);
+    out.push({ x: p.x, y: p.y, vx: 0, vy: 0, r: CELL * 0.42, type: 'sleeper', asleep: true, speed, comp: speed * 0.7071, steerT: 0 });
   }
   for (let i = 0; i < drifters; i++) place('drifter', spd);
   for (let i = 0; i < chasers; i++) place('chaser', spd * 0.74);
+  for (let i = 0; i < sentinels; i++) place('sentinel', spd * 0.82);
+  for (let i = 0; i < sleepers; i++) placeSleeper(spd * 0.95);
   return out;
 }
 function moveEnemy(e, dt) {
-  if (e.type === 'chaser') {
+  // veil-sleeper: dormant until a capture reveals it or the player draws near
+  if (e.type === 'sleeper' && e.asleep) {
+    const woke = grid[eCell(e)] === FILLED || (player && Math.hypot(player.px.x - e.x, player.px.y - e.y) < CELL * 3);
+    if (!woke) return;
+    e.asleep = false; e.steerT = 0;
+    flash = reduceMotion ? 0.12 : 0.3; shakeAmt = reduceMotion ? 0 : Math.max(shakeAmt, 7);
+    hapticHeavy(); spawnPopup(e.x, e.y, 'WOKE', '#ff5c6e', 16);
+  }
+  // chasers + awake sleepers always hunt; sentinels hunt only while you rest on safe ground
+  const hunting = e.type === 'chaser' || (e.type === 'sleeper' && !e.asleep)
+    || (e.type === 'sentinel' && player && grid[cellOfPx(player.px)] === FILLED);
+  if (hunting) {
     e.steerT -= dt;
     if (e.steerT <= 0) {
-      e.steerT = 0.4;
-      // hunt the trail tip while you draw, else hunt you
-      const tgt = hasTrail ? player.px : player.px;
-      const dx = tgt.x - e.x, dy = tgt.y - e.y;
+      e.steerT = e.type === 'sentinel' ? 0.5 : 0.4;
+      const dx = player.px.x - e.x, dy = player.px.y - e.y;
       e.vx = (dx === 0 ? (e.vx > 0 ? 1 : -1) : Math.sign(dx)) * e.comp;
       e.vy = (dy === 0 ? (e.vy > 0 ? 1 : -1) : Math.sign(dy)) * e.comp;
     }
@@ -730,6 +751,7 @@ function nearestFilled(idx) {
 function checkCollisions() {
   const pc = cellOfPx(player.px), safe = grid[pc] === FILLED;
   for (const e of enemies) {
+    if (e.type === 'sleeper' && e.asleep) continue;   // dormant: harmless until woken
     const ec = eCell(e);
     if (grid[ec] === TRAIL) { triggerDeath(); return; }
     if (!safe && player.invuln <= 0 && Math.hypot(player.px.x - e.x, player.px.y - e.y) < CELL * 0.78) { triggerDeath(); return; }
@@ -1137,12 +1159,21 @@ function drawWorld() {
   // enemies (danger glow scales with proximity to player)
   for (const e of enemies) {
     const pulse = 1 + Math.sin(time * 6 + e.x) * 0.08;
-    const isCh = e.type === 'chaser';
+    const frozen = enemyFreezeT > 0;
+    // dormant veil-sleeper: a faint tell under the dark, not a full threat glow
+    if (e.type === 'sleeper' && e.asleep) {
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.16 + 0.12 * Math.sin(time * 2 + e.y);
+      const dg = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.r * 2.4);
+      dg.addColorStop(0, '#ff5c6e'); dg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = dg; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 2.4, 0, TAU); ctx.fill(); ctx.restore();
+      continue;
+    }
+    const isCh = e.type === 'chaser', isSent = e.type === 'sentinel', isSleep = e.type === 'sleeper';
     let prox = 0;
     if (player && player.px && state === 'playing') prox = clamp(1 - Math.hypot(player.px.x - e.x, player.px.y - e.y) / (CELL * 6), 0, 1);
-    const frozen = enemyFreezeT > 0;
-    const col = frozen ? '#bfe9ff' : (isCh ? CHASER_COL : ENEMY_COL);
-    const glow = frozen ? '#bfe9ff' : (isCh ? CHASER_GLOW : ENEMY_GLOW);
+    const col = frozen ? '#bfe9ff' : isSleep ? '#ff3a4e' : isSent ? '#ffb14a' : isCh ? CHASER_COL : ENEMY_COL;
+    const glow = frozen ? '#bfe9ff' : isSleep ? '#ff6a4a' : isSent ? '#ffd07a' : isCh ? CHASER_GLOW : ENEMY_GLOW;
     drawGlowOrb(e.x, e.y, e.r * pulse, col, glow, e.r * (3.2 + prox * 2.4));
     if (prox > 0.35 && !frozen) {
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
