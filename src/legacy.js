@@ -77,14 +77,12 @@ const ctx = canvas.getContext('2d');
 // Read iOS/Android safe-area insets (notch / home indicator). Needs the page
 // meta to use viewport-fit=cover, which index.html sets.
 function readSafeInsets() {
+  // Read the --sat/--sab custom properties (defined in index.html with env()).
+  // Reading resolved CSS vars off :root is more reliable than a probe element.
   try {
-    const p = document.createElement('div');
-    p.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0;';
-    document.body.appendChild(p);
-    const cs = getComputedStyle(p);
-    safeTop = parseFloat(cs.paddingTop) || 0;
-    safeBottom = parseFloat(cs.paddingBottom) || 0;
-    p.remove();
+    const cs = getComputedStyle(document.documentElement);
+    safeTop = parseFloat(cs.getPropertyValue('--sat')) || 0;
+    safeBottom = parseFloat(cs.getPropertyValue('--sab')) || 0;
   } catch (e) { safeTop = 0; safeBottom = 0; }
 }
 
@@ -124,8 +122,14 @@ function relayout(force) {
   if (state === 'playing' || state === 'paused') initLevel(level);
 }
 window.addEventListener('resize', () => relayout(false));
+window.addEventListener('orientationchange', () => relayout(true));
 lastVW = window.innerWidth | 0; lastVH = window.innerHeight | 0;
 computeLayout(); applyCanvasSize();
+// Safe-area insets can populate a frame or two after load in a WKWebView;
+// re-check so the HUD ends up below the notch/Dynamic Island, not under it.
+window.addEventListener('load', () => relayout(true));
+requestAnimationFrame(() => relayout(true));
+setTimeout(() => relayout(true), 400);
 
 /* ----------------------------- audio ----------------------------------- */
 let ac = null, masterGain = null, padGain = null;
@@ -559,6 +563,8 @@ function arrive() {
   else { player.stopped = true; player.to = arrived; }
 }
 function updatePlayer(dt) {
+  // Continuously honor a held joystick direction so a turn lands at the next valid cell.
+  if (joyActive && joyDir && !buffered) buffered = joyDir;
   if (player.stopped) {
     const ax = player.to % COLS, ay = (player.to / COLS) | 0, nd = chooseDir(ax, ay);
     if (nd) {
@@ -568,7 +574,7 @@ function updatePlayer(dt) {
   }
   if (!player.stopped) {
     // snappier over captured land, deliberate while drawing
-    const seg = baseSpeed * (grid[player.from] === FILLED ? 1.35 : 1.0);
+    const seg = baseSpeed * (grid[player.from] === FILLED ? 1.45 : 1.0);
     player.t += seg * dt;
     let guard = 0;
     while (player.t >= 1 && !player.stopped) { player.t -= 1; arrive(); if (++guard > COLS + ROWS) break; }
@@ -658,7 +664,7 @@ function initLevel(lv) {
   buffered = null; hasTrail = false; trailCells = []; trailPoints = [];
   enemies = genEnemies(lv);
 
-  baseSpeed = Math.min(9.5 + 0.5 * (lv - 1), 16);
+  baseSpeed = Math.min(11 + 0.6 * (lv - 1), 18);
   target = Math.min(0.66 + 0.02 * (lv - 1), 0.82);
 
   combo = 0; comboT = 0;
@@ -1135,7 +1141,7 @@ window.addEventListener('keydown', (e) => {
 }, { passive: false });
 
 /* ----- touch: floating joystick (steer) + auto-forward + pause button ---- */
-let joyActive = false, joyOX = 0, joyOY = 0, joyX = 0, joyY = 0;
+let joyActive = false, joyOX = 0, joyOY = 0, joyX = 0, joyY = 0, joyDir = null;
 
 function localPt(t) {
   const r = canvas.getBoundingClientRect();
@@ -1156,7 +1162,7 @@ canvas.addEventListener('touchstart', (e) => {
   const t = e.changedTouches[0], p = localPt(t);
   if (state === 'playing') {
     if (inRect(p.x, p.y, pauseBtnRect())) { state = 'paused'; e.preventDefault(); return; }
-    joyActive = true; joyOX = p.x; joyOY = p.y; joyX = p.x; joyY = p.y;
+    joyActive = true; joyOX = p.x; joyOY = p.y; joyX = p.x; joyY = p.y; joyDir = null;
   } else if (state === 'paused') {
     state = 'playing';
   } else {
@@ -1170,13 +1176,13 @@ canvas.addEventListener('touchmove', (e) => {
   const t = e.changedTouches[0], p = localPt(t);
   joyX = p.x; joyY = p.y;
   const d = steerFromVec(p.x - joyOX, p.y - joyOY);
-  if (d) buffered = d;                 // applied at the next cell boundary
+  if (d) { joyDir = d; buffered = d; }  // held dir is re-applied each frame in updatePlayer
   e.preventDefault();
 }, { passive: false });
 
 // Lift finger -> stop steering, but keep advancing in the last direction.
-canvas.addEventListener('touchend', (e) => { joyActive = false; e.preventDefault(); }, { passive: false });
-canvas.addEventListener('touchcancel', () => { joyActive = false; });
+canvas.addEventListener('touchend', (e) => { joyActive = false; joyDir = null; e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchcancel', () => { joyActive = false; joyDir = null; });
 
 canvas.addEventListener('mousedown', () => { initAudio(); if (state !== 'playing' && state !== 'paused') anyKeyAction(); });
 
