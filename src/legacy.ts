@@ -10,6 +10,7 @@
 import { hapticLight, hapticMedium, hapticHeavy } from './platform/haptics.js';
 import { TAU, clamp, lerp, rand } from './core/math';
 import { SeededRng } from './core/rng';
+import { genVeilBoard, VEIL_CACHE, VEIL_HAZARD } from './sim/veil';
 import { EMPTY, FILLED, TRAIL, COMBO_WINDOW, SS } from './core/constants';
 import { PALETTES, ENEMY_COL, ENEMY_GLOW, CHASER_COL, CHASER_GLOW } from './core/palettes';
 import {
@@ -120,6 +121,7 @@ try { reduceMotion = localStorage.getItem('veil_reduce') === '1'; } catch (e) {}
 
 /* ----------------------------- state ----------------------------------- */
 let grid = new Uint8Array(COLS * ROWS);
+let veilBoard: Uint8Array = new Uint8Array(0);   // hidden content per cell, revealed on capture
 let state = 'menu';
 let gameSeed = 1;                   // per-run seed; the daily challenge will set this to a date seed
 let rng = new SeededRng(gameSeed);  // seeded simulation stream, re-forked per level in initLevel
@@ -240,6 +242,12 @@ function recomputePercent() {
   percent = f / INTERIOR_TOTAL;
 }
 
+function veilBurst(x: number, y: number, col: string) {
+  for (let i = 0; i < 16; i++) {
+    const ang = Math.random() * TAU, sp = rand(40, 165);
+    particles.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: rand(0.4, 0.9), max: 0.9, r: rand(1.2, 3), col });
+  }
+}
 function doCapture() {
   for (const idx of trailCells) grid[idx] = FILLED;
 
@@ -293,6 +301,27 @@ function doCapture() {
     shakeAmt = reduceMotion ? 0 : Math.min(10, 2.5 + area * 0.04);
     sfxCapture(combo);
     hintActive = false;
+  }
+
+  // veil-as-discovery: capturing uncovers whatever the dark was hiding here
+  for (const idx of captured) {
+    const v = veilBoard[idx];
+    if (!v) continue;
+    veilBoard[idx] = 0;
+    const c = centerPx(idx);
+    if (v === VEIL_CACHE) {
+      const bonus = 250 + level * 60;
+      score += bonus;
+      spawnPopup(c.x, c.y, '✦ +' + bonus, '#ffe27a', 15);
+      veilBurst(c.x, c.y, '#ffe27a');
+      hapticMedium();
+    } else if (v === VEIL_HAZARD) {
+      combo = 0; comboT = 0;                                   // a rift breaks your chain
+      spawnPopup(c.x, c.y, '✶ RIFT', '#ff6a8a', 15);
+      flash = reduceMotion ? 0.12 : 0.35; shakeAmt = reduceMotion ? 0 : Math.max(shakeAmt, 8);
+      veilBurst(c.x, c.y, '#ff6a8a');
+      hapticHeavy();
+    }
   }
 
   trailCells = []; trailPoints = []; hasTrail = false;
@@ -582,6 +611,7 @@ function initLevel(lv) {
   for (let y = 0; y < ROWS; y++)
     for (let x = 0; x < COLS; x++)
       grid[y * COLS + x] = (x === 0 || y === 0 || x === COLS - 1 || y === ROWS - 1) ? FILLED : EMPTY;
+  veilBoard = genVeilBoard(rng.fork('veil'), { cols: COLS, rows: ROWS, level: lv, isOpen: (i) => grid[i] === EMPTY });
 
   nebula = genNebula(pal); fog = genFog(); genTwinkles();
   for (let i = 0; i < grid.length; i++) if (grid[i] === FILLED) clearFogCell(i);
