@@ -15,7 +15,8 @@ import { genObstacles, openInteriorCount } from './sim/terrain';
 import { todayKey, seedFromDateKey, shareText, isConsecutive } from './daily/daily';
 import { shareResult } from './platform/share';
 import { EMPTY, FILLED, TRAIL, OBSTACLE, COMBO_WINDOW, SS } from './core/constants';
-import { PALETTES, ENEMY_COL, ENEMY_GLOW, CHASER_COL, CHASER_GLOW } from './core/palettes';
+import { ENEMY_COL, ENEMY_GLOW, CHASER_COL, CHASER_GLOW } from './core/palettes';
+import { bandForLevel, BANDS } from './core/bands';
 import {
   initAudio, setMuted, isMuted, setPadLevel,
   sfxStartDraw, sfxCapture, sfxBold, sfxDeath, sfxLevel, sfxPickup, sfxShield, sfxBlip, sfxBest,
@@ -158,7 +159,7 @@ let hasTrail = false, trailCells = [], trailPoints = [];
 let enemies = [], particles = [], motes = [], popups = [], pickups = [], twinkles = [];
 let revealQueue = [];
 
-let nebula = null, fog = null, pal = PALETTES[0];
+let nebula = null, fog = null, pal = bandForLevel(1);
 let borderPath = null;
 
 let shakeAmt = 0, flash = 0, zoom = 1;
@@ -178,9 +179,11 @@ function genNebula(p, level?: number) {
   c.fillStyle = '#04050d'; c.fillRect(0, 0, PW, PH);
   c.globalCompositeOperation = 'lighter';
 
-  // each level gets a distinct character so it isn't the same cloud recolored
-  const style = level % 4;
-  const big = style === 1, wispy = style === 2, dense = style === 3;
+  // band style drives the backdrop flavor (magma / caves / ocean / surface / sky / aurora / space)
+  const style = p.style || 'space';
+  const big = style === 'magma' || style === 'surface';
+  const wispy = style === 'aurora' || style === 'sky';
+  const dense = style === 'space' || style === 'ocean';
 
   // nebula clouds
   const blobCount = dense ? 60 : big ? 32 : 44;
@@ -192,6 +195,40 @@ function genNebula(p, level?: number) {
     g.addColorStop(0, col); g.addColorStop(0.4, col + '66'); g.addColorStop(1, 'rgba(0,0,0,0)');
     c.globalAlpha = rand(0.2, 0.5); c.fillStyle = g;
     c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+  }
+
+  // signature accent per band
+  if (style === 'magma') {
+    for (let i = 0; i < 7; i++) {                       // glowing lava veins rising from below
+      let vx = rand(0, PW), vy = PH + 10;
+      c.globalAlpha = rand(0.3, 0.6); c.strokeStyle = p.blobs[3]; c.lineWidth = rand(1.5, 3.5);
+      c.shadowColor = p.edge; c.shadowBlur = 8; c.beginPath(); c.moveTo(vx, vy);
+      for (let k = 0; k < 6; k++) { vx += rand(-30, 30); vy -= rand(40, 80); c.lineTo(vx, vy); }
+      c.stroke();
+    }
+    c.shadowBlur = 0;
+  } else if (style === 'caves') {
+    for (let i = 0; i < 14; i++) {                      // crystal shards
+      const x = rand(0, PW), y = rand(0, PH), h = rand(20, 60), w = rand(6, 16);
+      c.globalAlpha = rand(0.15, 0.4); c.fillStyle = p.blobs[3];
+      c.save(); c.translate(x, y); c.rotate(rand(0, TAU));
+      c.beginPath(); c.moveTo(0, -h); c.lineTo(w, h * 0.5); c.lineTo(-w, h * 0.5); c.closePath(); c.fill();
+      c.restore();
+    }
+  } else if (style === 'sky') {
+    for (let i = 0; i < 6; i++) {                        // soft horizontal cloud bands
+      const y = rand(0, PH), h = rand(40, 110);
+      const g = c.createLinearGradient(0, y - h, 0, y + h);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, p.blobs[4] + '40'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      c.globalAlpha = rand(0.2, 0.5); c.fillStyle = g; c.fillRect(0, y - h, PW, h * 2);
+    }
+  } else if (style === 'aurora') {
+    for (let i = 0; i < 6; i++) {                        // vertical aurora ribbons
+      const x = rand(0, PW), w = rand(30, 90), col = i % 2 ? p.blobs[3] : p.accent;
+      const g = c.createLinearGradient(x - w, 0, x + w, 0);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, col + '50'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      c.globalAlpha = rand(0.25, 0.55); c.fillStyle = g; c.fillRect(x - w, 0, w * 2, PH);
+    }
   }
 
   // dust filaments / lanes — structure, not just round blobs
@@ -229,7 +266,7 @@ function genNebula(p, level?: number) {
   }
 
   // star field — varied sizes, a few tinted stars
-  for (let i = 0, n = dense ? 420 : 320; i < n; i++) {
+  for (let i = 0, n = (style === 'sky' || style === 'surface') ? 150 : dense ? 420 : 320; i < n; i++) {
     const x = Math.random() * PW, y = Math.random() * PH, a = Math.random();
     const r = a > 0.92 ? rand(1.2, 2.4) : rand(0.4, 1.1);
     c.globalAlpha = rand(0.25, 0.95); c.fillStyle = a > 0.97 ? p.edge2 : p.star;
@@ -689,7 +726,7 @@ function clearTrail() {
 function initLevel(lv) {
   level = lv;
   rng = new SeededRng(gameSeed).fork('lv' + lv); // deterministic per-level simulation stream
-  pal = PALETTES[(lv - 1) % PALETTES.length];
+  pal = bandForLevel(lv);
   grid = new Uint8Array(COLS * ROWS);
   for (let y = 0; y < ROWS; y++)
     for (let x = 0; x < COLS; x++)
@@ -1204,7 +1241,7 @@ function drawPaused() {
 /* ----------------------------- main render ----------------------------- */
 let menuNebula = null;
 function drawAttractWorld() {
-  if (!menuNebula) menuNebula = genNebula(PALETTES[0]);
+  if (!menuNebula) menuNebula = genNebula(BANDS[0]);
   ctx.save();
   ctx.translate(OFF_X, OFF_Y);
   ctx.globalAlpha = 0.5; ctx.drawImage(menuNebula.canvas, 0, 0, PW, PH); ctx.globalAlpha = 1;
