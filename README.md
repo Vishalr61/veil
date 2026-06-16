@@ -1,19 +1,36 @@
 # veil
 
-Draw light into the dark. A neon territory-capture game for the browser.
+Draw light into the dark. A neon roguelite where every cut is a gamble on
+what the veil is hiding.
 
 Cut continuous lines through a dark veil to enclose space and reveal the
 nebula beneath, while drifters hunt you. Hit the target percentage to clear
-the level. Snake meets Qix with a reveal hook.
+the level. Snake meets Qix with a reveal hook — evolving into a free mobile
+roguelite (see `.claude/plans/` for the roadmap).
 
-## Play
+## Develop (web)
 
-Open `index.html` in a browser (no build step, no dependencies, runs from
-`file://`), or serve the folder:
+Vite + TypeScript. The game still lives in `src/legacy.js` and is being
+carved into typed modules under `src/` phase by phase.
 
 ```bash
-npx serve .
+npm install
+npm run dev        # dev server at http://localhost:5173
+npm run build      # production build to dist/
 ```
+
+## Mobile (Capacitor)
+
+The web build is wrapped with Capacitor for iOS and Android.
+
+```bash
+npm run ios        # build, sync, and open the Xcode project
+npm run android    # build, sync, and open Android Studio
+npm run sync       # build + cap sync (both platforms) without opening
+```
+
+Then run on a device/simulator from Xcode or Android Studio. App id:
+`dev.vishal.veil` (placeholder — change before store submission).
 
 ## Controls
 

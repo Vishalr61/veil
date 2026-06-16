@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">VEIL</string>
+    <string name="title_activity_main">VEIL</string>
+    <string name="package_name">dev.vishal.veil</string>
+    <string name="custom_url_scheme">dev.vishal.veil</string>
+</resources>
