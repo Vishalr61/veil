@@ -34,16 +34,43 @@ export function genVeilBoard(rng: SeededRng, p: VeilGenParams): Uint8Array {
   const board = new Uint8Array(p.cols * p.rows);
   const open: number[] = [];
   for (let i = 0; i < board.length; i++) if (p.isOpen(i)) open.push(i);
-  placeN(board, open, rng, VEIL_CACHE, veilCacheCount(p.level));
-  placeN(board, open, rng, VEIL_HAZARD, veilHazardCount(p.level));
+  if (open.length === 0) return board;
+
+  // exposure = distance from the nearest wall/rock. Deep cells need a big, risky
+  // cut to enclose, so weighting caches toward them makes boldness out-score nibbling.
+  const dist = exposureField(p.cols, p.rows, p.isOpen);
+  placeWeighted(board, open, rng, VEIL_CACHE, veilCacheCount(p.level), (i) => {
+    const d = dist[i];
+    return d > 0 ? d * d : 0.01;
+  });
+  // rifts spread roughly evenly across what's left
+  placeWeighted(board, open, rng, VEIL_HAZARD, veilHazardCount(p.level), () => 1);
   return board;
 }
 
-// Place n items on distinct open cells (drawn without replacement -> no overlap).
-function placeN(board: Uint8Array, open: number[], rng: SeededRng, content: number, n: number): void {
-  for (let k = 0; k < n && open.length > 0; k++) {
-    const j = rng.int(open.length);
-    board[open[j]] = content;
-    open.splice(j, 1);
+// Multi-source BFS: distance from each open cell to the nearest non-open cell.
+function exposureField(cols: number, rows: number, isOpen: (i: number) => boolean): Int32Array {
+  const n = cols * rows;
+  const dist = new Int32Array(n).fill(-1);
+  const q: number[] = [];
+  for (let i = 0; i < n; i++) if (!isOpen(i)) { dist[i] = 0; q.push(i); }
+  let head = 0;
+  while (head < q.length) {
+    const i = q[head++], x = i % cols, y = (i / cols) | 0;
+    const ns = [x + 1 < cols ? i + 1 : -1, x - 1 >= 0 ? i - 1 : -1, y + 1 < rows ? i + cols : -1, y - 1 >= 0 ? i - cols : -1];
+    for (const nb of ns) if (nb >= 0 && dist[nb] < 0) { dist[nb] = dist[i] + 1; q.push(nb); }
+  }
+  return dist;
+}
+
+// Weighted draw without replacement from `open` (distinct cells -> no overlap).
+function placeWeighted(board: Uint8Array, open: number[], rng: SeededRng, content: number, count: number, weightOf: (i: number) => number): void {
+  for (let k = 0; k < count && open.length > 0; k++) {
+    let total = 0;
+    for (const i of open) total += weightOf(i);
+    let r = rng.next() * total, pick = open.length - 1;
+    for (let j = 0; j < open.length; j++) { r -= weightOf(open[j]); if (r <= 0) { pick = j; break; } }
+    board[open[pick]] = content;
+    open.splice(pick, 1);
   }
 }
