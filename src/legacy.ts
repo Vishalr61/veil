@@ -11,9 +11,10 @@ import { hapticLight, hapticMedium, hapticHeavy } from './platform/haptics.js';
 import { TAU, clamp, lerp, rand } from './core/math';
 import { SeededRng } from './core/rng';
 import { genVeilBoard, VEIL_CACHE, VEIL_HAZARD } from './sim/veil';
+import { genObstacles, openInteriorCount } from './sim/terrain';
 import { todayKey, seedFromDateKey, shareText, isConsecutive } from './daily/daily';
 import { shareResult } from './platform/share';
-import { EMPTY, FILLED, TRAIL, COMBO_WINDOW, SS } from './core/constants';
+import { EMPTY, FILLED, TRAIL, OBSTACLE, COMBO_WINDOW, SS } from './core/constants';
 import { PALETTES, ENEMY_COL, ENEMY_GLOW, CHASER_COL, CHASER_GLOW } from './core/palettes';
 import {
   initAudio, setMuted, isMuted, setPadLevel,
@@ -513,11 +514,11 @@ function genEnemies(lv) {
   const spd = Math.min(115 + 8 * (lv - 1), 205);
   const sc = centerPx((COLS >> 1));
   function place(type, speed) {
-    let x, y, tries = 0;
+    let x, y, tries = 0, cx = 2, cy = 2;
     do {
-      const cx = 2 + rng.int(COLS - 4), cy = 2 + rng.int(ROWS - 4);
+      cx = 2 + rng.int(COLS - 4); cy = 2 + rng.int(ROWS - 4);
       x = (cx + 0.5) * CELL; y = (cy + 0.5) * CELL; tries++;
-    } while (Math.hypot(x - sc.x, y - sc.y) < CELL * 7 && tries < 60);
+    } while ((Math.hypot(x - sc.x, y - sc.y) < CELL * 7 || grid[cy * COLS + cx] === OBSTACLE) && tries < 60);
     const comp = speed * 0.7071;
     out.push({ x, y, vx: (rng.next() < 0.5 ? -1 : 1) * comp, vy: (rng.next() < 0.5 ? -1 : 1) * comp,
       r: CELL * 0.42, type, speed, comp, steerT: rng.range(0.2, 0.6) });
@@ -541,12 +542,12 @@ function moveEnemy(e, dt) {
   let nx = e.x + e.vx * dt;
   const cyc = clamp(Math.floor(e.y / CELL), 0, ROWS - 1);
   const cxn = Math.floor((nx + Math.sign(e.vx) * e.r) / CELL);
-  if (cxn < 0 || cxn >= COLS || grid[cyc * COLS + cxn] === FILLED) { e.vx = -e.vx; nx = e.x; }
+  if (cxn < 0 || cxn >= COLS || grid[cyc * COLS + cxn] === FILLED || grid[cyc * COLS + cxn] === OBSTACLE) { e.vx = -e.vx; nx = e.x; }
   e.x = nx;
   let ny = e.y + e.vy * dt;
   const cxc = clamp(Math.floor(e.x / CELL), 0, COLS - 1);
   const cyn = Math.floor((ny + Math.sign(e.vy) * e.r) / CELL);
-  if (cyn < 0 || cyn >= ROWS || grid[cyn * COLS + cxc] === FILLED) { e.vy = -e.vy; ny = e.y; }
+  if (cyn < 0 || cyn >= ROWS || grid[cyn * COLS + cxc] === FILLED || grid[cyn * COLS + cxc] === OBSTACLE) { e.vy = -e.vy; ny = e.y; }
   e.y = ny;
 }
 
@@ -557,13 +558,13 @@ function chooseDir(ax, ay) {
     if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) { buffered = null; }
     else {
       const i = ny * COLS + nx;
-      if (grid[i] !== TRAIL) { const d = buffered; buffered = null; return d; }
+      if (grid[i] !== TRAIL && grid[i] !== OBSTACLE) { const d = buffered; buffered = null; return d; }
       buffered = null;
     }
   }
   if (player.dir) {
     const nx = ax + player.dir.x, ny = ay + player.dir.y;
-    if (nx >= 0 && ny >= 0 && nx < COLS && ny < ROWS && grid[ny * COLS + nx] !== TRAIL) return player.dir;
+    if (nx >= 0 && ny >= 0 && nx < COLS && ny < ROWS && grid[ny * COLS + nx] !== TRAIL && grid[ny * COLS + nx] !== OBSTACLE) return player.dir;
   }
   return null;
 }
@@ -685,10 +686,13 @@ function initLevel(lv) {
   for (let y = 0; y < ROWS; y++)
     for (let x = 0; x < COLS; x++)
       grid[y * COLS + x] = (x === 0 || y === 0 || x === COLS - 1 || y === ROWS - 1) ? FILLED : EMPTY;
+  const obst = genObstacles(rng.fork('terrain'), { cols: COLS, rows: ROWS, level: lv, startIdx: COLS >> 1 });
+  for (let i = 0; i < grid.length; i++) if (obst[i]) grid[i] = OBSTACLE;
+  INTERIOR_TOTAL = openInteriorCount(obst, COLS, ROWS);   // target denominator excludes rock
   veilBoard = genVeilBoard(rng.fork('veil'), { cols: COLS, rows: ROWS, level: lv, isOpen: (i) => grid[i] === EMPTY });
 
   nebula = genNebula(pal, lv); fog = genFog(); genTwinkles();
-  for (let i = 0; i < grid.length; i++) if (grid[i] === FILLED) clearFogCell(i);
+  for (let i = 0; i < grid.length; i++) if (grid[i] === FILLED || grid[i] === OBSTACLE) clearFogCell(i);
 
   const start = (COLS >> 1);
   player = { from: start, to: start, t: 0, dir: null, stopped: true, invuln: 1.0, tail: [], px: centerPx(start) };
@@ -886,6 +890,20 @@ function drawShootingStars() {
   }
   ctx.restore();
 }
+function drawObstacles() {
+  ctx.save();
+  for (let y = 1; y < ROWS - 1; y++) {
+    for (let x = 1; x < COLS - 1; x++) {
+      if (grid[y * COLS + x] !== OBSTACLE) continue;
+      const px = x * CELL, py = y * CELL;
+      ctx.fillStyle = '#171622';                         // solid rock, distinct from the teal veil
+      ctx.fillRect(px, py, CELL, CELL);
+      ctx.fillStyle = 'rgba(130,140,170,0.12)'; ctx.fillRect(px, py, CELL, 2);       // top light
+      ctx.fillStyle = 'rgba(0,0,0,0.32)'; ctx.fillRect(px, py + CELL - 2, CELL, 2);  // bottom shadow
+    }
+  }
+  ctx.restore();
+}
 function drawWorld() {
   const sx = (shakeAmt && !reduceMotion) ? rand(-shakeAmt, shakeAmt) : 0;
   const sy = (shakeAmt && !reduceMotion) ? rand(-shakeAmt, shakeAmt) : 0;
@@ -918,6 +936,7 @@ function drawWorld() {
   ctx.drawImage(fog.canvas, 0, 0, PW, PH);
   drawVeilTells();
   drawShootingStars();
+  drawObstacles();
 
   // coastline glow
   if (borderPath) {
