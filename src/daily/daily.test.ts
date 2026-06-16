@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { dateKey, todayKey, seedFromDateKey, shareText } from './daily';
+import { dateKey, todayKey, seedFromDateKey, shareText, isConsecutive } from './daily';
 
 describe('daily', () => {
   it('dateKey zero-pads month and day', () => {
@@ -30,5 +30,17 @@ describe('daily', () => {
     expect(t).toContain('73%');
     expect(t).toContain('Score 12340');
     expect(t).toContain('Lv 4');
+  });
+
+  it('shareText shows a streak only when > 1', () => {
+    expect(shareText({ key: '2026-06-16', score: 1, level: 1, percent: 0.1, streak: 1 })).not.toContain('streak');
+    expect(shareText({ key: '2026-06-16', score: 1, level: 1, percent: 0.1, streak: 3 })).toContain('🔥 3 day streak');
+  });
+
+  it('isConsecutive detects adjacent days across month boundaries', () => {
+    expect(isConsecutive('2026-06-16', '2026-06-17')).toBe(true);
+    expect(isConsecutive('2026-06-30', '2026-07-01')).toBe(true);
+    expect(isConsecutive('2026-06-16', '2026-06-18')).toBe(false);
+    expect(isConsecutive('2026-06-16', '2026-06-16')).toBe(false);
   });
 });

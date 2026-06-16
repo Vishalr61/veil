@@ -26,11 +26,20 @@ export interface DailyResult {
   score: number;
   level: number;    // level reached
   percent: number;  // reveal % on the final level (0..1)
+  streak?: number;  // consecutive days played
 }
 
 // Recognizable, spoiler-light, copy-pasteable.
 export function shareText(r: DailyResult): string {
   const filled = Math.max(0, Math.min(5, Math.round(r.percent * 5)));
   const bar = '🟦'.repeat(filled) + '⬛'.repeat(5 - filled);
-  return `VEIL ${r.key}\n${bar} ${Math.round(r.percent * 100)}%\nScore ${r.score} · Lv ${r.level}`;
+  const streak = r.streak && r.streak > 1 ? `\n🔥 ${r.streak} day streak` : '';
+  return `VEIL ${r.key}\n${bar} ${Math.round(r.percent * 100)}%\nScore ${r.score} · Lv ${r.level}${streak}`;
+}
+
+// True if curKey is exactly the day after prevKey (UTC), for streak counting.
+export function isConsecutive(prevKey: string, curKey: string): boolean {
+  const p = Date.parse(prevKey + 'T00:00:00Z');
+  const c = Date.parse(curKey + 'T00:00:00Z');
+  return Number.isFinite(p) && Number.isFinite(c) && c - p === 86400000;
 }

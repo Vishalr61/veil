@@ -11,7 +11,8 @@ import { hapticLight, hapticMedium, hapticHeavy } from './platform/haptics.js';
 import { TAU, clamp, lerp, rand } from './core/math';
 import { SeededRng } from './core/rng';
 import { genVeilBoard, VEIL_CACHE, VEIL_HAZARD } from './sim/veil';
-import { todayKey, seedFromDateKey, shareText } from './daily/daily';
+import { todayKey, seedFromDateKey, shareText, isConsecutive } from './daily/daily';
+import { shareResult } from './platform/share';
 import { EMPTY, FILLED, TRAIL, COMBO_WINDOW, SS } from './core/constants';
 import { PALETTES, ENEMY_COL, ENEMY_GLOW, CHASER_COL, CHASER_GLOW } from './core/palettes';
 import {
@@ -132,6 +133,9 @@ let dailyResultText = '';           // shareable result, built at daily game ove
 let dailyBest = 0, dailyPlayedKey = '';
 try { dailyBest = parseInt(localStorage.getItem('veil_daily_best') || '0', 10) || 0; } catch (e) {}
 try { dailyPlayedKey = localStorage.getItem('veil_daily_played') || ''; } catch (e) {}
+let dailyStreak = 0, dailyStreakDate = '';
+try { dailyStreak = parseInt(localStorage.getItem('veil_daily_streak') || '0', 10) || 0; } catch (e) {}
+try { dailyStreakDate = localStorage.getItem('veil_daily_streak_date') || ''; } catch (e) {}
 let level = 1;
 let score = 0, dispScore = 0;
 let highScore = 0;
@@ -601,7 +605,8 @@ function finishDeath() {
     clearTrail();
     if (score > highScore) { highScore = score; try { localStorage.setItem('veil_highscore', String(highScore)); } catch (e) {} sfxBest(); }
     if (isDaily) {
-      dailyResultText = shareText({ key: dailyRunKey, score, level, percent });
+      recordDailyStreak(dailyRunKey);
+      dailyResultText = shareText({ key: dailyRunKey, score, level, percent, streak: dailyStreak });
       if (score > dailyBest) { dailyBest = score; try { localStorage.setItem('veil_daily_best', String(dailyBest)); } catch (e) {} }
       dailyPlayedKey = dailyRunKey; try { localStorage.setItem('veil_daily_played', dailyPlayedKey); } catch (e) {}
     }
@@ -1037,8 +1042,11 @@ function drawMenu() {
   ctx.globalAlpha = 1; ctx.strokeStyle = pal.edge2; ctx.lineWidth = 1.5;
   roundRectPath(dr.x, dr.y, dr.w, dr.h, 12); ctx.stroke();
   ctx.restore();
-  const done = dailyPlayedKey === todayKey(new Date());
+  const tk = todayKey(new Date());
+  const done = dailyPlayedKey === tk;
   glowText('DAILY CHALLENGE' + (done ? '   ✓' : ''), cx, dr.y + dr.h / 2, 15, pal.edge2, { blur: 8, weight: 800, spacing: 1 });
+  const liveStreak = (dailyStreakDate === tk || isConsecutive(dailyStreakDate, tk)) ? dailyStreak : 0;
+  if (liveStreak > 1) glowText('🔥 ' + liveStreak + ' day streak', cx, dr.y + dr.h + 22, 12, '#ffb15a', { blur: 6, weight: 700, spacing: 1 });
 }
 function drawLevelClear() {
   dim(0.45);
@@ -1057,8 +1065,8 @@ function drawGameOver() {
   glowText((isBest ? 'NEW BEST!  ' : 'BEST  ') + fmtScore(highScore), cx, cyc + 38, 14, isBest ? '#ffe27a' : pal.edge, { blur: 8, weight: 700, spacing: 1, alpha: t });
   const blink = 0.5 + 0.5 * Math.sin(menuT * 3);
   if (isDaily) {
-    glowText('DAILY  ' + dailyRunKey, cx, cyc + 60, 12, '#9fd0ff', { blur: 6, spacing: 2, weight: 700, alpha: t });
-    glowText('TAP TO COPY RESULT', cx, cyc + 96, 15, '#cfe6ff', { blur: 10, weight: 700, spacing: 2, alpha: t * blink });
+    glowText('DAILY  ' + dailyRunKey + (dailyStreak > 1 ? '   🔥 ' + dailyStreak : ''), cx, cyc + 60, 12, '#9fd0ff', { blur: 6, spacing: 2, weight: 700, alpha: t });
+    glowText('TAP TO SHARE RESULT', cx, cyc + 96, 15, '#cfe6ff', { blur: 10, weight: 700, spacing: 2, alpha: t * blink });
   } else {
     glowText('reached level ' + level, cx, cyc + 60, 12, '#7f97c8', { blur: 0, spacing: 1, alpha: t });
     glowText('PRESS ANY KEY TO RETRY', cx, cyc + 96, 15, '#cfe6ff', { blur: 10, weight: 700, spacing: 2, alpha: t * blink });
@@ -1152,13 +1160,19 @@ function startDaily() {
   isDaily = true;
   startGame(seedFromDateKey(dailyRunKey));
 }
-function copyDailyResult() {
-  if (!dailyResultText) return;
-  try { navigator.clipboard?.writeText(dailyResultText).catch(() => {}); } catch (e) {}
+function shareDailyResult() {
+  if (dailyResultText) shareResult(dailyResultText);
+}
+function recordDailyStreak(key) {
+  if (dailyStreakDate === key) return;                 // already counted today
+  dailyStreak = isConsecutive(dailyStreakDate, key) ? dailyStreak + 1 : 1;
+  dailyStreakDate = key;
+  try { localStorage.setItem('veil_daily_streak', String(dailyStreak)); } catch (e) {}
+  try { localStorage.setItem('veil_daily_streak_date', dailyStreakDate); } catch (e) {}
 }
 function anyKeyAction() {
   initAudio();
-  if (state === 'gameover' && isDaily) { copyDailyResult(); isDaily = false; state = 'menu'; sfxBlip(); return; }
+  if (state === 'gameover' && isDaily) { shareDailyResult(); isDaily = false; state = 'menu'; sfxBlip(); return; }
   if (state === 'menu' || state === 'gameover') { isDaily = false; startGame(); sfxBlip(); }
   else if (state === 'levelclear') { nextLevel(); sfxBlip(); }
   else if (state === 'paused') state = 'playing';
