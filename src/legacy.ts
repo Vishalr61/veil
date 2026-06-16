@@ -292,22 +292,80 @@ function genTwinkles() {
     twinkles.push({ x: Math.random() * PW, y: Math.random() * PH, r: rand(0.6, 1.8), phase: Math.random() * TAU, spd: rand(1.5, 4) });
   }
 }
-function genFog() {
+function hexA(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+// Band-specific texture on the dark veil — the surface the player actually stares at.
+function fogSignature(c, pal, style) {
+  const d1 = pal.blobs[1], d2 = pal.blobs[2];
+  if (style === 'caves') {                              // rocky angular shards
+    for (let i = 0; i < 26; i++) {
+      const x = rand(0, PW), y = rand(0, PH), w = rand(20, 60), h = rand(14, 40);
+      c.globalAlpha = rand(0.12, 0.24); c.fillStyle = d1;
+      c.save(); c.translate(x, y); c.rotate(rand(-0.4, 0.4));
+      c.beginPath(); c.moveTo(-w / 2, h / 2); c.lineTo(0, -h / 2); c.lineTo(w / 2, h / 2); c.closePath(); c.fill();
+      c.restore();
+    }
+  } else if (style === 'ocean') {                       // horizontal caustic ripples
+    for (let i = 0; i < 28; i++) {
+      c.globalAlpha = rand(0.04, 0.1); c.fillStyle = d2;
+      c.beginPath(); c.ellipse(rand(0, PW), rand(0, PH), rand(40, 120), rand(1.5, 4), 0, 0, TAU); c.fill();
+    }
+  } else if (style === 'sky') {                         // soft cloud cover
+    for (let i = 0; i < 18; i++) {
+      const x = rand(0, PW), y = rand(0, PH), r = rand(34, 96);
+      const rg = c.createRadialGradient(x, y, 0, x, y, r);
+      rg.addColorStop(0, hexA(d2, 0.14)); rg.addColorStop(1, 'rgba(0,0,0,0)');
+      c.globalAlpha = 1; c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+    }
+  } else if (style === 'magma') {                       // ember cracks
+    for (let i = 0; i < 12; i++) {
+      let x = rand(0, PW), y = rand(0, PH);
+      c.globalAlpha = 1; c.strokeStyle = hexA(pal.blobs[3], 0.22); c.lineWidth = rand(0.6, 1.6);
+      c.beginPath(); c.moveTo(x, y);
+      for (let k = 0; k < 4; k++) { x += rand(-40, 40); y += rand(-40, 40); c.lineTo(x, y); }
+      c.stroke();
+    }
+  } else if (style === 'aurora') {                      // faint vertical shimmer
+    for (let i = 0; i < 8; i++) {
+      const x = rand(0, PW), w = rand(20, 60);
+      const g = c.createLinearGradient(x - w, 0, x + w, 0);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, hexA(pal.blobs[3], 0.1)); g.addColorStop(1, 'rgba(0,0,0,0)');
+      c.globalAlpha = 1; c.fillStyle = g; c.fillRect(x - w, 0, w * 2, PH);
+    }
+  } else if (style === 'surface') {                     // organic mottling
+    for (let i = 0; i < 30; i++) {
+      c.globalAlpha = rand(0.08, 0.18); c.fillStyle = d2;
+      c.beginPath(); c.arc(rand(0, PW), rand(0, PH), rand(10, 36), 0, TAU); c.fill();
+    }
+  } else {                                              // space: faint stars in the dark
+    for (let i = 0; i < 120; i++) {
+      c.globalAlpha = rand(0.05, 0.22); c.fillStyle = pal.star;
+      c.beginPath(); c.arc(Math.random() * PW, Math.random() * PH, rand(0.3, 0.9), 0, TAU); c.fill();
+    }
+  }
+  c.globalAlpha = 1;
+}
+function genFog(pal) {
+  const style = pal.style || 'space';
   const s = createSurface(PW, PH), c = s.ctx;
+  const d0 = pal.blobs[0], d1 = pal.blobs[1];           // band-tinted near-black
+  c.fillStyle = d0; c.fillRect(0, 0, PW, PH);
   const g = c.createLinearGradient(0, 0, 0, PH);
-  g.addColorStop(0, '#03080c'); g.addColorStop(1, '#01040a');   // deep-water dark
+  g.addColorStop(0, hexA(d1, 0.5)); g.addColorStop(1, hexA(d0, 0));   // subtle lift up top
   c.fillStyle = g; c.fillRect(0, 0, PW, PH);
   for (let i = 0; i < 90; i++) {
     const x = Math.random() * PW, y = Math.random() * PH, r = rand(40, 160);
     const rg = c.createRadialGradient(x, y, 0, x, y, r);
-    const dark = Math.random() > 0.5;
-    rg.addColorStop(0, dark ? 'rgba(0,3,6,0.6)' : 'rgba(14,56,62,0.12)');   // faint teal caustics
+    rg.addColorStop(0, Math.random() > 0.5 ? 'rgba(0,0,0,0.5)' : hexA(d1, 0.16));
     rg.addColorStop(1, 'rgba(0,0,0,0)');
     c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
   }
-  for (let i = 0; i < 600; i++) {
-    c.globalAlpha = rand(0.02, 0.07);
-    c.fillStyle = Math.random() > 0.5 ? '#0a2630' : '#000406';
+  fogSignature(c, pal, style);
+  for (let i = 0; i < 500; i++) {
+    c.globalAlpha = rand(0.02, 0.06);
+    c.fillStyle = Math.random() > 0.5 ? hexA(d1, 1) : '#000';
     c.fillRect(Math.random() * PW, Math.random() * PH, 1.4, 1.4);
   }
   c.globalAlpha = 1;
@@ -736,7 +794,7 @@ function initLevel(lv) {
   INTERIOR_TOTAL = openInteriorCount(obst, COLS, ROWS);   // target denominator excludes rock
   veilBoard = genVeilBoard(rng.fork('veil'), { cols: COLS, rows: ROWS, level: lv, isOpen: (i) => grid[i] === EMPTY });
 
-  nebula = genNebula(pal, lv); fog = genFog(); genTwinkles();
+  nebula = genNebula(pal, lv); fog = genFog(pal); genTwinkles();
   for (let i = 0; i < grid.length; i++) if (grid[i] === FILLED || grid[i] === OBSTACLE) clearFogCell(i);
 
   const start = (COLS >> 1);
@@ -941,10 +999,10 @@ function drawObstacles() {
     for (let x = 1; x < COLS - 1; x++) {
       if (grid[y * COLS + x] !== OBSTACLE) continue;
       const px = x * CELL, py = y * CELL;
-      ctx.fillStyle = '#171622';                         // solid rock, distinct from the teal veil
+      ctx.fillStyle = pal.blobs[1];                      // band-tinted solid mass (ice/coral/rock/asteroid)
       ctx.fillRect(px, py, CELL, CELL);
-      ctx.fillStyle = 'rgba(130,140,170,0.12)'; ctx.fillRect(px, py, CELL, 2);       // top light
-      ctx.fillStyle = 'rgba(0,0,0,0.32)'; ctx.fillRect(px, py + CELL - 2, CELL, 2);  // bottom shadow
+      ctx.fillStyle = hexA(pal.edge2, 0.16); ctx.fillRect(px, py, CELL, 2);          // themed top light
+      ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(px, py + CELL - 2, CELL, 2);  // bottom shadow
     }
   }
   ctx.restore();
