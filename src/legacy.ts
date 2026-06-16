@@ -738,6 +738,26 @@ function pointAlong(pts, dist) {
 }
 
 /* ----------------------------- world render ---------------------------- */
+// "Read the veil": a faint disturbance bleeds through the fog where content
+// is hidden — it tells you WHERE, never WHAT, so the cache-or-rift gamble
+// survives while attentive players can route around (or toward) the unknown.
+function drawVeilTells() {
+  if (!veilBoard.length) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < veilBoard.length; i++) {
+    if (!veilBoard[i]) continue;
+    const c = centerPx(i);
+    const pulse = 0.5 + 0.5 * Math.sin(time * 1.6 + i * 0.6);
+    const r = CELL * (0.5 + 0.28 * pulse);
+    const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, r);
+    g.addColorStop(0, '#d6e6ff'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalAlpha = 0.05 + 0.06 * pulse;
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+}
 function drawWorld() {
   const sx = (shakeAmt && !reduceMotion) ? rand(-shakeAmt, shakeAmt) : 0;
   const sy = (shakeAmt && !reduceMotion) ? rand(-shakeAmt, shakeAmt) : 0;
@@ -768,6 +788,7 @@ function drawWorld() {
   ctx.restore();
 
   ctx.drawImage(fog.canvas, 0, 0, PW, PH);
+  drawVeilTells();
 
   // coastline glow
   if (borderPath) {
