@@ -610,12 +610,14 @@ function enemyCounts(lv) {
   return {
     drifter: Math.min(1 + Math.floor(lv / 2), 6),
     chaser: lv >= 3 ? Math.min(1 + Math.floor((lv - 3) / 3), 2) : 0,
+    cutter: lv >= 7 ? Math.min(1 + Math.floor((lv - 7) / 4), 2) : 0,
     sentinel: 0,   // disabled — "hunts only when you rest" was too unreadable; revisiting
     sleeper: 0,    // disabled — one-shot wake was too punishing
   };
 }
 const ENEMY_INFO = {
   chaser: { name: 'CHASER', desc: 'hunts you and your trail' },
+  cutter: { name: 'CUTTER', desc: 'races to slice your line' },
   sentinel: { name: 'SENTINEL', desc: 'attacks while you rest on land' },
   sleeper: { name: 'VEIL-SLEEPER', desc: 'reveals in the dark wake it' },
 };
@@ -644,6 +646,7 @@ function genEnemies(lv) {
   }
   for (let i = 0; i < n.drifter; i++) place('drifter', spd);
   for (let i = 0; i < n.chaser; i++) place('chaser', spd * 0.74);
+  for (let i = 0; i < n.cutter; i++) place('cutter', spd * 0.8);
   for (let i = 0; i < n.sentinel; i++) place('sentinel', spd * 0.82);
   for (let i = 0; i < n.sleeper; i++) placeSleeper(spd * 0.95);
   return out;
@@ -656,6 +659,21 @@ function moveEnemy(e, dt) {
     e.asleep = false; e.steerT = 0;
     flash = reduceMotion ? 0.12 : 0.3; shakeAmt = reduceMotion ? 0 : Math.max(shakeAmt, 7);
     hapticHeavy(); spawnPopup(e.x, e.y, 'WOKE', '#ff5c6e', 16);
+  }
+  // cutter: race to the nearest point on your drawn line (slice it); else come for you
+  if (e.type === 'cutter') {
+    e.steerT -= dt;
+    if (e.steerT <= 0) {
+      e.steerT = 0.35;
+      let tx = player.px.x, ty = player.px.y;
+      if (hasTrail && trailPoints.length) {
+        let best = Infinity;
+        for (const p of trailPoints) { const d = (p.x - e.x) ** 2 + (p.y - e.y) ** 2; if (d < best) { best = d; tx = p.x; ty = p.y; } }
+      }
+      const dx = tx - e.x, dy = ty - e.y;
+      e.vx = (dx === 0 ? (e.vx > 0 ? 1 : -1) : Math.sign(dx)) * e.comp;
+      e.vy = (dy === 0 ? (e.vy > 0 ? 1 : -1) : Math.sign(dy)) * e.comp;
+    }
   }
   // chasers + awake sleepers always hunt; sentinels hunt only while you rest on safe ground
   const hunting = e.type === 'chaser' || (e.type === 'sleeper' && !e.asleep)
@@ -849,7 +867,7 @@ function initLevel(lv) {
   recomputeBorderPath(); recomputePercent(); dispPercent = percent;
   banner = { text: 'LEVEL ' + lv, sub: pal.name.toUpperCase() + '  ·  reveal ' + Math.round(target * 100) + '%', t: 2.0 };
   // first time a non-basic enemy appears, teach what it does (once ever)
-  for (const et of ['chaser', 'sentinel', 'sleeper']) {
+  for (const et of ['chaser', 'cutter']) {
     if (!seenEnemies.has(et) && enemies.some((e) => e.type === et)) {
       seenEnemies.add(et);
       try { localStorage.setItem('veil_seen_enemies', [...seenEnemies].join(',')); } catch (e) {}
@@ -1192,11 +1210,11 @@ function drawWorld() {
       ctx.fillStyle = dg; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 2.4, 0, TAU); ctx.fill(); ctx.restore();
       continue;
     }
-    const isCh = e.type === 'chaser', isSent = e.type === 'sentinel', isSleep = e.type === 'sleeper';
+    const isCh = e.type === 'chaser', isSent = e.type === 'sentinel', isSleep = e.type === 'sleeper', isCut = e.type === 'cutter';
     let prox = 0;
     if (player && player.px && state === 'playing') prox = clamp(1 - Math.hypot(player.px.x - e.x, player.px.y - e.y) / (CELL * 6), 0, 1);
-    const col = frozen ? '#bfe9ff' : isSleep ? '#ff3a4e' : isSent ? '#ffb14a' : isCh ? CHASER_COL : ENEMY_COL;
-    const glow = frozen ? '#bfe9ff' : isSleep ? '#ff6a4a' : isSent ? '#ffd07a' : isCh ? CHASER_GLOW : ENEMY_GLOW;
+    const col = frozen ? '#bfe9ff' : isCut ? '#ffe93b' : isSleep ? '#ff3a4e' : isSent ? '#ffb14a' : isCh ? CHASER_COL : ENEMY_COL;
+    const glow = frozen ? '#bfe9ff' : isCut ? '#fff07a' : isSleep ? '#ff6a4a' : isSent ? '#ffd07a' : isCh ? CHASER_GLOW : ENEMY_GLOW;
     drawGlowOrb(e.x, e.y, e.r * pulse, col, glow, e.r * (3.2 + prox * 2.4));
     if (prox > 0.35 && !frozen) {
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
