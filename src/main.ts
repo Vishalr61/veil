@@ -6,4 +6,4 @@
    typed modules under src/ and imported here instead.
    ========================================================================= */
 
-import './legacy.js';
+import './legacy';

@@ -53,8 +53,8 @@ function createSurface(w, h) {
 }
 
 /* ----------------------------- canvas / layout ------------------------- */
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
+const canvas = document.getElementById('game') as HTMLCanvasElement;
+const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
 
 // Read iOS/Android safe-area insets (notch / home indicator). Needs the page
 // meta to use viewport-fit=cover, which index.html sets.

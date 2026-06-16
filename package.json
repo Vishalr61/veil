@@ -6,12 +6,12 @@
   "description": "VEIL — a neon roguelite where you draw light into the dark.",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "sync": "vite build && cap sync",
-    "ios": "vite build && cap sync ios && cap open ios",
-    "android": "vite build && cap sync android && cap open android"
+    "sync": "npm run build && cap sync",
+    "ios": "npm run build && cap sync ios && cap open ios",
+    "android": "npm run build && cap sync android && cap open android"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.4.0",
