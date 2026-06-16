@@ -141,6 +141,8 @@ try { dailyStreakDate = localStorage.getItem('veil_daily_streak_date') || ''; } 
 let onboarded = false;                 // has the player completed the first-run teach?
 try { onboarded = localStorage.getItem('veil_onboarded') === '1'; } catch (e) {}
 let onboarding = false, firstMoveDone = false;
+let seenEnemies = new Set();
+try { (localStorage.getItem('veil_seen_enemies') || '').split(',').forEach(s => s && seenEnemies.add(s)); } catch (e) {}
 let level = 1;
 let score = 0, dispScore = 0;
 let highScore = 0;
@@ -169,7 +171,7 @@ let enemyFreezeT = 0, enemySlowT = 0;        // power-up effects on enemies
 let shield = false;
 let pickupSpawnT = 6;
 let shootingStars = [], shootTimer = 4;
-let banner = { text: '', sub: '', t: 0 };
+let banner: { text: string; sub: string; t: number; enemy?: string } = { text: '', sub: '', t: 0 };
 let hintActive = false;
 
 /* ----------------------------- background art -------------------------- */
@@ -602,12 +604,24 @@ function eCell(e) {
   const cy = clamp(Math.floor(e.y / CELL), 0, ROWS - 1);
   return cy * COLS + cx;
 }
+// Staggered introduction: drifters alone early, then a new type every ~3 levels
+// so each enemy gets room to breathe before the next arrives.
+function enemyCounts(lv) {
+  return {
+    drifter: Math.min(1 + Math.floor(lv / 2), 6),
+    chaser: lv >= 4 ? Math.min(1 + Math.floor((lv - 4) / 4), 2) : 0,
+    sentinel: lv >= 7 ? Math.min(1 + Math.floor((lv - 7) / 4), 2) : 0,
+    sleeper: lv >= 10 ? Math.min(1 + Math.floor((lv - 10) / 4), 3) : 0,
+  };
+}
+const ENEMY_INFO = {
+  chaser: { name: 'CHASER', desc: 'hunts you and your trail' },
+  sentinel: { name: 'SENTINEL', desc: 'attacks while you rest on land' },
+  sleeper: { name: 'VEIL-SLEEPER', desc: 'reveals in the dark wake it' },
+};
 function genEnemies(lv) {
   const out = [];
-  const drifters = Math.min(2 + Math.floor((lv - 1) / 2), 7);
-  const chasers = lv >= 3 ? Math.min(1 + Math.floor((lv - 3) / 3), 2) : 0;
-  const sentinels = lv >= 2 ? Math.min(1 + Math.floor((lv - 2) / 3), 3) : 0;   // punish edge-camping
-  const sleepers = lv >= 4 ? Math.min(1 + Math.floor((lv - 4) / 3), 3) : 0;    // dormant under the veil
+  const n = enemyCounts(lv);
   const spd = Math.min(115 + 8 * (lv - 1), 205);
   const sc = centerPx((COLS >> 1));
   function spawnCell(minGap, needEmpty) {
@@ -628,10 +642,10 @@ function genEnemies(lv) {
     const p = spawnCell(6, true);
     out.push({ x: p.x, y: p.y, vx: 0, vy: 0, r: CELL * 0.42, type: 'sleeper', asleep: true, speed, comp: speed * 0.7071, steerT: 0 });
   }
-  for (let i = 0; i < drifters; i++) place('drifter', spd);
-  for (let i = 0; i < chasers; i++) place('chaser', spd * 0.74);
-  for (let i = 0; i < sentinels; i++) place('sentinel', spd * 0.82);
-  for (let i = 0; i < sleepers; i++) placeSleeper(spd * 0.95);
+  for (let i = 0; i < n.drifter; i++) place('drifter', spd);
+  for (let i = 0; i < n.chaser; i++) place('chaser', spd * 0.74);
+  for (let i = 0; i < n.sentinel; i++) place('sentinel', spd * 0.82);
+  for (let i = 0; i < n.sleeper; i++) placeSleeper(spd * 0.95);
   return out;
 }
 function moveEnemy(e, dt) {
@@ -834,6 +848,15 @@ function initLevel(lv) {
   pickupSpawnT = rng.range(5, 8);
   recomputeBorderPath(); recomputePercent(); dispPercent = percent;
   banner = { text: 'LEVEL ' + lv, sub: pal.name.toUpperCase() + '  ·  reveal ' + Math.round(target * 100) + '%', t: 2.0 };
+  // first time a non-basic enemy appears, teach what it does (once ever)
+  for (const et of ['chaser', 'sentinel', 'sleeper']) {
+    if (!seenEnemies.has(et) && enemies.some((e) => e.type === et)) {
+      seenEnemies.add(et);
+      try { localStorage.setItem('veil_seen_enemies', [...seenEnemies].join(',')); } catch (e) {}
+      banner = { text: ENEMY_INFO[et].name, sub: ENEMY_INFO[et].desc, t: 3.4, enemy: et };
+      break;
+    }
+  }
   hintActive = (lv === 1);
   state = 'playing';
 }
@@ -1231,9 +1254,15 @@ function drawWorld() {
     glowText('leave the edge, draw a loop, return — reveal the cosmos', PW / 2, PH - 26, 13, pal.edge2, { blur: 8, alpha: a, weight: 700, spacing: 1 });
   }
   if (banner.t > 0) {
-    const a = clamp(banner.t, 0, 1) * clamp((2.0 - banner.t) * 3, 0, 1);
-    glowText(banner.text, PW / 2, PH / 2 - 14, 24, pal.edge2, { blur: 22, font: 'pixel', spacing: 2, core: '#fff', alpha: a });
-    glowText(banner.sub, PW / 2, PH / 2 + 20, 14, '#cfe6ff', { blur: 6, weight: 600, spacing: 2, alpha: a });
+    const a = clamp(banner.t * 1.6, 0, 1);   // pop in, fade out over the last ~0.6s
+    if (banner.enemy) {
+      const ec = banner.enemy === 'chaser' ? CHASER_COL : banner.enemy === 'sentinel' ? '#ffb14a' : '#ff3a4e';
+      const eg = banner.enemy === 'chaser' ? CHASER_GLOW : banner.enemy === 'sentinel' ? '#ffd07a' : '#ff6a4a';
+      ctx.save(); ctx.globalAlpha = a; drawGlowOrb(PW / 2, PH / 2 - 62, CELL * 0.5, ec, eg, CELL * 2); ctx.restore();
+      glowText('NEW THREAT', PW / 2, PH / 2 - 30, 9, eg, { blur: 8, font: 'pixel', spacing: 2, alpha: a * 0.8 });
+    }
+    glowText(banner.text, PW / 2, PH / 2 - 12, banner.enemy ? 20 : 24, pal.edge2, { blur: 22, font: 'pixel', spacing: 2, core: '#fff', alpha: a });
+    glowText(banner.sub, PW / 2, PH / 2 + 22, 15, '#cfe6ff', { blur: 6, font: 'mono', spacing: 1, alpha: a });
   }
 
   ctx.restore(); // world
