@@ -166,22 +166,46 @@ let deathFreeze = 0, drawSoundLock = 0;
 let enemyFreezeT = 0, enemySlowT = 0;        // power-up effects on enemies
 let shield = false;
 let pickupSpawnT = 6;
+let shootingStars = [], shootTimer = 4;
 let banner = { text: '', sub: '', t: 0 };
 let hintActive = false;
 
 /* ----------------------------- background art -------------------------- */
-function genNebula(p) {
+function genNebula(p, level?: number) {
+  level = level || 1;
   const s = createSurface(PW, PH), c = s.ctx;
   c.fillStyle = '#04050d'; c.fillRect(0, 0, PW, PH);
   c.globalCompositeOperation = 'lighter';
-  for (let i = 0; i < 46; i++) {
+
+  // each level gets a distinct character so it isn't the same cloud recolored
+  const style = level % 4;
+  const big = style === 1, wispy = style === 2, dense = style === 3;
+
+  // nebula clouds
+  const blobCount = dense ? 60 : big ? 32 : 44;
+  for (let i = 0; i < blobCount; i++) {
     const col = p.blobs[(Math.random() * p.blobs.length) | 0];
-    const x = rand(-80, PW + 80), y = rand(-60, PH + 60), r = rand(70, 320);
+    const x = rand(-80, PW + 80), y = rand(-60, PH + 60);
+    const r = big ? rand(160, 360) : dense ? rand(36, 150) : rand(70, 300);
     const g = c.createRadialGradient(x, y, 0, x, y, r);
     g.addColorStop(0, col); g.addColorStop(0.4, col + '55'); g.addColorStop(1, 'rgba(0,0,0,0)');
-    c.globalAlpha = rand(0.16, 0.4); c.fillStyle = g;
+    c.globalAlpha = rand(0.14, 0.38); c.fillStyle = g;
     c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
   }
+
+  // dust filaments / lanes — structure, not just round blobs
+  for (let i = 0, n = wispy ? 11 : 5; i < n; i++) {
+    const col = p.blobs[2 + ((Math.random() * 3) | 0)], len = rand(120, 380);
+    c.save();
+    c.translate(rand(0, PW), rand(0, PH)); c.rotate(rand(0, TAU));
+    const g = c.createLinearGradient(-len / 2, 0, len / 2, 0);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, col + '40'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = rand(0.1, 0.24); c.fillStyle = g;
+    c.beginPath(); c.ellipse(0, 0, len / 2, rand(8, 22), 0, 0, TAU); c.fill();
+    c.restore();
+  }
+
+  // bright cores
   for (let i = 0; i < 5; i++) {
     const x = rand(PW * 0.2, PW * 0.8), y = rand(PH * 0.2, PH * 0.8), r = rand(40, 110);
     const g = c.createRadialGradient(x, y, 0, x, y, r);
@@ -189,14 +213,38 @@ function genNebula(p) {
     c.globalAlpha = rand(0.3, 0.55); c.fillStyle = g;
     c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
   }
-  c.globalAlpha = 1;
-  for (let i = 0; i < 320; i++) {
+
+  // a focal landmark: a distant galaxy — gives the level a sense of place
+  const gx = rand(PW * 0.25, PW * 0.75), gy = rand(PH * 0.22, PH * 0.6), gr = rand(64, 116);
+  const gg = c.createRadialGradient(gx, gy, 0, gx, gy, gr);
+  gg.addColorStop(0, '#ffffff'); gg.addColorStop(0.2, p.blobs[p.blobs.length - 1]);
+  gg.addColorStop(0.55, p.blobs[2] + '55'); gg.addColorStop(1, 'rgba(0,0,0,0)');
+  c.globalAlpha = 0.5; c.fillStyle = gg;
+  c.beginPath(); c.arc(gx, gy, gr, 0, TAU); c.fill();
+  for (let k = 0; k < 64; k++) {                 // flattened halo of stars around it
+    const a = rand(0, TAU), rr = rand(6, gr * 0.92);
+    c.globalAlpha = rand(0.3, 0.9); c.fillStyle = p.star;
+    c.beginPath(); c.arc(gx + Math.cos(a) * rr, gy + Math.sin(a) * rr * 0.5, rand(0.4, 1.3), 0, TAU); c.fill();
+  }
+
+  // star field — varied sizes, a few tinted stars
+  for (let i = 0, n = dense ? 420 : 320; i < n; i++) {
     const x = Math.random() * PW, y = Math.random() * PH, a = Math.random();
-    const r = a > 0.92 ? rand(1.2, 2.2) : rand(0.4, 1.1);
-    c.globalAlpha = rand(0.25, 0.95); c.fillStyle = p.star;
+    const r = a > 0.92 ? rand(1.2, 2.4) : rand(0.4, 1.1);
+    c.globalAlpha = rand(0.25, 0.95); c.fillStyle = a > 0.97 ? p.edge2 : p.star;
     if (a > 0.95) { c.shadowColor = p.star; c.shadowBlur = 6; } else c.shadowBlur = 0;
     c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
   }
+  // open star clusters
+  c.shadowBlur = 0;
+  for (let cl = 0; cl < 3; cl++) {
+    const cxs = rand(PW * 0.1, PW * 0.9), cys = rand(PH * 0.1, PH * 0.9);
+    for (let k = 0; k < 22; k++) {
+      c.globalAlpha = rand(0.3, 0.9); c.fillStyle = p.star;
+      c.beginPath(); c.arc(cxs + rand(-26, 26), cys + rand(-26, 26), rand(0.4, 1.2), 0, TAU); c.fill();
+    }
+  }
+
   c.shadowBlur = 0; c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
   return s;
 }
@@ -639,7 +687,7 @@ function initLevel(lv) {
       grid[y * COLS + x] = (x === 0 || y === 0 || x === COLS - 1 || y === ROWS - 1) ? FILLED : EMPTY;
   veilBoard = genVeilBoard(rng.fork('veil'), { cols: COLS, rows: ROWS, level: lv, isOpen: (i) => grid[i] === EMPTY });
 
-  nebula = genNebula(pal); fog = genFog(); genTwinkles();
+  nebula = genNebula(pal, lv); fog = genFog(); genTwinkles();
   for (let i = 0; i < grid.length; i++) if (grid[i] === FILLED) clearFogCell(i);
 
   const start = (COLS >> 1);
@@ -688,6 +736,7 @@ function update(dt) {
   if (banner.t > 0) banner.t -= dt;
   if (comboT > 0) { comboT -= dt; if (comboT <= 0) combo = 0; }
   processReveal();
+  tickShootingStars(wdt);
   updateParticles(wdt);
   updatePopups(dt);
   updateMotes(wdt);
@@ -802,6 +851,41 @@ function drawVeilTells() {
   }
   ctx.restore();
 }
+function tickShootingStars(dt) {
+  shootTimer -= dt;
+  if (shootTimer <= 0) {
+    shootTimer = rand(3.5, 8);
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    shootingStars.push({
+      x: dir > 0 ? rand(-20, PW * 0.4) : rand(PW * 0.6, PW + 20),
+      y: rand(-20, PH * 0.35),
+      vx: dir * rand(320, 520), vy: rand(150, 290),
+      life: 0, max: rand(0.55, 1.0),
+    });
+  }
+  for (let i = shootingStars.length - 1; i >= 0; i--) {
+    const s = shootingStars[i];
+    s.life += dt; s.x += s.vx * dt; s.y += s.vy * dt;
+    if (s.life >= s.max) shootingStars.splice(i, 1);
+  }
+}
+function drawShootingStars() {
+  if (!shootingStars.length) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineCap = 'round';
+  for (const s of shootingStars) {
+    const a = Math.sin((s.life / s.max) * Math.PI);     // fade in then out
+    const tx = s.x - s.vx * 0.045, ty = s.y - s.vy * 0.045;
+    const g = ctx.createLinearGradient(tx, ty, s.x, s.y);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, pal.edge2);
+    ctx.strokeStyle = g; ctx.globalAlpha = a * 0.9; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(s.x, s.y); ctx.stroke();
+    ctx.globalAlpha = a; ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(s.x, s.y, 1.6, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+}
 function drawWorld() {
   const sx = (shakeAmt && !reduceMotion) ? rand(-shakeAmt, shakeAmt) : 0;
   const sy = (shakeAmt && !reduceMotion) ? rand(-shakeAmt, shakeAmt) : 0;
@@ -833,6 +917,7 @@ function drawWorld() {
 
   ctx.drawImage(fog.canvas, 0, 0, PW, PH);
   drawVeilTells();
+  drawShootingStars();
 
   // coastline glow
   if (borderPath) {
