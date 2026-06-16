@@ -1,0 +1,26 @@
+{
+  "name": "veil",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "VEIL — a neon roguelite where you draw light into the dark.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "sync": "vite build && cap sync",
+    "ios": "vite build && cap sync ios && cap open ios",
+    "android": "vite build && cap sync android && cap open android"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.4.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.3.0"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/core": "^8.4.0",
+    "@capacitor/ios": "^8.4.0"
+  }
+}
