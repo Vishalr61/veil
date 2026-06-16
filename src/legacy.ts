@@ -9,6 +9,7 @@
 
 import { hapticLight, hapticMedium, hapticHeavy } from './platform/haptics.js';
 import { TAU, clamp, lerp, rand } from './core/math';
+import { SeededRng } from './core/rng';
 import { EMPTY, FILLED, TRAIL, COMBO_WINDOW, SS } from './core/constants';
 import { PALETTES, ENEMY_COL, ENEMY_GLOW, CHASER_COL, CHASER_GLOW } from './core/palettes';
 import {
@@ -120,6 +121,8 @@ try { reduceMotion = localStorage.getItem('veil_reduce') === '1'; } catch (e) {}
 /* ----------------------------- state ----------------------------------- */
 let grid = new Uint8Array(COLS * ROWS);
 let state = 'menu';
+let gameSeed = 1;                   // per-run seed; the daily challenge will set this to a date seed
+let rng = new SeededRng(gameSeed);  // seeded simulation stream, re-forked per level in initLevel
 let level = 1;
 let score = 0, dispScore = 0;
 let highScore = 0;
@@ -355,18 +358,18 @@ const PU_TYPES = [
 ];
 function pickPU() {
   const total = PU_TYPES.reduce((s, p) => s + p.w, 0);
-  let r = Math.random() * total;
+  let r = rng.next() * total;
   for (const p of PU_TYPES) { if ((r -= p.w) <= 0) return p; }
   return PU_TYPES[0];
 }
 function maybeSpawnPickup(dt) {
   pickupSpawnT -= dt;
   if (pickupSpawnT > 0 || pickups.length >= 2) return;
-  pickupSpawnT = rand(7, 12);
+  pickupSpawnT = rng.range(7, 12);
   const pcell = cellOfPx(player.px);
   let idx = -1;
   for (let t = 0; t < 50; t++) {
-    const cx = 2 + ((Math.random() * (COLS - 4)) | 0), cy = 2 + ((Math.random() * (ROWS - 4)) | 0);
+    const cx = 2 + rng.int(COLS - 4), cy = 2 + rng.int(ROWS - 4);
     const i = cy * COLS + cx;
     if (grid[i] !== EMPTY) continue;
     if (Math.abs(cx - pcell % COLS) + Math.abs(cy - (pcell / COLS | 0)) < 5) continue;
@@ -416,12 +419,12 @@ function genEnemies(lv) {
   function place(type, speed) {
     let x, y, tries = 0;
     do {
-      const cx = 2 + ((Math.random() * (COLS - 4)) | 0), cy = 2 + ((Math.random() * (ROWS - 4)) | 0);
+      const cx = 2 + rng.int(COLS - 4), cy = 2 + rng.int(ROWS - 4);
       x = (cx + 0.5) * CELL; y = (cy + 0.5) * CELL; tries++;
     } while (Math.hypot(x - sc.x, y - sc.y) < CELL * 7 && tries < 60);
     const comp = speed * 0.7071;
-    out.push({ x, y, vx: (Math.random() < 0.5 ? -1 : 1) * comp, vy: (Math.random() < 0.5 ? -1 : 1) * comp,
-      r: CELL * 0.42, type, speed, comp, steerT: rand(0.2, 0.6) });
+    out.push({ x, y, vx: (rng.next() < 0.5 ? -1 : 1) * comp, vy: (rng.next() < 0.5 ? -1 : 1) * comp,
+      r: CELL * 0.42, type, speed, comp, steerT: rng.range(0.2, 0.6) });
   }
   for (let i = 0; i < drifters; i++) place('drifter', spd);
   for (let i = 0; i < chasers; i++) place('chaser', spd * 0.74);
@@ -573,6 +576,7 @@ function clearTrail() {
 /* ----------------------------- flow ------------------------------------ */
 function initLevel(lv) {
   level = lv;
+  rng = new SeededRng(gameSeed).fork('lv' + lv); // deterministic per-level simulation stream
   pal = PALETTES[(lv - 1) % PALETTES.length];
   grid = new Uint8Array(COLS * ROWS);
   for (let y = 0; y < ROWS; y++)
@@ -594,13 +598,17 @@ function initLevel(lv) {
   shakeAmt = 0; flash = 0; zoom = 1; deathFreeze = 0; timeScale = 1; timeScaleTarget = 1;
   enemyFreezeT = 0; enemySlowT = 0; shield = false;
   pickups.length = 0; popups.length = 0; particles.length = 0; revealQueue.length = 0;
-  pickupSpawnT = rand(5, 8);
+  pickupSpawnT = rng.range(5, 8);
   recomputeBorderPath(); recomputePercent(); dispPercent = percent;
   banner = { text: 'LEVEL ' + lv, sub: pal.name.toUpperCase() + '  ·  reveal ' + Math.round(target * 100) + '%', t: 2.0 };
   hintActive = (lv === 1);
   state = 'playing';
 }
-function startGame() { score = 0; dispScore = 0; lives = 3; initLevel(1); }
+function startGame(seed?: number) {
+  score = 0; dispScore = 0; lives = 3;
+  gameSeed = seed != null ? (seed >>> 0) : (Math.random() * 0xffffffff) >>> 0;
+  initLevel(1);
+}
 function winLevel() {
   const pctBonus = Math.round(percent * 100) * level * 6, lifeBonus = lives * 350;
   lastBonus = pctBonus + lifeBonus; score += lastBonus;
