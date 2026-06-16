@@ -743,18 +743,35 @@ function pointAlong(pts, dist) {
 // survives while attentive players can route around (or toward) the unknown.
 function drawVeilTells() {
   if (!veilBoard.length) return;
+  const px = player ? player.px : null;
+  const scoutR = CELL * 3.6;            // how close you must be to sense type
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   for (let i = 0; i < veilBoard.length; i++) {
-    if (!veilBoard[i]) continue;
+    const v = veilBoard[i];
+    if (!v) continue;
     const c = centerPx(i);
     const pulse = 0.5 + 0.5 * Math.sin(time * 1.6 + i * 0.6);
-    const r = CELL * (0.5 + 0.28 * pulse);
-    const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, r);
+    const baseR = CELL * (0.5 + 0.28 * pulse);
+    // neutral disturbance: shows WHERE, always
+    let g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, baseR);
     g.addColorStop(0, '#d6e6ff'); g.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.globalAlpha = 0.05 + 0.06 * pulse;
     ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(c.x, c.y, baseR, 0, TAU); ctx.fill();
+    // scout: get close to sense WHAT it is — gold cache / red rift
+    if (px) {
+      const scoutT = clamp(1 - Math.hypot(px.x - c.x, px.y - c.y) / scoutR, 0, 1);
+      if (scoutT > 0.02) {
+        const r2 = baseR * 1.15;
+        g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, r2);
+        g.addColorStop(0, v === VEIL_CACHE ? '#ffd86a' : '#ff7a93');
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.globalAlpha = 0.2 * scoutT;
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(c.x, c.y, r2, 0, TAU); ctx.fill();
+      }
+    }
   }
   ctx.restore();
 }
