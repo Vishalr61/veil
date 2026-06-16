@@ -8,6 +8,13 @@
 'use strict';
 
 import { hapticLight, hapticMedium, hapticHeavy } from './platform/haptics.js';
+import { TAU, clamp, lerp, rand } from './core/math';
+import { EMPTY, FILLED, TRAIL, COMBO_WINDOW, SS } from './core/constants';
+import { PALETTES, ENEMY_COL, ENEMY_GLOW, CHASER_COL, CHASER_GLOW } from './core/palettes';
+import {
+  initAudio, setMuted, isMuted, setPadLevel,
+  sfxStartDraw, sfxCapture, sfxBold, sfxDeath, sfxLevel, sfxPickup, sfxShield, sfxBlip, sfxBest,
+} from './audio/audio';
 
 /* ----------------------------- config ---------------------------------- */
 /* Layout is derived from the device viewport at startup (see computeLayout)
@@ -19,34 +26,9 @@ let MARGIN = 0, HUD_H = 64;
 let CW = PW, CH = HUD_H + PH;
 let OFF_X = 0, OFF_Y = HUD_H;
 let INTERIOR_TOTAL = (COLS - 2) * (ROWS - 2);
-const SS = Math.max(1, Math.min(2, Math.round(window.devicePixelRatio || 1))); // DPR-aware
 let safeTop = 0, safeBottom = 0;
 
-const EMPTY = 0, FILLED = 1, TRAIL = 2;
-const COMBO_WINDOW = 4.5;        // seconds to chain a capture
-
-/* ----------------------------- palettes -------------------------------- */
-const PALETTES = [
-  { name: 'aurora', blobs: ['#0a2a43', '#0f5568', '#1b8a7a', '#2bd4a7', '#86ffd9'],
-    star: '#dff9ff', edge: '#63fbef', edge2: '#bafff5', trail: '#eafffb', player: '#ffffff', accent: '#5ffbd0' },
-  { name: 'violet', blobs: ['#190b3a', '#3a1d7a', '#6a34d6', '#a865ff', '#e6c6ff'],
-    star: '#f1e6ff', edge: '#c69bff', edge2: '#ecdcff', trail: '#f6ecff', player: '#ffffff', accent: '#c89bff' },
-  { name: 'ember', blobs: ['#2c0a26', '#5e1140', '#a8264f', '#e85d3a', '#ffb55a'],
-    star: '#ffe9d6', edge: '#ff9d6e', edge2: '#ffd9b0', trail: '#fff0df', player: '#ffffff', accent: '#ff9b5a' },
-  { name: 'ocean', blobs: ['#041f3a', '#0a4d8c', '#1683cf', '#37b6ff', '#9fe4ff'],
-    star: '#e5f6ff', edge: '#7fdcff', edge2: '#cdf2ff', trail: '#ecfbff', player: '#ffffff', accent: '#6fd2ff' },
-  { name: 'rose', blobs: ['#2a0b22', '#6a1450', '#b8327f', '#ff5fa8', '#ffc2e0'],
-    star: '#ffe7f4', edge: '#ff8fc6', edge2: '#ffd2e8', trail: '#fff0f7', player: '#ffffff', accent: '#ff8fc6' },
-];
-
-const ENEMY_COL = '#ff465c', ENEMY_GLOW = '#ff7a52';
-const CHASER_COL = '#ff44d4', CHASER_GLOW = '#ff7ae8';
-
 /* ----------------------------- utilities ------------------------------- */
-const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
-const lerp = (a, b, t) => a + (b - a) * t;
-const rand = (a, b) => a + Math.random() * (b - a);
-const TAU = Math.PI * 2;
 
 function cellIndex(x, y) {
   if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return -1;
@@ -131,68 +113,9 @@ window.addEventListener('load', () => relayout(true));
 requestAnimationFrame(() => relayout(true));
 setTimeout(() => relayout(true), 400);
 
-/* ----------------------------- audio ----------------------------------- */
-let ac = null, masterGain = null, padGain = null;
-let muted = false, reduceMotion = false;
-try { muted = localStorage.getItem('veil_muted') === '1'; } catch (e) {}
+/* ----------------------------- settings -------------------------------- */
+let reduceMotion = false;
 try { reduceMotion = localStorage.getItem('veil_reduce') === '1'; } catch (e) {}
-
-function initAudio() {
-  if (ac) return;
-  try {
-    ac = new (window.AudioContext || window.webkitAudioContext)();
-    masterGain = ac.createGain();
-    masterGain.gain.value = muted ? 0 : 0.9;
-    masterGain.connect(ac.destination);
-    padGain = ac.createGain();
-    padGain.gain.value = 0.0;
-    padGain.connect(masterGain);
-    startPad();
-  } catch (e) { ac = null; }
-}
-function startPad() {
-  if (!ac) return;
-  [55, 82.4, 110].forEach((f, i) => {
-    const o = ac.createOscillator(); o.type = 'sine'; o.frequency.value = f;
-    const g = ac.createGain(); g.gain.value = 0.5 / (i + 1);
-    const lfo = ac.createOscillator(); lfo.frequency.value = 0.05 + i * 0.03;
-    const lg = ac.createGain(); lg.gain.value = 1.5;
-    lfo.connect(lg); lg.connect(o.frequency);
-    o.connect(g); g.connect(padGain);
-    o.start(); lfo.start();
-  });
-  padGain.gain.linearRampToValueAtTime(0.03, ac.currentTime + 4);
-}
-function tone(freq, dur, type, gain, when, slideTo) {
-  if (!ac || muted) return;
-  const t0 = ac.currentTime + (when || 0);
-  const o = ac.createOscillator(), g = ac.createGain();
-  o.type = type || 'sine';
-  o.frequency.setValueAtTime(freq, t0);
-  if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(1, slideTo), t0 + dur);
-  g.gain.setValueAtTime(0.0001, t0);
-  g.gain.exponentialRampToValueAtTime(gain, t0 + 0.012);
-  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  o.connect(g); g.connect(masterGain);
-  o.start(t0); o.stop(t0 + dur + 0.02);
-}
-function sfxStartDraw() { tone(420, 0.12, 'triangle', 0.10, 0, 540); }
-function sfxCapture(ch) {
-  const base = 360 + Math.min(ch, 8) * 40;
-  [0, 4, 7, 11].forEach((n, i) => tone(base * Math.pow(2, n / 12), 0.22, 'triangle', 0.10, i * 0.045, base * Math.pow(2, n / 12) * 1.5));
-}
-function sfxBold() { [0, 7, 12, 19].forEach((n, i) => tone(330 * Math.pow(2, n / 12), 0.3, 'sawtooth', 0.08, i * 0.05)); }
-function sfxDeath() { tone(220, 0.5, 'sawtooth', 0.18, 0, 50); tone(110, 0.6, 'square', 0.10, 0.02, 40); }
-function sfxLevel() { [0, 4, 7, 12, 16].forEach((n, i) => tone(440 * Math.pow(2, n / 12), 0.3, 'triangle', 0.12, i * 0.09)); }
-function sfxPickup() { [0, 5, 9, 14].forEach((n, i) => tone(520 * Math.pow(2, n / 12), 0.16, 'triangle', 0.10, i * 0.04, 1400)); }
-function sfxShield() { tone(300, 0.4, 'sine', 0.14, 0, 700); tone(450, 0.4, 'triangle', 0.08, 0.03); }
-function sfxBlip() { tone(660, 0.08, 'triangle', 0.08, 0, 880); }
-function sfxBest() { [0, 4, 7, 12, 16, 19].forEach((n, i) => tone(523 * Math.pow(2, n / 12), 0.35, 'triangle', 0.10, i * 0.1)); }
-function setMuted(m) {
-  muted = m;
-  try { localStorage.setItem('veil_muted', m ? '1' : '0'); } catch (e) {}
-  if (masterGain) masterGain.gain.value = m ? 0 : 0.9;
-}
 
 /* ----------------------------- state ----------------------------------- */
 let grid = new Uint8Array(COLS * ROWS);
@@ -718,7 +641,7 @@ function update(dt) {
       checkCollisions();
       if (player.invuln > 0) player.invuln -= dt;
     }
-    if (padGain && !muted) padGain.gain.value = 0.03 + 0.05 * Math.min(1, percent / target);
+    setPadLevel(percent / target);
   } else if (state === 'levelclear') {
     lcTimer -= dt;
     if (Math.random() < 0.4)
@@ -990,9 +913,9 @@ function drawHUD() {
   let rx = CW - 66;
   ctx.save();
   ctx.translate(rx - 7, cy);
-  ctx.strokeStyle = muted ? '#6a7290' : pal.accent; ctx.fillStyle = muted ? '#6a7290' : pal.accent; ctx.lineWidth = 1.6;
+  ctx.strokeStyle = isMuted() ? '#6a7290' : pal.accent; ctx.fillStyle = isMuted() ? '#6a7290' : pal.accent; ctx.lineWidth = 1.6;
   ctx.beginPath(); ctx.moveTo(-7, -2.5); ctx.lineTo(-3, -2.5); ctx.lineTo(1, -6); ctx.lineTo(1, 6); ctx.lineTo(-3, 2.5); ctx.lineTo(-7, 2.5); ctx.closePath(); ctx.fill();
-  if (muted) { ctx.beginPath(); ctx.moveTo(4, -5); ctx.lineTo(9, 5); ctx.moveTo(9, -5); ctx.lineTo(4, 5); ctx.stroke(); }
+  if (isMuted()) { ctx.beginPath(); ctx.moveTo(4, -5); ctx.lineTo(9, 5); ctx.moveTo(9, -5); ctx.lineTo(4, 5); ctx.stroke(); }
   else { ctx.beginPath(); ctx.arc(2, 0, 5, -0.7, 0.7); ctx.stroke(); ctx.beginPath(); ctx.arc(2, 0, 8, -0.7, 0.7); ctx.globalAlpha = 0.6; ctx.stroke(); }
   ctx.restore();
   rx -= 26;
@@ -1128,7 +1051,7 @@ function anyKeyAction() {
 window.addEventListener('keydown', (e) => {
   initAudio();
   const k = e.key;
-  if (k === 'm' || k === 'M') { setMuted(!muted); return; }
+  if (k === 'm' || k === 'M') { setMuted(!isMuted()); return; }
   if (k === 'r' || k === 'R') { toggleReduce(); return; }
   if (state === 'playing') {
     if (DIRS[k]) { buffered = DIRS[k]; e.preventDefault(); return; }
