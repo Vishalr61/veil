@@ -11,6 +11,7 @@ import { hapticLight, hapticMedium, hapticHeavy } from './platform/haptics.js';
 import { TAU, clamp, lerp, rand } from './core/math';
 import { SeededRng } from './core/rng';
 import { genVeilBoard, VEIL_CACHE, VEIL_HAZARD } from './sim/veil';
+import { todayKey, seedFromDateKey, shareText } from './daily/daily';
 import { EMPTY, FILLED, TRAIL, COMBO_WINDOW, SS } from './core/constants';
 import { PALETTES, ENEMY_COL, ENEMY_GLOW, CHASER_COL, CHASER_GLOW } from './core/palettes';
 import {
@@ -125,6 +126,12 @@ let veilBoard: Uint8Array = new Uint8Array(0);   // hidden content per cell, rev
 let state = 'menu';
 let gameSeed = 1;                   // per-run seed; the daily challenge will set this to a date seed
 let rng = new SeededRng(gameSeed);  // seeded simulation stream, re-forked per level in initLevel
+let isDaily = false;                // is the current run the daily challenge?
+let dailyRunKey = '';               // date key of the active/last daily run
+let dailyResultText = '';           // shareable result, built at daily game over
+let dailyBest = 0, dailyPlayedKey = '';
+try { dailyBest = parseInt(localStorage.getItem('veil_daily_best') || '0', 10) || 0; } catch (e) {}
+try { dailyPlayedKey = localStorage.getItem('veil_daily_played') || ''; } catch (e) {}
 let level = 1;
 let score = 0, dispScore = 0;
 let highScore = 0;
@@ -593,6 +600,11 @@ function finishDeath() {
     state = 'gameover'; goTimer = 0;
     clearTrail();
     if (score > highScore) { highScore = score; try { localStorage.setItem('veil_highscore', String(highScore)); } catch (e) {} sfxBest(); }
+    if (isDaily) {
+      dailyResultText = shareText({ key: dailyRunKey, score, level, percent });
+      if (score > dailyBest) { dailyBest = score; try { localStorage.setItem('veil_daily_best', String(dailyBest)); } catch (e) {} }
+      dailyPlayedKey = dailyRunKey; try { localStorage.setItem('veil_daily_played', dailyPlayedKey); } catch (e) {}
+    }
     return;
   }
   respawnAt(); player.invuln = 1.7;
@@ -1016,6 +1028,17 @@ function drawMenu() {
   glowText('grab power-ups in the open      bold cuts score big', cx, cyc + 90, 12, '#7f97c8', { blur: 0, spacing: 1 });
   glowText('P pause      M mute      R reduce motion ' + (reduceMotion ? '(on)' : ''), cx, cyc + 110, 12, '#7f97c8', { blur: 0, spacing: 1 });
   if (highScore > 0) glowText('BEST  ' + fmtScore(highScore), cx, cyc + 146, 13, pal.edge, { blur: 8, weight: 700, spacing: 2 });
+
+  // daily challenge entry
+  const dr = dailyBtnRect();
+  ctx.save();
+  ctx.globalAlpha = 0.5; ctx.fillStyle = '#0e1a3a';
+  roundRectPath(dr.x, dr.y, dr.w, dr.h, 12); ctx.fill();
+  ctx.globalAlpha = 1; ctx.strokeStyle = pal.edge2; ctx.lineWidth = 1.5;
+  roundRectPath(dr.x, dr.y, dr.w, dr.h, 12); ctx.stroke();
+  ctx.restore();
+  const done = dailyPlayedKey === todayKey(new Date());
+  glowText('DAILY CHALLENGE' + (done ? '   ✓' : ''), cx, dr.y + dr.h / 2, 15, pal.edge2, { blur: 8, weight: 800, spacing: 1 });
 }
 function drawLevelClear() {
   dim(0.45);
@@ -1032,9 +1055,14 @@ function drawGameOver() {
   glowText('SCORE  ' + fmtScore(score), cx, cyc + 6, 22, '#dff1ff', { blur: 12, weight: 700, spacing: 2, alpha: t });
   const isBest = score >= highScore && score > 0;
   glowText((isBest ? 'NEW BEST!  ' : 'BEST  ') + fmtScore(highScore), cx, cyc + 38, 14, isBest ? '#ffe27a' : pal.edge, { blur: 8, weight: 700, spacing: 1, alpha: t });
-  glowText('reached level ' + level, cx, cyc + 60, 12, '#7f97c8', { blur: 0, spacing: 1, alpha: t });
   const blink = 0.5 + 0.5 * Math.sin(menuT * 3);
-  glowText('PRESS ANY KEY TO RETRY', cx, cyc + 96, 15, '#cfe6ff', { blur: 10, weight: 700, spacing: 2, alpha: t * blink });
+  if (isDaily) {
+    glowText('DAILY  ' + dailyRunKey, cx, cyc + 60, 12, '#9fd0ff', { blur: 6, spacing: 2, weight: 700, alpha: t });
+    glowText('TAP TO COPY RESULT', cx, cyc + 96, 15, '#cfe6ff', { blur: 10, weight: 700, spacing: 2, alpha: t * blink });
+  } else {
+    glowText('reached level ' + level, cx, cyc + 60, 12, '#7f97c8', { blur: 0, spacing: 1, alpha: t });
+    glowText('PRESS ANY KEY TO RETRY', cx, cyc + 96, 15, '#cfe6ff', { blur: 10, weight: 700, spacing: 2, alpha: t * blink });
+  }
 }
 function drawPaused() {
   dim(0.55);
@@ -1118,9 +1146,20 @@ function toggleReduce() {
   if (reduceMotion) { shakeAmt = 0; zoom = 1; timeScale = 1; timeScaleTarget = 1; }
   if (state === 'playing') spawnPopup(player.px.x, player.px.y, 'MOTION ' + (reduceMotion ? 'OFF' : 'ON'), pal.edge2, 14);
 }
+function dailyBtnRect() { return { x: CW / 2 - 130, y: CH / 2 + 166, w: 260, h: 46 }; }
+function startDaily() {
+  dailyRunKey = todayKey(new Date());
+  isDaily = true;
+  startGame(seedFromDateKey(dailyRunKey));
+}
+function copyDailyResult() {
+  if (!dailyResultText) return;
+  try { navigator.clipboard?.writeText(dailyResultText).catch(() => {}); } catch (e) {}
+}
 function anyKeyAction() {
   initAudio();
-  if (state === 'menu' || state === 'gameover') { startGame(); sfxBlip(); }
+  if (state === 'gameover' && isDaily) { copyDailyResult(); isDaily = false; state = 'menu'; sfxBlip(); return; }
+  if (state === 'menu' || state === 'gameover') { isDaily = false; startGame(); sfxBlip(); }
   else if (state === 'levelclear') { nextLevel(); sfxBlip(); }
   else if (state === 'paused') state = 'playing';
 }
@@ -1165,7 +1204,8 @@ canvas.addEventListener('touchstart', (e) => {
   } else if (state === 'paused') {
     state = 'playing';
   } else {
-    anyKeyAction();
+    if (state === 'menu' && inRect(p.x, p.y, dailyBtnRect())) { startDaily(); sfxBlip(); }
+    else anyKeyAction();
   }
   e.preventDefault();
 }, { passive: false });
