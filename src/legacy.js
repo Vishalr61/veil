@@ -7,22 +7,22 @@
 
 'use strict';
 
+import { hapticLight, hapticMedium, hapticHeavy } from './platform/haptics.js';
+
 /* ----------------------------- config ---------------------------------- */
-const COLS = 44;
-const ROWS = 27;
-const CELL = 20;
-const PW = COLS * CELL;          // 880
-const PH = ROWS * CELL;          // 540
-const MARGIN = 14;
-const HUD_H = 50;
-const CW = PW + MARGIN * 2;
-const CH = HUD_H + PH + MARGIN;
+/* Layout is derived from the device viewport at startup (see computeLayout)
+   so the play field fills the screen in portrait instead of letterboxing.
+   These are seeded with sane defaults and overwritten before first render. */
+let COLS = 24, ROWS = 44, CELL = 16;
+let PW = COLS * CELL, PH = ROWS * CELL;
+let MARGIN = 0, HUD_H = 64;
+let CW = PW, CH = HUD_H + PH;
+let OFF_X = 0, OFF_Y = HUD_H;
+let INTERIOR_TOTAL = (COLS - 2) * (ROWS - 2);
 const SS = Math.max(1, Math.min(2, Math.round(window.devicePixelRatio || 1))); // DPR-aware
-const OFF_X = MARGIN;
-const OFF_Y = HUD_H;
+let safeTop = 0, safeBottom = 0;
 
 const EMPTY = 0, FILLED = 1, TRAIL = 2;
-const INTERIOR_TOTAL = (COLS - 2) * (ROWS - 2);
 const COMBO_WINDOW = 4.5;        // seconds to chain a capture
 
 /* ----------------------------- palettes -------------------------------- */
@@ -70,20 +70,62 @@ function createSurface(w, h) {
   return { canvas: c, ctx: cx, w, h };
 }
 
-/* ----------------------------- canvas ---------------------------------- */
+/* ----------------------------- canvas / layout ------------------------- */
 const canvas = document.getElementById('game');
-canvas.width = Math.round(CW * SS);
-canvas.height = Math.round(CH * SS);
 const ctx = canvas.getContext('2d');
 
-function fitToWindow() {
-  const pad = 24;
-  const scale = Math.min((window.innerWidth - pad) / CW, (window.innerHeight - pad) / CH, 1.6);
-  canvas.style.width = Math.round(CW * scale) + 'px';
-  canvas.style.height = Math.round(CH * scale) + 'px';
+// Read iOS/Android safe-area insets (notch / home indicator). Needs the page
+// meta to use viewport-fit=cover, which index.html sets.
+function readSafeInsets() {
+  try {
+    const p = document.createElement('div');
+    p.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0;';
+    document.body.appendChild(p);
+    const cs = getComputedStyle(p);
+    safeTop = parseFloat(cs.paddingTop) || 0;
+    safeBottom = parseFloat(cs.paddingBottom) || 0;
+    p.remove();
+  } catch (e) { safeTop = 0; safeBottom = 0; }
 }
-window.addEventListener('resize', fitToWindow);
-fitToWindow();
+
+// Derive grid dimensions + offsets so the play field fills the viewport.
+function computeLayout() {
+  readSafeInsets();
+  const vw = Math.max(320, window.innerWidth | 0);
+  const vh = Math.max(480, window.innerHeight | 0);
+  CW = vw; CH = vh; MARGIN = 0;
+  HUD_H = Math.round(Math.min(70, vh * 0.06) + safeTop + 10);
+  const top = HUD_H, bottom = vh - Math.max(safeBottom, 6), availH = bottom - top;
+  const cell = clamp(Math.round(vw / 23), 12, 34);   // ~23 columns on a phone
+  COLS = Math.max(14, Math.floor(vw / cell));
+  ROWS = Math.max(16, Math.floor(availH / cell));
+  CELL = cell;
+  PW = COLS * CELL; PH = ROWS * CELL;
+  OFF_X = Math.floor((vw - PW) / 2);
+  OFF_Y = top + Math.floor((availH - PH) / 2);
+  INTERIOR_TOTAL = (COLS - 2) * (ROWS - 2);
+}
+function applyCanvasSize() {
+  canvas.width = Math.round(CW * SS);
+  canvas.height = Math.round(CH * SS);
+  canvas.style.width = CW + 'px';
+  canvas.style.height = CH + 'px';
+  ctx.setTransform(SS, 0, 0, SS, 0, 0);
+}
+let lastVW = 0, lastVH = 0;
+function relayout(force) {
+  const vw = window.innerWidth | 0, vh = window.innerHeight | 0;
+  // Ignore tiny changes (mobile URL-bar show/hide) to avoid resetting mid-play.
+  if (!force && Math.abs(vw - lastVW) < 40 && Math.abs(vh - lastVH) < 40) return;
+  lastVW = vw; lastVH = vh;
+  computeLayout(); applyCanvasSize();
+  menuNebula = null;
+  // Grid dimensions may have changed; rebuild the current level to stay valid.
+  if (state === 'playing' || state === 'paused') initLevel(level);
+}
+window.addEventListener('resize', () => relayout(false));
+lastVW = window.innerWidth | 0; lastVH = window.innerHeight | 0;
+computeLayout(); applyCanvasSize();
 
 /* ----------------------------- audio ----------------------------------- */
 let ac = null, masterGain = null, padGain = null;
@@ -310,10 +352,11 @@ function doCapture() {
       const bonus = Math.round(area * 6 * mult);
       score += bonus;
       spawnPopup(origin.x, origin.y + 14, 'BOLD CUT  +' + bonus, '#ffe27a', 18);
-      sfxBold();
+      sfxBold(); hapticHeavy();
       flash = reduceMotion ? 0.2 : 0.55;
       zoom = reduceMotion ? 1 : 1 + Math.min(0.05, area * 0.0006);
     } else {
+      hapticMedium();
       flash = reduceMotion ? 0.08 : Math.min(0.35, 0.1 + area * 0.003);
       zoom = reduceMotion ? 1 : 1 + Math.min(0.025, area * 0.0004);
     }
@@ -419,7 +462,7 @@ function updatePickups(dt) {
   }
 }
 function applyPickup(p) {
-  sfxPickup();
+  sfxPickup(); hapticLight();
   for (let i = 0; i < 18; i++) {
     const ang = Math.random() * TAU, sp = rand(40, 150);
     particles.push({ x: p.x, y: p.y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: rand(0.4, 0.9), max: 0.9, r: rand(1.2, 3), col: p.col });
@@ -505,7 +548,7 @@ function arrive() {
   if (v === EMPTY) {
     if (!hasTrail) {
       hasTrail = true; trailCells = []; trailPoints = [centerPx(prev)];
-      if (drawSoundLock <= 0) { sfxStartDraw(); drawSoundLock = 0.25; }
+      if (drawSoundLock <= 0) { sfxStartDraw(); hapticLight(); drawSoundLock = 0.25; }
     }
     grid[arrived] = TRAIL; trailCells.push(arrived); trailPoints.push(centerPx(arrived));
   } else if (v === FILLED) {
@@ -569,7 +612,7 @@ function triggerDeath() {
   if (deathFreeze > 0 || player.invuln > 0 || state !== 'playing') return;
   if (shield) {
     shield = false; player.invuln = 1.4; flash = reduceMotion ? 0.2 : 0.4; shakeAmt = reduceMotion ? 0 : 8;
-    sfxShield(); spawnPopup(player.px.x, player.px.y, 'BLOCKED', pal.edge2, 16);
+    sfxShield(); hapticMedium(); spawnPopup(player.px.x, player.px.y, 'BLOCKED', pal.edge2, 16);
     for (let i = 0; i < 24; i++) { const ang = Math.random() * TAU, sp = rand(60, 200); particles.push({ x: player.px.x, y: player.px.y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: rand(0.4, 0.8), max: 0.8, r: rand(1.2, 3), col: pal.edge2 }); }
     respawnAt();
     return;
@@ -577,7 +620,7 @@ function triggerDeath() {
   lives--; combo = 0; comboT = 0;
   shakeAmt = reduceMotion ? 0 : 16; flash = reduceMotion ? 0.25 : 0.8; deathFreeze = 0.5;
   if (!reduceMotion) timeScaleTarget = 0.22;
-  sfxDeath();
+  sfxDeath(); hapticHeavy();
   for (let i = 0; i < 46; i++) {
     const ang = Math.random() * TAU, sp = rand(40, 220);
     particles.push({ x: player.px.x, y: player.px.y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: rand(0.4, 1.0), max: 1.0, r: rand(1.5, 3.5), col: i % 3 === 0 ? '#ffffff' : pal.player });
@@ -904,10 +947,10 @@ function drawHUD() {
   ctx.strokeStyle = 'rgba(120,170,255,0.12)'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(0, HUD_H - 0.5); ctx.lineTo(CW, HUD_H - 0.5); ctx.stroke();
   ctx.restore();
-  const cy = HUD_H / 2;
+  const cy = safeTop + (HUD_H - safeTop) / 2;   // center below the notch / safe inset
 
-  glowText('SCORE', MARGIN + 4, cy - 12, 9, '#6f86b8', { align: 'left', blur: 0, spacing: 2, weight: 700 });
-  glowText(fmtScore(dispScore), MARGIN + 4, cy + 5, 20, pal.trail, { align: 'left', blur: 10, weight: 700, core: '#fff', spacing: 1 });
+  glowText('SCORE', MARGIN + 8, cy - 12, 9, '#6f86b8', { align: 'left', blur: 0, spacing: 2, weight: 700 });
+  glowText(fmtScore(dispScore), MARGIN + 8, cy + 5, 20, pal.trail, { align: 'left', blur: 10, weight: 700, core: '#fff', spacing: 1 });
 
   // combo meter
   if (combo > 1 && state === 'playing') {
@@ -937,8 +980,8 @@ function drawHUD() {
   glowText(Math.round(dispPercent * 100) + '%', CW / 2, by - 9, 11, pal.edge2, { blur: 6, weight: 800 });
   glowText('TARGET ' + Math.round(target * 100) + '%', CW / 2, by + barH + 9, 9, '#7f93c0', { blur: 0, spacing: 1.5, weight: 700 });
 
-  // right cluster
-  let rx = CW - MARGIN - 4;
+  // right cluster (kept left of the pause button at CW-56)
+  let rx = CW - 66;
   ctx.save();
   ctx.translate(rx - 7, cy);
   ctx.strokeStyle = muted ? '#6a7290' : pal.accent; ctx.fillStyle = muted ? '#6a7290' : pal.accent; ctx.lineWidth = 1.6;
@@ -1007,11 +1050,40 @@ function drawAttractWorld() {
   for (const m of motes) { ctx.globalAlpha = m.a * 0.8; ctx.fillStyle = '#cfe6ff'; ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, TAU); ctx.fill(); }
   ctx.restore();
 }
+function drawTouchUI() {
+  // pause / resume button (top-right, inside the safe area)
+  const r = pauseBtnRect();
+  ctx.save();
+  ctx.globalAlpha = 0.45; ctx.fillStyle = '#0a1430';
+  roundRectPath(r.x, r.y, r.w, r.h, 11); ctx.fill();
+  ctx.globalAlpha = 0.9; ctx.fillStyle = pal ? pal.edge2 : '#cfe6ff';
+  const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+  if (state === 'paused') {
+    ctx.beginPath(); ctx.moveTo(cx - 6, cy - 9); ctx.lineTo(cx - 6, cy + 9); ctx.lineTo(cx + 10, cy); ctx.closePath(); ctx.fill();
+  } else {
+    ctx.fillRect(cx - 8, cy - 9, 5, 18); ctx.fillRect(cx + 3, cy - 9, 5, 18);
+  }
+  ctx.restore();
+
+  // floating joystick (only while a finger is down)
+  if (joyActive && state === 'playing') {
+    const maxR = CELL * 2.4;
+    const dx = joyX - joyOX, dy = joyY - joyOY, len = Math.hypot(dx, dy) || 1;
+    const cl = Math.min(len, maxR), tx = joyOX + dx / len * cl, ty = joyOY + dy / len * cl;
+    ctx.save();
+    ctx.globalAlpha = 0.22; ctx.strokeStyle = pal.edge2; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(joyOX, joyOY, maxR, 0, TAU); ctx.stroke();
+    ctx.globalAlpha = 0.5; ctx.fillStyle = pal.edge;
+    ctx.beginPath(); ctx.arc(tx, ty, CELL * 0.95, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+}
 function render() {
   ctx.setTransform(SS, 0, 0, SS, 0, 0);
   ctx.fillStyle = '#04050c'; ctx.fillRect(0, 0, CW, CH);
   if (state === 'menu') { drawAttractWorld(); drawMenu(); return; }
   drawWorld(); drawHUD();
+  if (state === 'playing' || state === 'paused') drawTouchUI();
   if (state === 'levelclear') drawLevelClear();
   else if (state === 'gameover') drawGameOver();
   else if (state === 'paused') drawPaused();
@@ -1062,25 +1134,50 @@ window.addEventListener('keydown', (e) => {
   anyKeyAction(); e.preventDefault();
 }, { passive: false });
 
-let touchStart = null;
+/* ----- touch: floating joystick (steer) + auto-forward + pause button ---- */
+let joyActive = false, joyOX = 0, joyOY = 0, joyX = 0, joyY = 0;
+
+function localPt(t) {
+  const r = canvas.getBoundingClientRect();
+  const sx = r.width ? CW / r.width : 1, sy = r.height ? CH / r.height : 1;
+  return { x: (t.clientX - r.left) * sx, y: (t.clientY - r.top) * sy };
+}
+function pauseBtnRect() { return { x: CW - 56, y: safeTop + 8, w: 46, h: 46 }; }
+function inRect(px, py, r) { return px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h; }
+// Snap the drag vector to a 4-way grid direction, ignoring a small dead zone.
+function steerFromVec(dx, dy) {
+  const dz = Math.max(9, CELL * 0.45);
+  if (Math.abs(dx) < dz && Math.abs(dy) < dz) return null;
+  return Math.abs(dx) > Math.abs(dy) ? { x: dx > 0 ? 1 : -1, y: 0 } : { x: 0, y: dy > 0 ? 1 : -1 };
+}
+
 canvas.addEventListener('touchstart', (e) => {
   initAudio();
-  const t = e.changedTouches[0]; touchStart = { x: t.clientX, y: t.clientY }; e.preventDefault();
-}, { passive: false });
-canvas.addEventListener('touchend', (e) => {
-  const t = e.changedTouches[0]; if (!touchStart) return;
-  const dx = t.clientX - touchStart.x, dy = t.clientY - touchStart.y, dist = Math.hypot(dx, dy);
-  touchStart = null;
-  if (dist < 22) {
-    if (state === 'playing') state = 'paused';
-    else if (state === 'paused') state = 'playing';
-    else anyKeyAction();
-    return;
+  const t = e.changedTouches[0], p = localPt(t);
+  if (state === 'playing') {
+    if (inRect(p.x, p.y, pauseBtnRect())) { state = 'paused'; e.preventDefault(); return; }
+    joyActive = true; joyOX = p.x; joyOY = p.y; joyX = p.x; joyY = p.y;
+  } else if (state === 'paused') {
+    state = 'playing';
+  } else {
+    anyKeyAction();
   }
-  if (state === 'playing') buffered = Math.abs(dx) > Math.abs(dy) ? { x: dx > 0 ? 1 : -1, y: 0 } : { x: 0, y: dy > 0 ? 1 : -1 };
-  else anyKeyAction();
   e.preventDefault();
 }, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+  if (!joyActive || state !== 'playing') return;
+  const t = e.changedTouches[0], p = localPt(t);
+  joyX = p.x; joyY = p.y;
+  const d = steerFromVec(p.x - joyOX, p.y - joyOY);
+  if (d) buffered = d;                 // applied at the next cell boundary
+  e.preventDefault();
+}, { passive: false });
+
+// Lift finger -> stop steering, but keep advancing in the last direction.
+canvas.addEventListener('touchend', (e) => { joyActive = false; e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchcancel', () => { joyActive = false; });
+
 canvas.addEventListener('mousedown', () => { initAudio(); if (state !== 'playing' && state !== 'paused') anyKeyAction(); });
 
 document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'playing') state = 'paused'; last = 0; });
