@@ -188,8 +188,8 @@ function genNebula(p, level?: number) {
     const x = rand(-80, PW + 80), y = rand(-60, PH + 60);
     const r = big ? rand(160, 360) : dense ? rand(36, 150) : rand(70, 300);
     const g = c.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, col); g.addColorStop(0.4, col + '55'); g.addColorStop(1, 'rgba(0,0,0,0)');
-    c.globalAlpha = rand(0.14, 0.38); c.fillStyle = g;
+    g.addColorStop(0, col); g.addColorStop(0.4, col + '66'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = rand(0.2, 0.5); c.fillStyle = g;
     c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
   }
 
@@ -210,7 +210,7 @@ function genNebula(p, level?: number) {
     const x = rand(PW * 0.2, PW * 0.8), y = rand(PH * 0.2, PH * 0.8), r = rand(40, 110);
     const g = c.createRadialGradient(x, y, 0, x, y, r);
     g.addColorStop(0, p.blobs[p.blobs.length - 1]); g.addColorStop(1, 'rgba(0,0,0,0)');
-    c.globalAlpha = rand(0.3, 0.55); c.fillStyle = g;
+    c.globalAlpha = rand(0.4, 0.72); c.fillStyle = g;
     c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
   }
 
@@ -218,8 +218,8 @@ function genNebula(p, level?: number) {
   const gx = rand(PW * 0.25, PW * 0.75), gy = rand(PH * 0.22, PH * 0.6), gr = rand(64, 116);
   const gg = c.createRadialGradient(gx, gy, 0, gx, gy, gr);
   gg.addColorStop(0, '#ffffff'); gg.addColorStop(0.2, p.blobs[p.blobs.length - 1]);
-  gg.addColorStop(0.55, p.blobs[2] + '55'); gg.addColorStop(1, 'rgba(0,0,0,0)');
-  c.globalAlpha = 0.5; c.fillStyle = gg;
+  gg.addColorStop(0.55, p.blobs[2] + '66'); gg.addColorStop(1, 'rgba(0,0,0,0)');
+  c.globalAlpha = 0.62; c.fillStyle = gg;
   c.beginPath(); c.arc(gx, gy, gr, 0, TAU); c.fill();
   for (let k = 0; k < 64; k++) {                 // flattened halo of stars around it
     const a = rand(0, TAU), rr = rand(6, gr * 0.92);
@@ -257,19 +257,19 @@ function genTwinkles() {
 function genFog() {
   const s = createSurface(PW, PH), c = s.ctx;
   const g = c.createLinearGradient(0, 0, 0, PH);
-  g.addColorStop(0, '#0a0d1c'); g.addColorStop(1, '#06080f');
+  g.addColorStop(0, '#03080c'); g.addColorStop(1, '#01040a');   // deep-water dark
   c.fillStyle = g; c.fillRect(0, 0, PW, PH);
   for (let i = 0; i < 90; i++) {
     const x = Math.random() * PW, y = Math.random() * PH, r = rand(40, 160);
     const rg = c.createRadialGradient(x, y, 0, x, y, r);
     const dark = Math.random() > 0.5;
-    rg.addColorStop(0, dark ? 'rgba(2,3,9,0.5)' : 'rgba(40,52,92,0.16)');
+    rg.addColorStop(0, dark ? 'rgba(0,3,6,0.6)' : 'rgba(14,56,62,0.12)');   // faint teal caustics
     rg.addColorStop(1, 'rgba(0,0,0,0)');
     c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
   }
   for (let i = 0; i < 600; i++) {
-    c.globalAlpha = rand(0.02, 0.08);
-    c.fillStyle = Math.random() > 0.5 ? '#12203f' : '#000008';
+    c.globalAlpha = rand(0.02, 0.07);
+    c.fillStyle = Math.random() > 0.5 ? '#0a2630' : '#000406';
     c.fillRect(Math.random() * PW, Math.random() * PH, 1.4, 1.4);
   }
   c.globalAlpha = 1;
