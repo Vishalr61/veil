@@ -52,7 +52,36 @@ export function genObstacles(rng: SeededRng, p: TerrainParams): Uint8Array {
   }
 
   fillIsolatedPockets(obst, cols, rows, startIdx);
+  erodeDeadEnds(obst, cols, rows);          // no cul-de-sacs the player could get boxed into
+  fillIsolatedPockets(obst, cols, rows, startIdx);
   return obst;
+}
+
+function openNeighbors(obst: Uint8Array, cols: number, rows: number, i: number): number {
+  const x = i % cols, y = (i / cols) | 0;
+  let c = 0;
+  if (x + 1 < cols && !obst[i + 1]) c++;
+  if (x - 1 >= 0 && !obst[i - 1]) c++;
+  if (y + 1 < rows && !obst[i + cols]) c++;
+  if (y - 1 >= 0 && !obst[i - cols]) c++;
+  return c;
+}
+
+// Fill any open interior cell with < 2 open neighbors (a dead-end), repeatedly,
+// so every remaining open cell is on a through-route. The border counts as open,
+// so the spawn fringe is never eroded.
+function erodeDeadEnds(obst: Uint8Array, cols: number, rows: number): void {
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let y = 1; y < rows - 1; y++) {
+      for (let x = 1; x < cols - 1; x++) {
+        const i = y * cols + x;
+        if (obst[i]) continue;
+        if (openNeighbors(obst, cols, rows, i) < 2) { obst[i] = 1; changed = true; }
+      }
+    }
+  }
 }
 
 // Flood the open space from spawn; any open interior cell we can't reach is in a

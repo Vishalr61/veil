@@ -585,6 +585,12 @@ function arrive() {
   if (nd) { player.dir = nd; player.to = (ay + nd.y) * COLS + (ax + nd.x); player.stopped = false; }
   else { player.stopped = true; player.to = arrived; }
 }
+function hasEscape(idx) {
+  const x = idx % COLS, y = (idx / COLS) | 0;
+  const ns = [cellIndex(x + 1, y), cellIndex(x - 1, y), cellIndex(x, y + 1), cellIndex(x, y - 1)];
+  for (const n of ns) if (n !== -1 && grid[n] !== TRAIL && grid[n] !== OBSTACLE) return true;
+  return false;
+}
 function updatePlayer(dt) {
   // Continuously honor a held joystick direction so a turn lands at the next valid cell.
   if (joyActive && joyDir && !buffered) buffered = joyDir;
@@ -594,6 +600,8 @@ function updatePlayer(dt) {
     if (nd) {
       player.dir = nd; player.from = player.to; player.to = (ay + nd.y) * COLS + (ax + nd.x);
       player.stopped = false; player.t = 0;
+    } else if (hasTrail && !hasEscape(player.to)) {
+      respawnAt();   // boxed in by trail/rock — snap the line back, resume on safe ground (no penalty)
     }
   }
   if (!player.stopped) {
@@ -1306,6 +1314,12 @@ function anyKeyAction() {
 window.addEventListener('keydown', (e) => {
   initAudio();
   const k = e.key;
+  // dev-only level navigation (dev server build only):  [ / ] step, 1-9 jump
+  if (import.meta.env.DEV && (state === 'playing' || state === 'paused')) {
+    if (k === ']') { initLevel(level + 1); return; }
+    if (k === '[') { initLevel(Math.max(1, level - 1)); return; }
+    if (k >= '1' && k <= '9') { initLevel(parseInt(k, 10)); return; }
+  }
   if (k === 'm' || k === 'M') { setMuted(!isMuted()); return; }
   if (k === 'r' || k === 'R') { toggleReduce(); return; }
   if (state === 'playing') {

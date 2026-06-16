@@ -51,6 +51,28 @@ describe('terrain', () => {
     for (let seed = 1; seed <= 20; seed++) expect(gen(seed, 20)[START]).toBe(0);
   });
 
+  it('has no dead-ends (every open interior cell has >= 2 open neighbors)', () => {
+    for (let seed = 1; seed <= 40; seed++)
+      for (const level of [3, 8, 20]) {
+        const o = gen(seed, level);
+        for (let y = 1; y < ROWS - 1; y++)
+          for (let x = 1; x < COLS - 1; x++) {
+            const i = y * COLS + x;
+            if (o[i]) continue;
+            let c = 0;
+            if (!o[i + 1]) c++; if (!o[i - 1]) c++; if (!o[i + COLS]) c++; if (!o[i - COLS]) c++;
+            expect(c).toBeGreaterThanOrEqual(2);
+          }
+      }
+  });
+
+  it('erosion does not collapse the playfield (stays mostly open)', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const open = openInteriorCount(gen(seed, 30), COLS, ROWS);
+      expect(open).toBeGreaterThan((COLS - 2) * (ROWS - 2) * 0.5);
+    }
+  });
+
   it('openInteriorCount = interior minus obstacles', () => {
     const o = gen(3, 10);
     expect(openInteriorCount(o, COLS, ROWS)).toBe((COLS - 2) * (ROWS - 2) - sum(o));
