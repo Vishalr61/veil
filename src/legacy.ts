@@ -874,14 +874,17 @@ function update(dt) {
 }
 
 /* ----------------------------- render helpers -------------------------- */
-function setFont(size, weight, spacing) {
-  ctx.font = `${weight || 600} ${size}px 'Segoe UI', system-ui, Arial, sans-serif`;
+function setFont(size, weight, spacing, family) {
+  const fam = family === 'pixel' ? "'Press Start 2P', monospace"
+    : family === 'mono' ? "'VT323', monospace"
+    : "'Segoe UI', system-ui, Arial, sans-serif";
+  ctx.font = `${weight || 600} ${size}px ${fam}`;
   try { ctx.letterSpacing = (spacing || 0) + 'px'; } catch (e) {}
 }
 function glowText(txt, x, y, size, color, opts) {
   opts = opts || {};
   ctx.save();
-  setFont(size, opts.weight, opts.spacing);
+  setFont(size, opts.weight, opts.spacing, opts.font);
   ctx.textAlign = opts.align || 'center';
   ctx.textBaseline = opts.baseline || 'middle';
   ctx.globalAlpha = opts.alpha == null ? 1 : opts.alpha;
@@ -890,6 +893,45 @@ function glowText(txt, x, y, size, color, opts) {
   ctx.shadowBlur = 0;
   if (opts.core) { ctx.fillStyle = opts.core; ctx.fillText(txt, x, y); }
   ctx.restore();
+}
+// retro title with chromatic aberration (cyan/magenta split + white core)
+function retroTitle(txt, x, y, size, opts) {
+  opts = opts || {};
+  ctx.save();
+  setFont(size, 400, opts.spacing || 0, 'pixel');
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const off = Math.max(2, size * 0.06);
+  ctx.globalAlpha = 0.85;
+  ctx.fillStyle = '#00f0ff'; ctx.fillText(txt, x - off, y);
+  ctx.fillStyle = '#ff2d95'; ctx.fillText(txt, x + off, y);
+  ctx.globalAlpha = 1;
+  ctx.shadowColor = opts.glow || '#7df9ff'; ctx.shadowBlur = opts.blur || 18;
+  ctx.fillStyle = '#ffffff'; ctx.fillText(txt, x, y);
+  ctx.restore();
+}
+// CRT scanlines + vignette overlay
+function drawScanlines(vig?: number) {
+  vig = vig == null ? 0.5 : vig;
+  ctx.save();
+  ctx.globalAlpha = 0.06; ctx.fillStyle = '#000';
+  for (let y = 0; y < CH; y += 3) ctx.fillRect(0, y, CW, 1);
+  ctx.globalAlpha = 1;
+  const v = ctx.createRadialGradient(CW / 2, CH / 2, CH * 0.3, CW / 2, CH / 2, CH * 0.78);
+  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, `rgba(0,0,0,${vig})`);
+  ctx.fillStyle = v; ctx.fillRect(0, 0, CW, CH);
+  ctx.restore();
+}
+// chunky double-bordered neon button
+function retroButton(r, label, col) {
+  ctx.save();
+  ctx.globalAlpha = 0.82; ctx.fillStyle = '#0a0a16'; ctx.fillRect(r.x, r.y, r.w, r.h);
+  ctx.globalAlpha = 1; ctx.strokeStyle = col; ctx.lineWidth = 3;
+  ctx.shadowColor = col; ctx.shadowBlur = 12;
+  ctx.strokeRect(r.x + 2, r.y + 2, r.w - 4, r.h - 4);
+  ctx.shadowBlur = 0; ctx.globalAlpha = 0.45; ctx.lineWidth = 1;
+  ctx.strokeRect(r.x + 6, r.y + 6, r.w - 12, r.h - 12);
+  ctx.restore();
+  glowText(label, r.x + r.w / 2, r.y + r.h / 2, Math.min(13, r.h * 0.28), col, { blur: 8, font: 'pixel' });
 }
 function fmtScore(n) { return String(Math.round(n)).padStart(7, '0'); }
 function drawGlowOrb(x, y, r, core, glow, glowR) {
@@ -1159,7 +1201,7 @@ function drawWorld() {
   }
   if (banner.t > 0) {
     const a = clamp(banner.t, 0, 1) * clamp((2.0 - banner.t) * 3, 0, 1);
-    glowText(banner.text, PW / 2, PH / 2 - 14, 40, pal.edge2, { blur: 26, weight: 800, spacing: 5, core: '#fff', alpha: a });
+    glowText(banner.text, PW / 2, PH / 2 - 14, 24, pal.edge2, { blur: 22, font: 'pixel', spacing: 2, core: '#fff', alpha: a });
     glowText(banner.sub, PW / 2, PH / 2 + 20, 14, '#cfe6ff', { blur: 6, weight: 600, spacing: 2, alpha: a });
   }
 
@@ -1188,8 +1230,8 @@ function drawHUD() {
   ctx.restore();
   const cy = safeTop + (HUD_H - safeTop) / 2;   // center below the notch / safe inset
 
-  glowText('SCORE', MARGIN + 8, cy - 12, 9, '#6f86b8', { align: 'left', blur: 0, spacing: 2, weight: 700 });
-  glowText(fmtScore(dispScore), MARGIN + 8, cy + 5, 20, pal.trail, { align: 'left', blur: 10, weight: 700, core: '#fff', spacing: 1 });
+  glowText('SCORE', MARGIN + 8, cy - 13, 11, '#6f86b8', { align: 'left', blur: 0, spacing: 1, font: 'mono' });
+  glowText(fmtScore(dispScore), MARGIN + 8, cy + 6, 24, pal.trail, { align: 'left', blur: 8, font: 'mono', core: '#fff', spacing: 1 });
 
   // combo meter
   if (combo > 1 && state === 'playing') {
@@ -1234,40 +1276,32 @@ function drawHUD() {
 
   for (let i = 0; i < Math.min(lives, 6); i++) drawGlowOrb(rx - i * 16, cy, 4, '#fff', pal.player, 11);
   rx -= Math.min(lives, 6) * 16 + 8;
-  glowText('LVL ' + level, rx, cy, 16, pal.edge2, { align: 'right', blur: 8, weight: 800, spacing: 1 });
+  glowText('LVL ' + level, rx, cy, 19, pal.edge2, { align: 'right', blur: 8, font: 'mono', spacing: 1 });
 }
 
 /* ----------------------------- overlays -------------------------------- */
 function dim(a) { ctx.save(); ctx.fillStyle = `rgba(3,5,12,${a})`; ctx.fillRect(0, 0, CW, CH); ctx.restore(); }
 function drawMenu() {
-  dim(0.5);
-  const cx = CW / 2, cyc = CH / 2, bob = Math.sin(menuT * 1.4) * 4;
-  glowText('V E I L', cx, cyc - 78 + bob, 78, '#bfe4ff', { blur: 34, weight: 800, spacing: 10, core: '#ffffff' });
-  glowText('draw light into the dark', cx, cyc - 26 + bob, 15, '#8fb4ff', { blur: 8, spacing: 4, weight: 600 });
-  const blink = 0.55 + 0.45 * Math.sin(menuT * 3);
-  glowText('PRESS ANY KEY  ·  TAP TO BEGIN', cx, cyc + 28, 16, '#dff1ff', { blur: 12, alpha: blink, weight: 700, spacing: 2 });
-  glowText('drag to steer      enclose space to reveal the cosmos', cx, cyc + 72, 12, '#7f97c8', { blur: 0, spacing: 1 });
-  glowText('uncover caches in the dark      beware the rifts', cx, cyc + 92, 12, '#7f97c8', { blur: 0, spacing: 1 });
-  if (highScore > 0) glowText('BEST  ' + fmtScore(highScore), cx, cyc + 146, 13, pal.edge, { blur: 8, weight: 700, spacing: 2 });
+  dim(0.6);
+  const cx = CW / 2, cyc = CH / 2, bob = Math.sin(menuT * 1.4) * 3;
+  glowText('HI ' + fmtScore(highScore), cx, CH * 0.15, 22, '#ffe93b', { blur: 8, font: 'mono', spacing: 1 });
+  retroTitle('VEIL', cx, cyc - 92 + bob, 50, { blur: 22, glow: '#00f0ff', spacing: 2 });
+  glowText('DRAW LIGHT INTO THE DARK', cx, cyc - 52 + bob, 21, '#00f0ff', { blur: 8, font: 'mono', spacing: 2 });
+  const blink = 0.45 + 0.55 * Math.sin(menuT * 4);
+  glowText('PRESS START', cx, cyc - 8, 11, '#ffffff', { blur: 10, font: 'pixel', alpha: blink });
 
-  // daily challenge entry
-  const dr = dailyBtnRect();
-  ctx.save();
-  ctx.globalAlpha = 0.5; ctx.fillStyle = '#0e1a3a';
-  roundRectPath(dr.x, dr.y, dr.w, dr.h, 12); ctx.fill();
-  ctx.globalAlpha = 1; ctx.strokeStyle = pal.edge2; ctx.lineWidth = 1.5;
-  roundRectPath(dr.x, dr.y, dr.w, dr.h, 12); ctx.stroke();
-  ctx.restore();
-  const tk = todayKey(new Date());
-  const done = dailyPlayedKey === tk;
-  glowText('DAILY CHALLENGE' + (done ? '   ✓' : ''), cx, dr.y + dr.h / 2, 15, pal.edge2, { blur: 8, weight: 800, spacing: 1 });
+  retroButton(playBtnRect(), 'PLAY', '#39ff14');
+  const tk = todayKey(new Date()), done = dailyPlayedKey === tk;
+  retroButton(dailyBtnRect(), done ? 'DAILY ✓' : 'DAILY', '#ff2d95');
+
+  glowText('DRAG TO STEER', cx, cyc + 158, 18, '#9fd8ff', { blur: 4, font: 'mono', spacing: 1 });
   const liveStreak = (dailyStreakDate === tk || isConsecutive(dailyStreakDate, tk)) ? dailyStreak : 0;
-  if (liveStreak > 1) glowText('🔥 ' + liveStreak + ' day streak', cx, dr.y + dr.h + 22, 12, '#ffb15a', { blur: 6, weight: 700, spacing: 1 });
+  if (liveStreak > 1) glowText('STREAK ' + liveStreak, cx, cyc + 184, 18, '#ffb15a', { blur: 4, font: 'mono', spacing: 1 });
 }
 function drawLevelClear() {
   dim(0.45);
   const cx = CW / 2, cyc = CH / 2, t = clamp((2.9 - lcTimer) * 2.2, 0, 1), pop = 1 + (1 - t) * 0.3;
-  glowText('VEIL CLEARED', cx, cyc - 36, 46 * pop, pal.edge2, { blur: 30, weight: 800, spacing: 4, core: '#fff', alpha: t });
+  glowText('VEIL CLEARED', cx, cyc - 36, 44 * pop, pal.edge2, { blur: 26, font: 'mono', spacing: 2, core: '#fff', alpha: t });
   glowText('LEVEL ' + level + '  ·  ' + Math.round(percent * 100) + '% revealed', cx, cyc + 8, 16, '#cfe6ff', { blur: 8, weight: 600, spacing: 1, alpha: t });
   glowText('+ ' + lastBonus + '  bonus', cx, cyc + 40, 18, pal.accent, { blur: 12, weight: 800, alpha: t });
   glowText('next: level ' + (level + 1), cx, cyc + 78, 12, '#7f97c8', { blur: 0, spacing: 2, alpha: t * (0.6 + 0.4 * Math.sin(menuT * 4)) });
@@ -1275,7 +1309,7 @@ function drawLevelClear() {
 function drawGameOver() {
   dim(0.6);
   const cx = CW / 2, cyc = CH / 2, t = clamp(goTimer * 1.6, 0, 1);
-  glowText('THE DARK WINS', cx, cyc - 40, 48, '#ff6b7e', { blur: 28, weight: 800, spacing: 3, core: '#fff', alpha: t });
+  glowText('THE DARK WINS', cx, cyc - 40, 46, '#ff6b7e', { blur: 26, font: 'mono', spacing: 2, core: '#fff', alpha: t });
   glowText('SCORE  ' + fmtScore(score), cx, cyc + 6, 22, '#dff1ff', { blur: 12, weight: 700, spacing: 2, alpha: t });
   const isBest = score >= highScore && score > 0;
   glowText((isBest ? 'NEW BEST!  ' : 'BEST  ') + fmtScore(highScore), cx, cyc + 38, 14, isBest ? '#ffe27a' : pal.edge, { blur: 8, weight: 700, spacing: 1, alpha: t });
@@ -1291,7 +1325,7 @@ function drawGameOver() {
 function drawPaused() {
   dim(0.55);
   const cx = CW / 2, cyc = CH / 2;
-  glowText('PAUSED', cx, cyc - 10, 46, '#cfe6ff', { blur: 24, weight: 800, spacing: 6, core: '#fff' });
+  glowText('PAUSED', cx, cyc - 10, 30, '#cfe6ff', { blur: 18, font: 'pixel', spacing: 2, core: '#fff' });
   const blink = 0.5 + 0.5 * Math.sin(menuT * 3);
   glowText('P / ESC resume      M mute      R reduce motion', cx, cyc + 36, 13, '#9fb6e8', { blur: 8, weight: 700, spacing: 1, alpha: blink });
 }
@@ -1322,16 +1356,20 @@ function drawTouchUI() {
   }
   ctx.restore();
 
-  // floating joystick (only while a finger is down)
+  // floating joystick — retro arcade gate (octagon) + neon square knob
   if (joyActive && state === 'playing') {
     const maxR = CELL * 2.4;
     const dx = joyX - joyOX, dy = joyY - joyOY, len = Math.hypot(dx, dy) || 1;
     const cl = Math.min(len, maxR), tx = joyOX + dx / len * cl, ty = joyOY + dy / len * cl;
     ctx.save();
-    ctx.globalAlpha = 0.22; ctx.strokeStyle = pal.edge2; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(joyOX, joyOY, maxR, 0, TAU); ctx.stroke();
-    ctx.globalAlpha = 0.5; ctx.fillStyle = pal.edge;
-    ctx.beginPath(); ctx.arc(tx, ty, CELL * 0.95, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 0.32; ctx.strokeStyle = '#00f0ff'; ctx.lineWidth = 3;
+    ctx.shadowColor = '#00f0ff'; ctx.shadowBlur = 8;
+    ctx.beginPath();
+    for (let i = 0; i < 8; i++) { const a = i / 8 * TAU + Math.PI / 8, px = joyOX + Math.cos(a) * maxR, py = joyOY + Math.sin(a) * maxR; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+    ctx.closePath(); ctx.stroke(); ctx.shadowBlur = 0;
+    const k = CELL * 0.9;
+    ctx.globalAlpha = 0.8; ctx.fillStyle = '#ff2d95'; ctx.fillRect(tx - k / 2, ty - k / 2, k, k);
+    ctx.globalAlpha = 1; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(tx - k / 2, ty - k / 2, k, k);
     ctx.restore();
   }
 
@@ -1351,12 +1389,13 @@ function drawTouchUI() {
 function render() {
   ctx.setTransform(SS, 0, 0, SS, 0, 0);
   ctx.fillStyle = '#04050c'; ctx.fillRect(0, 0, CW, CH);
-  if (state === 'menu') { drawAttractWorld(); drawMenu(); return; }
+  if (state === 'menu') { drawAttractWorld(); drawMenu(); drawScanlines(); return; }
   drawWorld(); drawHUD();
   if (state === 'playing' || state === 'paused') drawTouchUI();
   if (state === 'levelclear') drawLevelClear();
   else if (state === 'gameover') drawGameOver();
   else if (state === 'paused') drawPaused();
+  drawScanlines(0.3);   // lighter CRT over gameplay than the menu
 }
 
 /* ----------------------------- loop ------------------------------------ */
@@ -1368,6 +1407,7 @@ function frame(now) {
   update(dt); render();
   requestAnimationFrame(frame);
 }
+try { document.fonts.load("700 16px 'Press Start 2P'"); document.fonts.load("400 16px 'VT323'"); } catch (e) {}
 initMotes();
 requestAnimationFrame(frame);
 
@@ -1383,7 +1423,9 @@ function toggleReduce() {
   if (reduceMotion) { shakeAmt = 0; zoom = 1; timeScale = 1; timeScaleTarget = 1; }
   if (state === 'playing') spawnPopup(player.px.x, player.px.y, 'MOTION ' + (reduceMotion ? 'OFF' : 'ON'), pal.edge2, 14);
 }
-function dailyBtnRect() { return { x: CW / 2 - 130, y: CH / 2 + 166, w: 260, h: 46 }; }
+function menuBtnW() { return Math.min(264, CW - 56); }
+function playBtnRect() { const w = menuBtnW(); return { x: CW / 2 - w / 2, y: CH / 2 + 26, w, h: 50 }; }
+function dailyBtnRect() { const w = menuBtnW(); return { x: CW / 2 - w / 2, y: CH / 2 + 90, w, h: 50 }; }
 function startDaily() {
   dailyRunKey = todayKey(new Date());
   isDaily = true;

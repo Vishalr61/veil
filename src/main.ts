@@ -6,4 +6,6 @@
    typed modules under src/ and imported here instead.
    ========================================================================= */
 
+import '@fontsource/press-start-2p';
+import '@fontsource/vt323';
 import './legacy';
