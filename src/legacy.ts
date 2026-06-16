@@ -660,17 +660,14 @@ function moveEnemy(e, dt) {
     flash = reduceMotion ? 0.12 : 0.3; shakeAmt = reduceMotion ? 0 : Math.max(shakeAmt, 7);
     hapticHeavy(); spawnPopup(e.x, e.y, 'WOKE', '#ff5c6e', 16);
   }
-  // cutter: race to the nearest point on your drawn line (slice it); else come for you
+  // cutter: while you draw, beeline to the BASE of your line (a fixed point) to cut you
+  // off — a predictable straight approach. Otherwise it just drifts like a regular enemy.
   if (e.type === 'cutter') {
     e.steerT -= dt;
-    if (e.steerT <= 0) {
-      e.steerT = 0.35;
-      let tx = player.px.x, ty = player.px.y;
-      if (hasTrail && trailPoints.length) {
-        let best = Infinity;
-        for (const p of trailPoints) { const d = (p.x - e.x) ** 2 + (p.y - e.y) ** 2; if (d < best) { best = d; tx = p.x; ty = p.y; } }
-      }
-      const dx = tx - e.x, dy = ty - e.y;
+    if (e.steerT <= 0 && hasTrail && trailPoints.length) {
+      e.steerT = 0.5;
+      const t0 = trailPoints[0];
+      const dx = t0.x - e.x, dy = t0.y - e.y;
       e.vx = (dx === 0 ? (e.vx > 0 ? 1 : -1) : Math.sign(dx)) * e.comp;
       e.vy = (dy === 0 ? (e.vy > 0 ? 1 : -1) : Math.sign(dy)) * e.comp;
     }
