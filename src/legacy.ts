@@ -7,46 +7,34 @@
 
 'use strict';
 
+import { hapticLight, hapticMedium, hapticHeavy } from './platform/haptics.js';
+import { TAU, clamp, lerp, rand } from './core/math';
+import { SeededRng } from './core/rng';
+import { genVeilBoard, VEIL_CACHE, VEIL_HAZARD } from './sim/veil';
+import { genObstacles, openInteriorCount } from './sim/terrain';
+import { todayKey, seedFromDateKey, shareText, isConsecutive } from './daily/daily';
+import { shareResult } from './platform/share';
+import { EMPTY, FILLED, TRAIL, OBSTACLE, COMBO_WINDOW, SS } from './core/constants';
+import { ENEMY_COL, ENEMY_GLOW, CHASER_COL, CHASER_GLOW } from './core/palettes';
+import { bandForLevel, BANDS } from './core/bands';
+import {
+  initAudio, setMuted, isMuted, setPadLevel,
+  sfxStartDraw, sfxCapture, sfxBold, sfxDeath, sfxLevel, sfxPickup, sfxShield, sfxBlip, sfxBest,
+} from './audio/audio';
+
 /* ----------------------------- config ---------------------------------- */
-const COLS = 44;
-const ROWS = 27;
-const CELL = 20;
-const PW = COLS * CELL;          // 880
-const PH = ROWS * CELL;          // 540
-const MARGIN = 14;
-const HUD_H = 50;
-const CW = PW + MARGIN * 2;
-const CH = HUD_H + PH + MARGIN;
-const SS = Math.max(1, Math.min(2, Math.round(window.devicePixelRatio || 1))); // DPR-aware
-const OFF_X = MARGIN;
-const OFF_Y = HUD_H;
-
-const EMPTY = 0, FILLED = 1, TRAIL = 2;
-const INTERIOR_TOTAL = (COLS - 2) * (ROWS - 2);
-const COMBO_WINDOW = 4.5;        // seconds to chain a capture
-
-/* ----------------------------- palettes -------------------------------- */
-const PALETTES = [
-  { name: 'aurora', blobs: ['#0a2a43', '#0f5568', '#1b8a7a', '#2bd4a7', '#86ffd9'],
-    star: '#dff9ff', edge: '#63fbef', edge2: '#bafff5', trail: '#eafffb', player: '#ffffff', accent: '#5ffbd0' },
-  { name: 'violet', blobs: ['#190b3a', '#3a1d7a', '#6a34d6', '#a865ff', '#e6c6ff'],
-    star: '#f1e6ff', edge: '#c69bff', edge2: '#ecdcff', trail: '#f6ecff', player: '#ffffff', accent: '#c89bff' },
-  { name: 'ember', blobs: ['#2c0a26', '#5e1140', '#a8264f', '#e85d3a', '#ffb55a'],
-    star: '#ffe9d6', edge: '#ff9d6e', edge2: '#ffd9b0', trail: '#fff0df', player: '#ffffff', accent: '#ff9b5a' },
-  { name: 'ocean', blobs: ['#041f3a', '#0a4d8c', '#1683cf', '#37b6ff', '#9fe4ff'],
-    star: '#e5f6ff', edge: '#7fdcff', edge2: '#cdf2ff', trail: '#ecfbff', player: '#ffffff', accent: '#6fd2ff' },
-  { name: 'rose', blobs: ['#2a0b22', '#6a1450', '#b8327f', '#ff5fa8', '#ffc2e0'],
-    star: '#ffe7f4', edge: '#ff8fc6', edge2: '#ffd2e8', trail: '#fff0f7', player: '#ffffff', accent: '#ff8fc6' },
-];
-
-const ENEMY_COL = '#ff465c', ENEMY_GLOW = '#ff7a52';
-const CHASER_COL = '#ff44d4', CHASER_GLOW = '#ff7ae8';
+/* Layout is derived from the device viewport at startup (see computeLayout)
+   so the play field fills the screen in portrait instead of letterboxing.
+   These are seeded with sane defaults and overwritten before first render. */
+let COLS = 24, ROWS = 44, CELL = 16;
+let PW = COLS * CELL, PH = ROWS * CELL;
+let MARGIN = 0, HUD_H = 64;
+let CW = PW, CH = HUD_H + PH;
+let OFF_X = 0, OFF_Y = HUD_H;
+let INTERIOR_TOTAL = (COLS - 2) * (ROWS - 2);
+let safeTop = 0, safeBottom = 0;
 
 /* ----------------------------- utilities ------------------------------- */
-const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
-const lerp = (a, b, t) => a + (b - a) * t;
-const rand = (a, b) => a + Math.random() * (b - a);
-const TAU = Math.PI * 2;
 
 function cellIndex(x, y) {
   if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return -1;
@@ -70,87 +58,89 @@ function createSurface(w, h) {
   return { canvas: c, ctx: cx, w, h };
 }
 
-/* ----------------------------- canvas ---------------------------------- */
-const canvas = document.getElementById('game');
-canvas.width = Math.round(CW * SS);
-canvas.height = Math.round(CH * SS);
-const ctx = canvas.getContext('2d');
+/* ----------------------------- canvas / layout ------------------------- */
+const canvas = document.getElementById('game') as HTMLCanvasElement;
+const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
 
-function fitToWindow() {
-  const pad = 24;
-  const scale = Math.min((window.innerWidth - pad) / CW, (window.innerHeight - pad) / CH, 1.6);
-  canvas.style.width = Math.round(CW * scale) + 'px';
-  canvas.style.height = Math.round(CH * scale) + 'px';
-}
-window.addEventListener('resize', fitToWindow);
-fitToWindow();
-
-/* ----------------------------- audio ----------------------------------- */
-let ac = null, masterGain = null, padGain = null;
-let muted = false, reduceMotion = false;
-try { muted = localStorage.getItem('veil_muted') === '1'; } catch (e) {}
-try { reduceMotion = localStorage.getItem('veil_reduce') === '1'; } catch (e) {}
-
-function initAudio() {
-  if (ac) return;
+// Read iOS/Android safe-area insets (notch / home indicator). Needs the page
+// meta to use viewport-fit=cover, which index.html sets.
+function readSafeInsets() {
+  // Read the --sat/--sab custom properties (defined in index.html with env()).
+  // Reading resolved CSS vars off :root is more reliable than a probe element.
   try {
-    ac = new (window.AudioContext || window.webkitAudioContext)();
-    masterGain = ac.createGain();
-    masterGain.gain.value = muted ? 0 : 0.9;
-    masterGain.connect(ac.destination);
-    padGain = ac.createGain();
-    padGain.gain.value = 0.0;
-    padGain.connect(masterGain);
-    startPad();
-  } catch (e) { ac = null; }
+    const cs = getComputedStyle(document.documentElement);
+    safeTop = parseFloat(cs.getPropertyValue('--sat')) || 0;
+    safeBottom = parseFloat(cs.getPropertyValue('--sab')) || 0;
+  } catch (e) { safeTop = 0; safeBottom = 0; }
 }
-function startPad() {
-  if (!ac) return;
-  [55, 82.4, 110].forEach((f, i) => {
-    const o = ac.createOscillator(); o.type = 'sine'; o.frequency.value = f;
-    const g = ac.createGain(); g.gain.value = 0.5 / (i + 1);
-    const lfo = ac.createOscillator(); lfo.frequency.value = 0.05 + i * 0.03;
-    const lg = ac.createGain(); lg.gain.value = 1.5;
-    lfo.connect(lg); lg.connect(o.frequency);
-    o.connect(g); g.connect(padGain);
-    o.start(); lfo.start();
-  });
-  padGain.gain.linearRampToValueAtTime(0.03, ac.currentTime + 4);
+
+// Derive grid dimensions + offsets so the play field fills the viewport.
+function computeLayout() {
+  readSafeInsets();
+  const vw = Math.max(320, window.innerWidth | 0);
+  const vh = Math.max(480, window.innerHeight | 0);
+  CW = vw; CH = vh; MARGIN = 0;
+  HUD_H = Math.round(Math.min(70, vh * 0.06) + safeTop + 10);
+  const top = HUD_H, bottom = vh - Math.max(safeBottom, 6), availH = bottom - top;
+  const cell = clamp(Math.round(vw / 23), 12, 34);   // ~23 columns on a phone
+  COLS = Math.max(14, Math.floor(vw / cell));
+  ROWS = Math.max(16, Math.floor(availH / cell));
+  CELL = cell;
+  PW = COLS * CELL; PH = ROWS * CELL;
+  OFF_X = Math.floor((vw - PW) / 2);
+  OFF_Y = top + Math.floor((availH - PH) / 2);
+  INTERIOR_TOTAL = (COLS - 2) * (ROWS - 2);
 }
-function tone(freq, dur, type, gain, when, slideTo) {
-  if (!ac || muted) return;
-  const t0 = ac.currentTime + (when || 0);
-  const o = ac.createOscillator(), g = ac.createGain();
-  o.type = type || 'sine';
-  o.frequency.setValueAtTime(freq, t0);
-  if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(1, slideTo), t0 + dur);
-  g.gain.setValueAtTime(0.0001, t0);
-  g.gain.exponentialRampToValueAtTime(gain, t0 + 0.012);
-  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  o.connect(g); g.connect(masterGain);
-  o.start(t0); o.stop(t0 + dur + 0.02);
+function applyCanvasSize() {
+  canvas.width = Math.round(CW * SS);
+  canvas.height = Math.round(CH * SS);
+  canvas.style.width = CW + 'px';
+  canvas.style.height = CH + 'px';
+  ctx.setTransform(SS, 0, 0, SS, 0, 0);
 }
-function sfxStartDraw() { tone(420, 0.12, 'triangle', 0.10, 0, 540); }
-function sfxCapture(ch) {
-  const base = 360 + Math.min(ch, 8) * 40;
-  [0, 4, 7, 11].forEach((n, i) => tone(base * Math.pow(2, n / 12), 0.22, 'triangle', 0.10, i * 0.045, base * Math.pow(2, n / 12) * 1.5));
+let lastVW = 0, lastVH = 0;
+function relayout(force) {
+  const vw = window.innerWidth | 0, vh = window.innerHeight | 0;
+  // Ignore tiny changes (mobile URL-bar show/hide) to avoid resetting mid-play.
+  if (!force && Math.abs(vw - lastVW) < 40 && Math.abs(vh - lastVH) < 40) return;
+  lastVW = vw; lastVH = vh;
+  computeLayout(); applyCanvasSize();
+  menuNebula = null;
+  // Grid dimensions may have changed; rebuild the current level to stay valid.
+  if (state === 'playing' || state === 'paused') initLevel(level);
 }
-function sfxBold() { [0, 7, 12, 19].forEach((n, i) => tone(330 * Math.pow(2, n / 12), 0.3, 'sawtooth', 0.08, i * 0.05)); }
-function sfxDeath() { tone(220, 0.5, 'sawtooth', 0.18, 0, 50); tone(110, 0.6, 'square', 0.10, 0.02, 40); }
-function sfxLevel() { [0, 4, 7, 12, 16].forEach((n, i) => tone(440 * Math.pow(2, n / 12), 0.3, 'triangle', 0.12, i * 0.09)); }
-function sfxPickup() { [0, 5, 9, 14].forEach((n, i) => tone(520 * Math.pow(2, n / 12), 0.16, 'triangle', 0.10, i * 0.04, 1400)); }
-function sfxShield() { tone(300, 0.4, 'sine', 0.14, 0, 700); tone(450, 0.4, 'triangle', 0.08, 0.03); }
-function sfxBlip() { tone(660, 0.08, 'triangle', 0.08, 0, 880); }
-function sfxBest() { [0, 4, 7, 12, 16, 19].forEach((n, i) => tone(523 * Math.pow(2, n / 12), 0.35, 'triangle', 0.10, i * 0.1)); }
-function setMuted(m) {
-  muted = m;
-  try { localStorage.setItem('veil_muted', m ? '1' : '0'); } catch (e) {}
-  if (masterGain) masterGain.gain.value = m ? 0 : 0.9;
-}
+window.addEventListener('resize', () => relayout(false));
+window.addEventListener('orientationchange', () => relayout(true));
+lastVW = window.innerWidth | 0; lastVH = window.innerHeight | 0;
+computeLayout(); applyCanvasSize();
+// Safe-area insets can populate a frame or two after load in a WKWebView;
+// re-check so the HUD ends up below the notch/Dynamic Island, not under it.
+window.addEventListener('load', () => relayout(true));
+requestAnimationFrame(() => relayout(true));
+setTimeout(() => relayout(true), 400);
+
+/* ----------------------------- settings -------------------------------- */
+let reduceMotion = false;
+try { reduceMotion = localStorage.getItem('veil_reduce') === '1'; } catch (e) {}
 
 /* ----------------------------- state ----------------------------------- */
 let grid = new Uint8Array(COLS * ROWS);
+let veilBoard: Uint8Array = new Uint8Array(0);   // hidden content per cell, revealed on capture
 let state = 'menu';
+let gameSeed = 1;                   // per-run seed; the daily challenge will set this to a date seed
+let rng = new SeededRng(gameSeed);  // seeded simulation stream, re-forked per level in initLevel
+let isDaily = false;                // is the current run the daily challenge?
+let dailyRunKey = '';               // date key of the active/last daily run
+let dailyResultText = '';           // shareable result, built at daily game over
+let dailyBest = 0, dailyPlayedKey = '';
+try { dailyBest = parseInt(localStorage.getItem('veil_daily_best') || '0', 10) || 0; } catch (e) {}
+try { dailyPlayedKey = localStorage.getItem('veil_daily_played') || ''; } catch (e) {}
+let dailyStreak = 0, dailyStreakDate = '';
+try { dailyStreak = parseInt(localStorage.getItem('veil_daily_streak') || '0', 10) || 0; } catch (e) {}
+try { dailyStreakDate = localStorage.getItem('veil_daily_streak_date') || ''; } catch (e) {}
+let onboarded = false;                 // has the player completed the first-run teach?
+try { onboarded = localStorage.getItem('veil_onboarded') === '1'; } catch (e) {}
+let onboarding = false, firstMoveDone = false;
 let level = 1;
 let score = 0, dispScore = 0;
 let highScore = 0;
@@ -169,7 +159,7 @@ let hasTrail = false, trailCells = [], trailPoints = [];
 let enemies = [], particles = [], motes = [], popups = [], pickups = [], twinkles = [];
 let revealQueue = [];
 
-let nebula = null, fog = null, pal = PALETTES[0];
+let nebula = null, fog = null, pal = bandForLevel(1);
 let borderPath = null;
 
 let shakeAmt = 0, flash = 0, zoom = 1;
@@ -178,37 +168,121 @@ let deathFreeze = 0, drawSoundLock = 0;
 let enemyFreezeT = 0, enemySlowT = 0;        // power-up effects on enemies
 let shield = false;
 let pickupSpawnT = 6;
+let shootingStars = [], shootTimer = 4;
 let banner = { text: '', sub: '', t: 0 };
 let hintActive = false;
 
 /* ----------------------------- background art -------------------------- */
-function genNebula(p) {
+function genNebula(p, level?: number) {
+  level = level || 1;
   const s = createSurface(PW, PH), c = s.ctx;
   c.fillStyle = '#04050d'; c.fillRect(0, 0, PW, PH);
   c.globalCompositeOperation = 'lighter';
-  for (let i = 0; i < 46; i++) {
+
+  // band style drives the backdrop flavor (magma / caves / ocean / surface / sky / aurora / space)
+  const style = p.style || 'space';
+  const big = style === 'magma' || style === 'surface';
+  const wispy = style === 'aurora' || style === 'sky';
+  const dense = style === 'space' || style === 'ocean';
+
+  // nebula clouds
+  const blobCount = dense ? 60 : big ? 32 : 44;
+  for (let i = 0; i < blobCount; i++) {
     const col = p.blobs[(Math.random() * p.blobs.length) | 0];
-    const x = rand(-80, PW + 80), y = rand(-60, PH + 60), r = rand(70, 320);
+    const x = rand(-80, PW + 80), y = rand(-60, PH + 60);
+    const r = big ? rand(160, 360) : dense ? rand(36, 150) : rand(70, 300);
     const g = c.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, col); g.addColorStop(0.4, col + '55'); g.addColorStop(1, 'rgba(0,0,0,0)');
-    c.globalAlpha = rand(0.16, 0.4); c.fillStyle = g;
+    g.addColorStop(0, col); g.addColorStop(0.4, col + '66'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = rand(0.2, 0.5); c.fillStyle = g;
     c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
   }
+
+  // signature accent per band
+  if (style === 'magma') {
+    for (let i = 0; i < 7; i++) {                       // glowing lava veins rising from below
+      let vx = rand(0, PW), vy = PH + 10;
+      c.globalAlpha = rand(0.3, 0.6); c.strokeStyle = p.blobs[3]; c.lineWidth = rand(1.5, 3.5);
+      c.shadowColor = p.edge; c.shadowBlur = 8; c.beginPath(); c.moveTo(vx, vy);
+      for (let k = 0; k < 6; k++) { vx += rand(-30, 30); vy -= rand(40, 80); c.lineTo(vx, vy); }
+      c.stroke();
+    }
+    c.shadowBlur = 0;
+  } else if (style === 'caves') {
+    for (let i = 0; i < 14; i++) {                      // crystal shards
+      const x = rand(0, PW), y = rand(0, PH), h = rand(20, 60), w = rand(6, 16);
+      c.globalAlpha = rand(0.15, 0.4); c.fillStyle = p.blobs[3];
+      c.save(); c.translate(x, y); c.rotate(rand(0, TAU));
+      c.beginPath(); c.moveTo(0, -h); c.lineTo(w, h * 0.5); c.lineTo(-w, h * 0.5); c.closePath(); c.fill();
+      c.restore();
+    }
+  } else if (style === 'sky') {
+    for (let i = 0; i < 6; i++) {                        // soft horizontal cloud bands
+      const y = rand(0, PH), h = rand(40, 110);
+      const g = c.createLinearGradient(0, y - h, 0, y + h);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, p.blobs[4] + '40'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      c.globalAlpha = rand(0.2, 0.5); c.fillStyle = g; c.fillRect(0, y - h, PW, h * 2);
+    }
+  } else if (style === 'aurora') {
+    for (let i = 0; i < 6; i++) {                        // vertical aurora ribbons
+      const x = rand(0, PW), w = rand(30, 90), col = i % 2 ? p.blobs[3] : p.accent;
+      const g = c.createLinearGradient(x - w, 0, x + w, 0);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, col + '50'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      c.globalAlpha = rand(0.25, 0.55); c.fillStyle = g; c.fillRect(x - w, 0, w * 2, PH);
+    }
+  }
+
+  // dust filaments / lanes — structure, not just round blobs
+  for (let i = 0, n = wispy ? 11 : 5; i < n; i++) {
+    const col = p.blobs[2 + ((Math.random() * 3) | 0)], len = rand(120, 380);
+    c.save();
+    c.translate(rand(0, PW), rand(0, PH)); c.rotate(rand(0, TAU));
+    const g = c.createLinearGradient(-len / 2, 0, len / 2, 0);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, col + '40'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = rand(0.1, 0.24); c.fillStyle = g;
+    c.beginPath(); c.ellipse(0, 0, len / 2, rand(8, 22), 0, 0, TAU); c.fill();
+    c.restore();
+  }
+
+  // bright cores
   for (let i = 0; i < 5; i++) {
     const x = rand(PW * 0.2, PW * 0.8), y = rand(PH * 0.2, PH * 0.8), r = rand(40, 110);
     const g = c.createRadialGradient(x, y, 0, x, y, r);
     g.addColorStop(0, p.blobs[p.blobs.length - 1]); g.addColorStop(1, 'rgba(0,0,0,0)');
-    c.globalAlpha = rand(0.3, 0.55); c.fillStyle = g;
+    c.globalAlpha = rand(0.4, 0.72); c.fillStyle = g;
     c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
   }
-  c.globalAlpha = 1;
-  for (let i = 0; i < 320; i++) {
+
+  // a focal landmark: a distant galaxy — gives the level a sense of place
+  const gx = rand(PW * 0.25, PW * 0.75), gy = rand(PH * 0.22, PH * 0.6), gr = rand(64, 116);
+  const gg = c.createRadialGradient(gx, gy, 0, gx, gy, gr);
+  gg.addColorStop(0, '#ffffff'); gg.addColorStop(0.2, p.blobs[p.blobs.length - 1]);
+  gg.addColorStop(0.55, p.blobs[2] + '66'); gg.addColorStop(1, 'rgba(0,0,0,0)');
+  c.globalAlpha = 0.62; c.fillStyle = gg;
+  c.beginPath(); c.arc(gx, gy, gr, 0, TAU); c.fill();
+  for (let k = 0; k < 64; k++) {                 // flattened halo of stars around it
+    const a = rand(0, TAU), rr = rand(6, gr * 0.92);
+    c.globalAlpha = rand(0.3, 0.9); c.fillStyle = p.star;
+    c.beginPath(); c.arc(gx + Math.cos(a) * rr, gy + Math.sin(a) * rr * 0.5, rand(0.4, 1.3), 0, TAU); c.fill();
+  }
+
+  // star field — varied sizes, a few tinted stars
+  for (let i = 0, n = (style === 'sky' || style === 'surface') ? 150 : dense ? 420 : 320; i < n; i++) {
     const x = Math.random() * PW, y = Math.random() * PH, a = Math.random();
-    const r = a > 0.92 ? rand(1.2, 2.2) : rand(0.4, 1.1);
-    c.globalAlpha = rand(0.25, 0.95); c.fillStyle = p.star;
+    const r = a > 0.92 ? rand(1.2, 2.4) : rand(0.4, 1.1);
+    c.globalAlpha = rand(0.25, 0.95); c.fillStyle = a > 0.97 ? p.edge2 : p.star;
     if (a > 0.95) { c.shadowColor = p.star; c.shadowBlur = 6; } else c.shadowBlur = 0;
     c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
   }
+  // open star clusters
+  c.shadowBlur = 0;
+  for (let cl = 0; cl < 3; cl++) {
+    const cxs = rand(PW * 0.1, PW * 0.9), cys = rand(PH * 0.1, PH * 0.9);
+    for (let k = 0; k < 22; k++) {
+      c.globalAlpha = rand(0.3, 0.9); c.fillStyle = p.star;
+      c.beginPath(); c.arc(cxs + rand(-26, 26), cys + rand(-26, 26), rand(0.4, 1.2), 0, TAU); c.fill();
+    }
+  }
+
   c.shadowBlur = 0; c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
   return s;
 }
@@ -218,22 +292,80 @@ function genTwinkles() {
     twinkles.push({ x: Math.random() * PW, y: Math.random() * PH, r: rand(0.6, 1.8), phase: Math.random() * TAU, spd: rand(1.5, 4) });
   }
 }
-function genFog() {
+function hexA(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+// Band-specific texture on the dark veil — the surface the player actually stares at.
+function fogSignature(c, pal, style) {
+  const d1 = pal.blobs[1], d2 = pal.blobs[2];
+  if (style === 'caves') {                              // rocky angular shards
+    for (let i = 0; i < 26; i++) {
+      const x = rand(0, PW), y = rand(0, PH), w = rand(20, 60), h = rand(14, 40);
+      c.globalAlpha = rand(0.12, 0.24); c.fillStyle = d1;
+      c.save(); c.translate(x, y); c.rotate(rand(-0.4, 0.4));
+      c.beginPath(); c.moveTo(-w / 2, h / 2); c.lineTo(0, -h / 2); c.lineTo(w / 2, h / 2); c.closePath(); c.fill();
+      c.restore();
+    }
+  } else if (style === 'ocean') {                       // horizontal caustic ripples
+    for (let i = 0; i < 28; i++) {
+      c.globalAlpha = rand(0.04, 0.1); c.fillStyle = d2;
+      c.beginPath(); c.ellipse(rand(0, PW), rand(0, PH), rand(40, 120), rand(1.5, 4), 0, 0, TAU); c.fill();
+    }
+  } else if (style === 'sky') {                         // soft cloud cover
+    for (let i = 0; i < 18; i++) {
+      const x = rand(0, PW), y = rand(0, PH), r = rand(34, 96);
+      const rg = c.createRadialGradient(x, y, 0, x, y, r);
+      rg.addColorStop(0, hexA(d2, 0.14)); rg.addColorStop(1, 'rgba(0,0,0,0)');
+      c.globalAlpha = 1; c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+    }
+  } else if (style === 'magma') {                       // ember cracks
+    for (let i = 0; i < 12; i++) {
+      let x = rand(0, PW), y = rand(0, PH);
+      c.globalAlpha = 1; c.strokeStyle = hexA(pal.blobs[3], 0.22); c.lineWidth = rand(0.6, 1.6);
+      c.beginPath(); c.moveTo(x, y);
+      for (let k = 0; k < 4; k++) { x += rand(-40, 40); y += rand(-40, 40); c.lineTo(x, y); }
+      c.stroke();
+    }
+  } else if (style === 'aurora') {                      // faint vertical shimmer
+    for (let i = 0; i < 8; i++) {
+      const x = rand(0, PW), w = rand(20, 60);
+      const g = c.createLinearGradient(x - w, 0, x + w, 0);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, hexA(pal.blobs[3], 0.1)); g.addColorStop(1, 'rgba(0,0,0,0)');
+      c.globalAlpha = 1; c.fillStyle = g; c.fillRect(x - w, 0, w * 2, PH);
+    }
+  } else if (style === 'surface') {                     // organic mottling
+    for (let i = 0; i < 30; i++) {
+      c.globalAlpha = rand(0.08, 0.18); c.fillStyle = d2;
+      c.beginPath(); c.arc(rand(0, PW), rand(0, PH), rand(10, 36), 0, TAU); c.fill();
+    }
+  } else {                                              // space: faint stars in the dark
+    for (let i = 0; i < 120; i++) {
+      c.globalAlpha = rand(0.05, 0.22); c.fillStyle = pal.star;
+      c.beginPath(); c.arc(Math.random() * PW, Math.random() * PH, rand(0.3, 0.9), 0, TAU); c.fill();
+    }
+  }
+  c.globalAlpha = 1;
+}
+function genFog(pal) {
+  const style = pal.style || 'space';
   const s = createSurface(PW, PH), c = s.ctx;
+  const d0 = pal.blobs[0], d1 = pal.blobs[1];           // band-tinted near-black
+  c.fillStyle = d0; c.fillRect(0, 0, PW, PH);
   const g = c.createLinearGradient(0, 0, 0, PH);
-  g.addColorStop(0, '#0a0d1c'); g.addColorStop(1, '#06080f');
+  g.addColorStop(0, hexA(d1, 0.5)); g.addColorStop(1, hexA(d0, 0));   // subtle lift up top
   c.fillStyle = g; c.fillRect(0, 0, PW, PH);
   for (let i = 0; i < 90; i++) {
     const x = Math.random() * PW, y = Math.random() * PH, r = rand(40, 160);
     const rg = c.createRadialGradient(x, y, 0, x, y, r);
-    const dark = Math.random() > 0.5;
-    rg.addColorStop(0, dark ? 'rgba(2,3,9,0.5)' : 'rgba(40,52,92,0.16)');
+    rg.addColorStop(0, Math.random() > 0.5 ? 'rgba(0,0,0,0.5)' : hexA(d1, 0.16));
     rg.addColorStop(1, 'rgba(0,0,0,0)');
     c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
   }
-  for (let i = 0; i < 600; i++) {
-    c.globalAlpha = rand(0.02, 0.08);
-    c.fillStyle = Math.random() > 0.5 ? '#12203f' : '#000008';
+  fogSignature(c, pal, style);
+  for (let i = 0; i < 500; i++) {
+    c.globalAlpha = rand(0.02, 0.06);
+    c.fillStyle = Math.random() > 0.5 ? hexA(d1, 1) : '#000';
     c.fillRect(Math.random() * PW, Math.random() * PH, 1.4, 1.4);
   }
   c.globalAlpha = 1;
@@ -268,6 +400,12 @@ function recomputePercent() {
   percent = f / INTERIOR_TOTAL;
 }
 
+function veilBurst(x: number, y: number, col: string) {
+  for (let i = 0; i < 16; i++) {
+    const ang = Math.random() * TAU, sp = rand(40, 165);
+    particles.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: rand(0.4, 0.9), max: 0.9, r: rand(1.2, 3), col });
+  }
+}
 function doCapture() {
   for (const idx of trailCells) grid[idx] = FILLED;
 
@@ -310,16 +448,43 @@ function doCapture() {
       const bonus = Math.round(area * 6 * mult);
       score += bonus;
       spawnPopup(origin.x, origin.y + 14, 'BOLD CUT  +' + bonus, '#ffe27a', 18);
-      sfxBold();
+      sfxBold(); hapticHeavy();
       flash = reduceMotion ? 0.2 : 0.55;
       zoom = reduceMotion ? 1 : 1 + Math.min(0.05, area * 0.0006);
     } else {
+      hapticMedium();
       flash = reduceMotion ? 0.08 : Math.min(0.35, 0.1 + area * 0.003);
       zoom = reduceMotion ? 1 : 1 + Math.min(0.025, area * 0.0004);
     }
     shakeAmt = reduceMotion ? 0 : Math.min(10, 2.5 + area * 0.04);
     sfxCapture(combo);
     hintActive = false;
+    if (onboarding) {                    // first-ever capture: the "whoa" beat
+      onboarding = false; onboarded = true;
+      try { localStorage.setItem('veil_onboarded', '1'); } catch (e) {}
+      banner = { text: 'THE COSMOS REVEALS', sub: 'enclose more to clear the level', t: 2.4 };
+    }
+  }
+
+  // veil-as-discovery: capturing uncovers whatever the dark was hiding here
+  for (const idx of captured) {
+    const v = veilBoard[idx];
+    if (!v) continue;
+    veilBoard[idx] = 0;
+    const c = centerPx(idx);
+    if (v === VEIL_CACHE) {
+      const bonus = 250 + level * 60;
+      score += bonus;
+      spawnPopup(c.x, c.y, '✦ +' + bonus, '#ffe27a', 15);
+      veilBurst(c.x, c.y, '#ffe27a');
+      hapticMedium();
+    } else if (v === VEIL_HAZARD) {
+      combo = 0; comboT = 0;                                   // a rift breaks your chain
+      spawnPopup(c.x, c.y, '✶ RIFT', '#ff6a8a', 15);
+      flash = reduceMotion ? 0.12 : 0.35; shakeAmt = reduceMotion ? 0 : Math.max(shakeAmt, 8);
+      veilBurst(c.x, c.y, '#ff6a8a');
+      hapticHeavy();
+    }
   }
 
   trailCells = []; trailPoints = []; hasTrail = false;
@@ -385,18 +550,18 @@ const PU_TYPES = [
 ];
 function pickPU() {
   const total = PU_TYPES.reduce((s, p) => s + p.w, 0);
-  let r = Math.random() * total;
+  let r = rng.next() * total;
   for (const p of PU_TYPES) { if ((r -= p.w) <= 0) return p; }
   return PU_TYPES[0];
 }
 function maybeSpawnPickup(dt) {
   pickupSpawnT -= dt;
   if (pickupSpawnT > 0 || pickups.length >= 2) return;
-  pickupSpawnT = rand(7, 12);
+  pickupSpawnT = rng.range(7, 12);
   const pcell = cellOfPx(player.px);
   let idx = -1;
   for (let t = 0; t < 50; t++) {
-    const cx = 2 + ((Math.random() * (COLS - 4)) | 0), cy = 2 + ((Math.random() * (ROWS - 4)) | 0);
+    const cx = 2 + rng.int(COLS - 4), cy = 2 + rng.int(ROWS - 4);
     const i = cy * COLS + cx;
     if (grid[i] !== EMPTY) continue;
     if (Math.abs(cx - pcell % COLS) + Math.abs(cy - (pcell / COLS | 0)) < 5) continue;
@@ -419,7 +584,7 @@ function updatePickups(dt) {
   }
 }
 function applyPickup(p) {
-  sfxPickup();
+  sfxPickup(); hapticLight();
   for (let i = 0; i < 18; i++) {
     const ang = Math.random() * TAU, sp = rand(40, 150);
     particles.push({ x: p.x, y: p.y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: rand(0.4, 0.9), max: 0.9, r: rand(1.2, 3), col: p.col });
@@ -444,14 +609,14 @@ function genEnemies(lv) {
   const spd = Math.min(115 + 8 * (lv - 1), 205);
   const sc = centerPx((COLS >> 1));
   function place(type, speed) {
-    let x, y, tries = 0;
+    let x, y, tries = 0, cx = 2, cy = 2;
     do {
-      const cx = 2 + ((Math.random() * (COLS - 4)) | 0), cy = 2 + ((Math.random() * (ROWS - 4)) | 0);
+      cx = 2 + rng.int(COLS - 4); cy = 2 + rng.int(ROWS - 4);
       x = (cx + 0.5) * CELL; y = (cy + 0.5) * CELL; tries++;
-    } while (Math.hypot(x - sc.x, y - sc.y) < CELL * 7 && tries < 60);
+    } while ((Math.hypot(x - sc.x, y - sc.y) < CELL * 7 || grid[cy * COLS + cx] === OBSTACLE) && tries < 60);
     const comp = speed * 0.7071;
-    out.push({ x, y, vx: (Math.random() < 0.5 ? -1 : 1) * comp, vy: (Math.random() < 0.5 ? -1 : 1) * comp,
-      r: CELL * 0.42, type, speed, comp, steerT: rand(0.2, 0.6) });
+    out.push({ x, y, vx: (rng.next() < 0.5 ? -1 : 1) * comp, vy: (rng.next() < 0.5 ? -1 : 1) * comp,
+      r: CELL * 0.42, type, speed, comp, steerT: rng.range(0.2, 0.6) });
   }
   for (let i = 0; i < drifters; i++) place('drifter', spd);
   for (let i = 0; i < chasers; i++) place('chaser', spd * 0.74);
@@ -472,12 +637,12 @@ function moveEnemy(e, dt) {
   let nx = e.x + e.vx * dt;
   const cyc = clamp(Math.floor(e.y / CELL), 0, ROWS - 1);
   const cxn = Math.floor((nx + Math.sign(e.vx) * e.r) / CELL);
-  if (cxn < 0 || cxn >= COLS || grid[cyc * COLS + cxn] === FILLED) { e.vx = -e.vx; nx = e.x; }
+  if (cxn < 0 || cxn >= COLS || grid[cyc * COLS + cxn] === FILLED || grid[cyc * COLS + cxn] === OBSTACLE) { e.vx = -e.vx; nx = e.x; }
   e.x = nx;
   let ny = e.y + e.vy * dt;
   const cxc = clamp(Math.floor(e.x / CELL), 0, COLS - 1);
   const cyn = Math.floor((ny + Math.sign(e.vy) * e.r) / CELL);
-  if (cyn < 0 || cyn >= ROWS || grid[cyn * COLS + cxc] === FILLED) { e.vy = -e.vy; ny = e.y; }
+  if (cyn < 0 || cyn >= ROWS || grid[cyn * COLS + cxc] === FILLED || grid[cyn * COLS + cxc] === OBSTACLE) { e.vy = -e.vy; ny = e.y; }
   e.y = ny;
 }
 
@@ -488,13 +653,13 @@ function chooseDir(ax, ay) {
     if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) { buffered = null; }
     else {
       const i = ny * COLS + nx;
-      if (grid[i] !== TRAIL) { const d = buffered; buffered = null; return d; }
+      if (grid[i] !== TRAIL && grid[i] !== OBSTACLE) { const d = buffered; buffered = null; return d; }
       buffered = null;
     }
   }
   if (player.dir) {
     const nx = ax + player.dir.x, ny = ay + player.dir.y;
-    if (nx >= 0 && ny >= 0 && nx < COLS && ny < ROWS && grid[ny * COLS + nx] !== TRAIL) return player.dir;
+    if (nx >= 0 && ny >= 0 && nx < COLS && ny < ROWS && grid[ny * COLS + nx] !== TRAIL && grid[ny * COLS + nx] !== OBSTACLE) return player.dir;
   }
   return null;
 }
@@ -505,7 +670,7 @@ function arrive() {
   if (v === EMPTY) {
     if (!hasTrail) {
       hasTrail = true; trailCells = []; trailPoints = [centerPx(prev)];
-      if (drawSoundLock <= 0) { sfxStartDraw(); drawSoundLock = 0.25; }
+      if (drawSoundLock <= 0) { sfxStartDraw(); hapticLight(); drawSoundLock = 0.25; }
     }
     grid[arrived] = TRAIL; trailCells.push(arrived); trailPoints.push(centerPx(arrived));
   } else if (v === FILLED) {
@@ -515,17 +680,28 @@ function arrive() {
   if (nd) { player.dir = nd; player.to = (ay + nd.y) * COLS + (ax + nd.x); player.stopped = false; }
   else { player.stopped = true; player.to = arrived; }
 }
+function hasEscape(idx) {
+  const x = idx % COLS, y = (idx / COLS) | 0;
+  const ns = [cellIndex(x + 1, y), cellIndex(x - 1, y), cellIndex(x, y + 1), cellIndex(x, y - 1)];
+  for (const n of ns) if (n !== -1 && grid[n] !== TRAIL && grid[n] !== OBSTACLE) return true;
+  return false;
+}
 function updatePlayer(dt) {
+  // Continuously honor a held joystick direction so a turn lands at the next valid cell.
+  if (joyActive && joyDir && !buffered) buffered = joyDir;
+  if (onboarding && !firstMoveDone && !player.stopped) firstMoveDone = true;
   if (player.stopped) {
     const ax = player.to % COLS, ay = (player.to / COLS) | 0, nd = chooseDir(ax, ay);
     if (nd) {
       player.dir = nd; player.from = player.to; player.to = (ay + nd.y) * COLS + (ax + nd.x);
       player.stopped = false; player.t = 0;
+    } else if (hasTrail && !hasEscape(player.to)) {
+      respawnAt();   // boxed in by trail/rock — snap the line back, resume on safe ground (no penalty)
     }
   }
   if (!player.stopped) {
     // snappier over captured land, deliberate while drawing
-    const seg = baseSpeed * (grid[player.from] === FILLED ? 1.35 : 1.0);
+    const seg = baseSpeed * (grid[player.from] === FILLED ? 1.45 : 1.0);
     player.t += seg * dt;
     let guard = 0;
     while (player.t >= 1 && !player.stopped) { player.t -= 1; arrive(); if (++guard > COLS + ROWS) break; }
@@ -569,7 +745,7 @@ function triggerDeath() {
   if (deathFreeze > 0 || player.invuln > 0 || state !== 'playing') return;
   if (shield) {
     shield = false; player.invuln = 1.4; flash = reduceMotion ? 0.2 : 0.4; shakeAmt = reduceMotion ? 0 : 8;
-    sfxShield(); spawnPopup(player.px.x, player.px.y, 'BLOCKED', pal.edge2, 16);
+    sfxShield(); hapticMedium(); spawnPopup(player.px.x, player.px.y, 'BLOCKED', pal.edge2, 16);
     for (let i = 0; i < 24; i++) { const ang = Math.random() * TAU, sp = rand(60, 200); particles.push({ x: player.px.x, y: player.px.y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: rand(0.4, 0.8), max: 0.8, r: rand(1.2, 3), col: pal.edge2 }); }
     respawnAt();
     return;
@@ -577,7 +753,7 @@ function triggerDeath() {
   lives--; combo = 0; comboT = 0;
   shakeAmt = reduceMotion ? 0 : 16; flash = reduceMotion ? 0.25 : 0.8; deathFreeze = 0.5;
   if (!reduceMotion) timeScaleTarget = 0.22;
-  sfxDeath();
+  sfxDeath(); hapticHeavy();
   for (let i = 0; i < 46; i++) {
     const ang = Math.random() * TAU, sp = rand(40, 220);
     particles.push({ x: player.px.x, y: player.px.y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: rand(0.4, 1.0), max: 1.0, r: rand(1.5, 3.5), col: i % 3 === 0 ? '#ffffff' : pal.player });
@@ -589,6 +765,12 @@ function finishDeath() {
     state = 'gameover'; goTimer = 0;
     clearTrail();
     if (score > highScore) { highScore = score; try { localStorage.setItem('veil_highscore', String(highScore)); } catch (e) {} sfxBest(); }
+    if (isDaily) {
+      recordDailyStreak(dailyRunKey);
+      dailyResultText = shareText({ key: dailyRunKey, score, level, percent, streak: dailyStreak });
+      if (score > dailyBest) { dailyBest = score; try { localStorage.setItem('veil_daily_best', String(dailyBest)); } catch (e) {} }
+      dailyPlayedKey = dailyRunKey; try { localStorage.setItem('veil_daily_played', dailyPlayedKey); } catch (e) {}
+    }
     return;
   }
   respawnAt(); player.invuln = 1.7;
@@ -601,34 +783,44 @@ function clearTrail() {
 /* ----------------------------- flow ------------------------------------ */
 function initLevel(lv) {
   level = lv;
-  pal = PALETTES[(lv - 1) % PALETTES.length];
+  rng = new SeededRng(gameSeed).fork('lv' + lv); // deterministic per-level simulation stream
+  pal = bandForLevel(lv);
   grid = new Uint8Array(COLS * ROWS);
   for (let y = 0; y < ROWS; y++)
     for (let x = 0; x < COLS; x++)
       grid[y * COLS + x] = (x === 0 || y === 0 || x === COLS - 1 || y === ROWS - 1) ? FILLED : EMPTY;
+  const obst = genObstacles(rng.fork('terrain'), { cols: COLS, rows: ROWS, level: lv, startIdx: COLS >> 1 });
+  for (let i = 0; i < grid.length; i++) if (obst[i]) grid[i] = OBSTACLE;
+  INTERIOR_TOTAL = openInteriorCount(obst, COLS, ROWS);   // target denominator excludes rock
+  veilBoard = genVeilBoard(rng.fork('veil'), { cols: COLS, rows: ROWS, level: lv, isOpen: (i) => grid[i] === EMPTY });
 
-  nebula = genNebula(pal); fog = genFog(); genTwinkles();
-  for (let i = 0; i < grid.length; i++) if (grid[i] === FILLED) clearFogCell(i);
+  nebula = genNebula(pal, lv); fog = genFog(pal); genTwinkles();
+  for (let i = 0; i < grid.length; i++) if (grid[i] === FILLED || grid[i] === OBSTACLE) clearFogCell(i);
 
   const start = (COLS >> 1);
   player = { from: start, to: start, t: 0, dir: null, stopped: true, invuln: 1.0, tail: [], px: centerPx(start) };
   buffered = null; hasTrail = false; trailCells = []; trailPoints = [];
   enemies = genEnemies(lv);
 
-  baseSpeed = Math.min(9.5 + 0.5 * (lv - 1), 16);
+  baseSpeed = Math.min(11 + 0.6 * (lv - 1), 18);
   target = Math.min(0.66 + 0.02 * (lv - 1), 0.82);
 
   combo = 0; comboT = 0;
   shakeAmt = 0; flash = 0; zoom = 1; deathFreeze = 0; timeScale = 1; timeScaleTarget = 1;
   enemyFreezeT = 0; enemySlowT = 0; shield = false;
   pickups.length = 0; popups.length = 0; particles.length = 0; revealQueue.length = 0;
-  pickupSpawnT = rand(5, 8);
+  pickupSpawnT = rng.range(5, 8);
   recomputeBorderPath(); recomputePercent(); dispPercent = percent;
   banner = { text: 'LEVEL ' + lv, sub: pal.name.toUpperCase() + '  ·  reveal ' + Math.round(target * 100) + '%', t: 2.0 };
   hintActive = (lv === 1);
   state = 'playing';
 }
-function startGame() { score = 0; dispScore = 0; lives = 3; initLevel(1); }
+function startGame(seed?: number) {
+  score = 0; dispScore = 0; lives = 3;
+  gameSeed = seed != null ? (seed >>> 0) : (Math.random() * 0xffffffff) >>> 0;
+  onboarding = !onboarded && !isDaily; firstMoveDone = false;
+  initLevel(1);
+}
 function winLevel() {
   const pctBonus = Math.round(percent * 100) * level * 6, lifeBonus = lives * 350;
   lastBonus = pctBonus + lifeBonus; score += lastBonus;
@@ -651,6 +843,7 @@ function update(dt) {
   if (banner.t > 0) banner.t -= dt;
   if (comboT > 0) { comboT -= dt; if (comboT <= 0) combo = 0; }
   processReveal();
+  tickShootingStars(wdt);
   updateParticles(wdt);
   updatePopups(dt);
   updateMotes(wdt);
@@ -669,7 +862,7 @@ function update(dt) {
       checkCollisions();
       if (player.invuln > 0) player.invuln -= dt;
     }
-    if (padGain && !muted) padGain.gain.value = 0.03 + 0.05 * Math.min(1, percent / target);
+    setPadLevel(percent / target);
   } else if (state === 'levelclear') {
     lcTimer -= dt;
     if (Math.random() < 0.4)
@@ -681,14 +874,17 @@ function update(dt) {
 }
 
 /* ----------------------------- render helpers -------------------------- */
-function setFont(size, weight, spacing) {
-  ctx.font = `${weight || 600} ${size}px 'Segoe UI', system-ui, Arial, sans-serif`;
+function setFont(size, weight, spacing, family) {
+  const fam = family === 'pixel' ? "'Press Start 2P', monospace"
+    : family === 'mono' ? "'VT323', monospace"
+    : "'Segoe UI', system-ui, Arial, sans-serif";
+  ctx.font = `${weight || 600} ${size}px ${fam}`;
   try { ctx.letterSpacing = (spacing || 0) + 'px'; } catch (e) {}
 }
 function glowText(txt, x, y, size, color, opts) {
   opts = opts || {};
   ctx.save();
-  setFont(size, opts.weight, opts.spacing);
+  setFont(size, opts.weight, opts.spacing, opts.font);
   ctx.textAlign = opts.align || 'center';
   ctx.textBaseline = opts.baseline || 'middle';
   ctx.globalAlpha = opts.alpha == null ? 1 : opts.alpha;
@@ -697,6 +893,45 @@ function glowText(txt, x, y, size, color, opts) {
   ctx.shadowBlur = 0;
   if (opts.core) { ctx.fillStyle = opts.core; ctx.fillText(txt, x, y); }
   ctx.restore();
+}
+// retro title with chromatic aberration (cyan/magenta split + white core)
+function retroTitle(txt, x, y, size, opts) {
+  opts = opts || {};
+  ctx.save();
+  setFont(size, 400, opts.spacing || 0, 'pixel');
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const off = Math.max(2, size * 0.06);
+  ctx.globalAlpha = 0.85;
+  ctx.fillStyle = '#00f0ff'; ctx.fillText(txt, x - off, y);
+  ctx.fillStyle = '#ff2d95'; ctx.fillText(txt, x + off, y);
+  ctx.globalAlpha = 1;
+  ctx.shadowColor = opts.glow || '#7df9ff'; ctx.shadowBlur = opts.blur || 18;
+  ctx.fillStyle = '#ffffff'; ctx.fillText(txt, x, y);
+  ctx.restore();
+}
+// CRT scanlines + vignette overlay
+function drawScanlines(vig?: number) {
+  vig = vig == null ? 0.5 : vig;
+  ctx.save();
+  ctx.globalAlpha = 0.06; ctx.fillStyle = '#000';
+  for (let y = 0; y < CH; y += 3) ctx.fillRect(0, y, CW, 1);
+  ctx.globalAlpha = 1;
+  const v = ctx.createRadialGradient(CW / 2, CH / 2, CH * 0.3, CW / 2, CH / 2, CH * 0.78);
+  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, `rgba(0,0,0,${vig})`);
+  ctx.fillStyle = v; ctx.fillRect(0, 0, CW, CH);
+  ctx.restore();
+}
+// chunky double-bordered neon button
+function retroButton(r, label, col) {
+  ctx.save();
+  ctx.globalAlpha = 0.82; ctx.fillStyle = '#0a0a16'; ctx.fillRect(r.x, r.y, r.w, r.h);
+  ctx.globalAlpha = 1; ctx.strokeStyle = col; ctx.lineWidth = 3;
+  ctx.shadowColor = col; ctx.shadowBlur = 12;
+  ctx.strokeRect(r.x + 2, r.y + 2, r.w - 4, r.h - 4);
+  ctx.shadowBlur = 0; ctx.globalAlpha = 0.45; ctx.lineWidth = 1;
+  ctx.strokeRect(r.x + 6, r.y + 6, r.w - 12, r.h - 12);
+  ctx.restore();
+  glowText(label, r.x + r.w / 2, r.y + r.h / 2, Math.min(13, r.h * 0.28), col, { blur: 8, font: 'pixel' });
 }
 function fmtScore(n) { return String(Math.round(n)).padStart(7, '0'); }
 function drawGlowOrb(x, y, r, core, glow, glowR) {
@@ -728,6 +963,92 @@ function pointAlong(pts, dist) {
 }
 
 /* ----------------------------- world render ---------------------------- */
+// "Read the veil": a faint disturbance bleeds through the fog where content
+// is hidden — it tells you WHERE, never WHAT, so the cache-or-rift gamble
+// survives while attentive players can route around (or toward) the unknown.
+function drawVeilTells() {
+  if (!veilBoard.length) return;
+  const px = player ? player.px : null;
+  const scoutR = CELL * 3.6;            // how close you must be to sense type
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < veilBoard.length; i++) {
+    const v = veilBoard[i];
+    if (!v) continue;
+    const c = centerPx(i);
+    const pulse = 0.5 + 0.5 * Math.sin(time * 1.6 + i * 0.6);
+    const baseR = CELL * (0.5 + 0.28 * pulse);
+    // neutral disturbance: shows WHERE, always
+    let g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, baseR);
+    g.addColorStop(0, '#d6e6ff'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalAlpha = 0.05 + 0.06 * pulse;
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(c.x, c.y, baseR, 0, TAU); ctx.fill();
+    // scout: get close to sense WHAT it is — gold cache / red rift
+    if (px) {
+      const scoutT = clamp(1 - Math.hypot(px.x - c.x, px.y - c.y) / scoutR, 0, 1);
+      if (scoutT > 0.02) {
+        const r2 = baseR * 1.15;
+        g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, r2);
+        g.addColorStop(0, v === VEIL_CACHE ? '#ffd86a' : '#ff7a93');
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.globalAlpha = 0.2 * scoutT;
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(c.x, c.y, r2, 0, TAU); ctx.fill();
+      }
+    }
+  }
+  ctx.restore();
+}
+function tickShootingStars(dt) {
+  shootTimer -= dt;
+  if (shootTimer <= 0) {
+    shootTimer = rand(3.5, 8);
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    shootingStars.push({
+      x: dir > 0 ? rand(-20, PW * 0.4) : rand(PW * 0.6, PW + 20),
+      y: rand(-20, PH * 0.35),
+      vx: dir * rand(320, 520), vy: rand(150, 290),
+      life: 0, max: rand(0.55, 1.0),
+    });
+  }
+  for (let i = shootingStars.length - 1; i >= 0; i--) {
+    const s = shootingStars[i];
+    s.life += dt; s.x += s.vx * dt; s.y += s.vy * dt;
+    if (s.life >= s.max) shootingStars.splice(i, 1);
+  }
+}
+function drawShootingStars() {
+  if (!shootingStars.length) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineCap = 'round';
+  for (const s of shootingStars) {
+    const a = Math.sin((s.life / s.max) * Math.PI);     // fade in then out
+    const tx = s.x - s.vx * 0.045, ty = s.y - s.vy * 0.045;
+    const g = ctx.createLinearGradient(tx, ty, s.x, s.y);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, pal.edge2);
+    ctx.strokeStyle = g; ctx.globalAlpha = a * 0.9; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(s.x, s.y); ctx.stroke();
+    ctx.globalAlpha = a; ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(s.x, s.y, 1.6, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawObstacles() {
+  ctx.save();
+  for (let y = 1; y < ROWS - 1; y++) {
+    for (let x = 1; x < COLS - 1; x++) {
+      if (grid[y * COLS + x] !== OBSTACLE) continue;
+      const px = x * CELL, py = y * CELL;
+      ctx.fillStyle = pal.blobs[1];                      // band-tinted solid mass (ice/coral/rock/asteroid)
+      ctx.fillRect(px, py, CELL, CELL);
+      ctx.fillStyle = hexA(pal.edge2, 0.16); ctx.fillRect(px, py, CELL, 2);          // themed top light
+      ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(px, py + CELL - 2, CELL, 2);  // bottom shadow
+    }
+  }
+  ctx.restore();
+}
 function drawWorld() {
   const sx = (shakeAmt && !reduceMotion) ? rand(-shakeAmt, shakeAmt) : 0;
   const sy = (shakeAmt && !reduceMotion) ? rand(-shakeAmt, shakeAmt) : 0;
@@ -758,6 +1079,9 @@ function drawWorld() {
   ctx.restore();
 
   ctx.drawImage(fog.canvas, 0, 0, PW, PH);
+  drawVeilTells();
+  drawShootingStars();
+  drawObstacles();
 
   // coastline glow
   if (borderPath) {
@@ -877,7 +1201,7 @@ function drawWorld() {
   }
   if (banner.t > 0) {
     const a = clamp(banner.t, 0, 1) * clamp((2.0 - banner.t) * 3, 0, 1);
-    glowText(banner.text, PW / 2, PH / 2 - 14, 40, pal.edge2, { blur: 26, weight: 800, spacing: 5, core: '#fff', alpha: a });
+    glowText(banner.text, PW / 2, PH / 2 - 14, 24, pal.edge2, { blur: 22, font: 'pixel', spacing: 2, core: '#fff', alpha: a });
     glowText(banner.sub, PW / 2, PH / 2 + 20, 14, '#cfe6ff', { blur: 6, weight: 600, spacing: 2, alpha: a });
   }
 
@@ -904,10 +1228,10 @@ function drawHUD() {
   ctx.strokeStyle = 'rgba(120,170,255,0.12)'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(0, HUD_H - 0.5); ctx.lineTo(CW, HUD_H - 0.5); ctx.stroke();
   ctx.restore();
-  const cy = HUD_H / 2;
+  const cy = safeTop + (HUD_H - safeTop) / 2;   // center below the notch / safe inset
 
-  glowText('SCORE', MARGIN + 4, cy - 12, 9, '#6f86b8', { align: 'left', blur: 0, spacing: 2, weight: 700 });
-  glowText(fmtScore(dispScore), MARGIN + 4, cy + 5, 20, pal.trail, { align: 'left', blur: 10, weight: 700, core: '#fff', spacing: 1 });
+  glowText('SCORE', MARGIN + 8, cy - 13, 11, '#6f86b8', { align: 'left', blur: 0, spacing: 1, font: 'mono' });
+  glowText(fmtScore(dispScore), MARGIN + 8, cy + 6, 24, pal.trail, { align: 'left', blur: 8, font: 'mono', core: '#fff', spacing: 1 });
 
   // combo meter
   if (combo > 1 && state === 'playing') {
@@ -937,13 +1261,13 @@ function drawHUD() {
   glowText(Math.round(dispPercent * 100) + '%', CW / 2, by - 9, 11, pal.edge2, { blur: 6, weight: 800 });
   glowText('TARGET ' + Math.round(target * 100) + '%', CW / 2, by + barH + 9, 9, '#7f93c0', { blur: 0, spacing: 1.5, weight: 700 });
 
-  // right cluster
-  let rx = CW - MARGIN - 4;
+  // right cluster (kept left of the pause button at CW-56)
+  let rx = CW - 66;
   ctx.save();
   ctx.translate(rx - 7, cy);
-  ctx.strokeStyle = muted ? '#6a7290' : pal.accent; ctx.fillStyle = muted ? '#6a7290' : pal.accent; ctx.lineWidth = 1.6;
+  ctx.strokeStyle = isMuted() ? '#6a7290' : pal.accent; ctx.fillStyle = isMuted() ? '#6a7290' : pal.accent; ctx.lineWidth = 1.6;
   ctx.beginPath(); ctx.moveTo(-7, -2.5); ctx.lineTo(-3, -2.5); ctx.lineTo(1, -6); ctx.lineTo(1, 6); ctx.lineTo(-3, 2.5); ctx.lineTo(-7, 2.5); ctx.closePath(); ctx.fill();
-  if (muted) { ctx.beginPath(); ctx.moveTo(4, -5); ctx.lineTo(9, 5); ctx.moveTo(9, -5); ctx.lineTo(4, 5); ctx.stroke(); }
+  if (isMuted()) { ctx.beginPath(); ctx.moveTo(4, -5); ctx.lineTo(9, 5); ctx.moveTo(9, -5); ctx.lineTo(4, 5); ctx.stroke(); }
   else { ctx.beginPath(); ctx.arc(2, 0, 5, -0.7, 0.7); ctx.stroke(); ctx.beginPath(); ctx.arc(2, 0, 8, -0.7, 0.7); ctx.globalAlpha = 0.6; ctx.stroke(); }
   ctx.restore();
   rx -= 26;
@@ -952,27 +1276,32 @@ function drawHUD() {
 
   for (let i = 0; i < Math.min(lives, 6); i++) drawGlowOrb(rx - i * 16, cy, 4, '#fff', pal.player, 11);
   rx -= Math.min(lives, 6) * 16 + 8;
-  glowText('LVL ' + level, rx, cy, 16, pal.edge2, { align: 'right', blur: 8, weight: 800, spacing: 1 });
+  glowText('LVL ' + level, rx, cy, 19, pal.edge2, { align: 'right', blur: 8, font: 'mono', spacing: 1 });
 }
 
 /* ----------------------------- overlays -------------------------------- */
 function dim(a) { ctx.save(); ctx.fillStyle = `rgba(3,5,12,${a})`; ctx.fillRect(0, 0, CW, CH); ctx.restore(); }
 function drawMenu() {
-  dim(0.5);
-  const cx = CW / 2, cyc = CH / 2, bob = Math.sin(menuT * 1.4) * 4;
-  glowText('V E I L', cx, cyc - 78 + bob, 78, '#bfe4ff', { blur: 34, weight: 800, spacing: 10, core: '#ffffff' });
-  glowText('draw light into the dark', cx, cyc - 26 + bob, 15, '#8fb4ff', { blur: 8, spacing: 4, weight: 600 });
-  const blink = 0.55 + 0.45 * Math.sin(menuT * 3);
-  glowText('PRESS ANY KEY  ·  TAP TO BEGIN', cx, cyc + 28, 16, '#dff1ff', { blur: 12, alpha: blink, weight: 700, spacing: 2 });
-  glowText('ARROWS / WASD move      enclose space to reveal the cosmos', cx, cyc + 70, 12, '#7f97c8', { blur: 0, spacing: 1 });
-  glowText('grab power-ups in the open      bold cuts score big', cx, cyc + 90, 12, '#7f97c8', { blur: 0, spacing: 1 });
-  glowText('P pause      M mute      R reduce motion ' + (reduceMotion ? '(on)' : ''), cx, cyc + 110, 12, '#7f97c8', { blur: 0, spacing: 1 });
-  if (highScore > 0) glowText('BEST  ' + fmtScore(highScore), cx, cyc + 146, 13, pal.edge, { blur: 8, weight: 700, spacing: 2 });
+  dim(0.6);
+  const cx = CW / 2, cyc = CH / 2, bob = Math.sin(menuT * 1.4) * 3;
+  glowText('HI ' + fmtScore(highScore), cx, CH * 0.15, 22, '#ffe93b', { blur: 8, font: 'mono', spacing: 1 });
+  retroTitle('VEIL', cx, cyc - 92 + bob, 50, { blur: 22, glow: '#00f0ff', spacing: 2 });
+  glowText('DRAW LIGHT INTO THE DARK', cx, cyc - 52 + bob, 21, '#00f0ff', { blur: 8, font: 'mono', spacing: 2 });
+  const blink = 0.45 + 0.55 * Math.sin(menuT * 4);
+  glowText('PRESS START', cx, cyc - 8, 11, '#ffffff', { blur: 10, font: 'pixel', alpha: blink });
+
+  retroButton(playBtnRect(), 'PLAY', '#39ff14');
+  const tk = todayKey(new Date()), done = dailyPlayedKey === tk;
+  retroButton(dailyBtnRect(), done ? 'DAILY ✓' : 'DAILY', '#ff2d95');
+
+  glowText('DRAG TO STEER', cx, cyc + 158, 18, '#9fd8ff', { blur: 4, font: 'mono', spacing: 1 });
+  const liveStreak = (dailyStreakDate === tk || isConsecutive(dailyStreakDate, tk)) ? dailyStreak : 0;
+  if (liveStreak > 1) glowText('STREAK ' + liveStreak, cx, cyc + 184, 18, '#ffb15a', { blur: 4, font: 'mono', spacing: 1 });
 }
 function drawLevelClear() {
   dim(0.45);
   const cx = CW / 2, cyc = CH / 2, t = clamp((2.9 - lcTimer) * 2.2, 0, 1), pop = 1 + (1 - t) * 0.3;
-  glowText('VEIL CLEARED', cx, cyc - 36, 46 * pop, pal.edge2, { blur: 30, weight: 800, spacing: 4, core: '#fff', alpha: t });
+  glowText('VEIL CLEARED', cx, cyc - 36, 44 * pop, pal.edge2, { blur: 26, font: 'mono', spacing: 2, core: '#fff', alpha: t });
   glowText('LEVEL ' + level + '  ·  ' + Math.round(percent * 100) + '% revealed', cx, cyc + 8, 16, '#cfe6ff', { blur: 8, weight: 600, spacing: 1, alpha: t });
   glowText('+ ' + lastBonus + '  bonus', cx, cyc + 40, 18, pal.accent, { blur: 12, weight: 800, alpha: t });
   glowText('next: level ' + (level + 1), cx, cyc + 78, 12, '#7f97c8', { blur: 0, spacing: 2, alpha: t * (0.6 + 0.4 * Math.sin(menuT * 4)) });
@@ -980,18 +1309,23 @@ function drawLevelClear() {
 function drawGameOver() {
   dim(0.6);
   const cx = CW / 2, cyc = CH / 2, t = clamp(goTimer * 1.6, 0, 1);
-  glowText('THE DARK WINS', cx, cyc - 40, 48, '#ff6b7e', { blur: 28, weight: 800, spacing: 3, core: '#fff', alpha: t });
+  glowText('THE DARK WINS', cx, cyc - 40, 46, '#ff6b7e', { blur: 26, font: 'mono', spacing: 2, core: '#fff', alpha: t });
   glowText('SCORE  ' + fmtScore(score), cx, cyc + 6, 22, '#dff1ff', { blur: 12, weight: 700, spacing: 2, alpha: t });
   const isBest = score >= highScore && score > 0;
   glowText((isBest ? 'NEW BEST!  ' : 'BEST  ') + fmtScore(highScore), cx, cyc + 38, 14, isBest ? '#ffe27a' : pal.edge, { blur: 8, weight: 700, spacing: 1, alpha: t });
-  glowText('reached level ' + level, cx, cyc + 60, 12, '#7f97c8', { blur: 0, spacing: 1, alpha: t });
   const blink = 0.5 + 0.5 * Math.sin(menuT * 3);
-  glowText('PRESS ANY KEY TO RETRY', cx, cyc + 96, 15, '#cfe6ff', { blur: 10, weight: 700, spacing: 2, alpha: t * blink });
+  if (isDaily) {
+    glowText('DAILY  ' + dailyRunKey + (dailyStreak > 1 ? '   🔥 ' + dailyStreak : ''), cx, cyc + 60, 12, '#9fd0ff', { blur: 6, spacing: 2, weight: 700, alpha: t });
+    glowText('TAP TO SHARE RESULT', cx, cyc + 96, 15, '#cfe6ff', { blur: 10, weight: 700, spacing: 2, alpha: t * blink });
+  } else {
+    glowText('reached level ' + level, cx, cyc + 60, 12, '#7f97c8', { blur: 0, spacing: 1, alpha: t });
+    glowText('PRESS ANY KEY TO RETRY', cx, cyc + 96, 15, '#cfe6ff', { blur: 10, weight: 700, spacing: 2, alpha: t * blink });
+  }
 }
 function drawPaused() {
   dim(0.55);
   const cx = CW / 2, cyc = CH / 2;
-  glowText('PAUSED', cx, cyc - 10, 46, '#cfe6ff', { blur: 24, weight: 800, spacing: 6, core: '#fff' });
+  glowText('PAUSED', cx, cyc - 10, 30, '#cfe6ff', { blur: 18, font: 'pixel', spacing: 2, core: '#fff' });
   const blink = 0.5 + 0.5 * Math.sin(menuT * 3);
   glowText('P / ESC resume      M mute      R reduce motion', cx, cyc + 36, 13, '#9fb6e8', { blur: 8, weight: 700, spacing: 1, alpha: blink });
 }
@@ -999,7 +1333,7 @@ function drawPaused() {
 /* ----------------------------- main render ----------------------------- */
 let menuNebula = null;
 function drawAttractWorld() {
-  if (!menuNebula) menuNebula = genNebula(PALETTES[0]);
+  if (!menuNebula) menuNebula = genNebula(BANDS[0]);
   ctx.save();
   ctx.translate(OFF_X, OFF_Y);
   ctx.globalAlpha = 0.5; ctx.drawImage(menuNebula.canvas, 0, 0, PW, PH); ctx.globalAlpha = 1;
@@ -1007,14 +1341,61 @@ function drawAttractWorld() {
   for (const m of motes) { ctx.globalAlpha = m.a * 0.8; ctx.fillStyle = '#cfe6ff'; ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, TAU); ctx.fill(); }
   ctx.restore();
 }
+function drawTouchUI() {
+  // pause / resume button (top-right, inside the safe area)
+  const r = pauseBtnRect();
+  ctx.save();
+  ctx.globalAlpha = 0.45; ctx.fillStyle = '#0a1430';
+  roundRectPath(r.x, r.y, r.w, r.h, 11); ctx.fill();
+  ctx.globalAlpha = 0.9; ctx.fillStyle = pal ? pal.edge2 : '#cfe6ff';
+  const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+  if (state === 'paused') {
+    ctx.beginPath(); ctx.moveTo(cx - 6, cy - 9); ctx.lineTo(cx - 6, cy + 9); ctx.lineTo(cx + 10, cy); ctx.closePath(); ctx.fill();
+  } else {
+    ctx.fillRect(cx - 8, cy - 9, 5, 18); ctx.fillRect(cx + 3, cy - 9, 5, 18);
+  }
+  ctx.restore();
+
+  // floating joystick — retro arcade gate (octagon) + neon square knob
+  if (joyActive && state === 'playing') {
+    const maxR = CELL * 2.4;
+    const dx = joyX - joyOX, dy = joyY - joyOY, len = Math.hypot(dx, dy) || 1;
+    const cl = Math.min(len, maxR), tx = joyOX + dx / len * cl, ty = joyOY + dy / len * cl;
+    ctx.save();
+    ctx.globalAlpha = 0.32; ctx.strokeStyle = '#00f0ff'; ctx.lineWidth = 3;
+    ctx.shadowColor = '#00f0ff'; ctx.shadowBlur = 8;
+    ctx.beginPath();
+    for (let i = 0; i < 8; i++) { const a = i / 8 * TAU + Math.PI / 8, px = joyOX + Math.cos(a) * maxR, py = joyOY + Math.sin(a) * maxR; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+    ctx.closePath(); ctx.stroke(); ctx.shadowBlur = 0;
+    const k = CELL * 0.9;
+    ctx.globalAlpha = 0.8; ctx.fillStyle = '#ff2d95'; ctx.fillRect(tx - k / 2, ty - k / 2, k, k);
+    ctx.globalAlpha = 1; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(tx - k / 2, ty - k / 2, k, k);
+    ctx.restore();
+  }
+
+  // first-run coach: teach drag-to-steer until the player first moves
+  if (onboarding && !firstMoveDone && state === 'playing') {
+    const ox = CW / 2, oy = CH - 120 - safeBottom;
+    const pulse = 0.5 + 0.5 * Math.sin(time * 3);
+    ctx.save();
+    ctx.globalAlpha = 0.45 + 0.3 * pulse; ctx.strokeStyle = pal.edge2; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(ox, oy, 34, 0, TAU); ctx.stroke();
+    ctx.globalAlpha = 0.7; ctx.fillStyle = pal.edge;
+    ctx.beginPath(); ctx.arc(ox + Math.cos(time * 2) * 16, oy + Math.sin(time * 2) * 16, 14, 0, TAU); ctx.fill();
+    ctx.restore();
+    glowText('DRAG ANYWHERE TO STEER', ox, oy - 58, 15, '#dff1ff', { blur: 12, weight: 800, spacing: 2, alpha: 0.6 + 0.4 * pulse });
+  }
+}
 function render() {
   ctx.setTransform(SS, 0, 0, SS, 0, 0);
   ctx.fillStyle = '#04050c'; ctx.fillRect(0, 0, CW, CH);
-  if (state === 'menu') { drawAttractWorld(); drawMenu(); return; }
+  if (state === 'menu') { drawAttractWorld(); drawMenu(); drawScanlines(); return; }
   drawWorld(); drawHUD();
+  if (state === 'playing' || state === 'paused') drawTouchUI();
   if (state === 'levelclear') drawLevelClear();
   else if (state === 'gameover') drawGameOver();
   else if (state === 'paused') drawPaused();
+  drawScanlines(0.3);   // lighter CRT over gameplay than the menu
 }
 
 /* ----------------------------- loop ------------------------------------ */
@@ -1026,6 +1407,7 @@ function frame(now) {
   update(dt); render();
   requestAnimationFrame(frame);
 }
+try { document.fonts.load("700 16px 'Press Start 2P'"); document.fonts.load("400 16px 'VT323'"); } catch (e) {}
 initMotes();
 requestAnimationFrame(frame);
 
@@ -1041,16 +1423,41 @@ function toggleReduce() {
   if (reduceMotion) { shakeAmt = 0; zoom = 1; timeScale = 1; timeScaleTarget = 1; }
   if (state === 'playing') spawnPopup(player.px.x, player.px.y, 'MOTION ' + (reduceMotion ? 'OFF' : 'ON'), pal.edge2, 14);
 }
+function menuBtnW() { return Math.min(264, CW - 56); }
+function playBtnRect() { const w = menuBtnW(); return { x: CW / 2 - w / 2, y: CH / 2 + 26, w, h: 50 }; }
+function dailyBtnRect() { const w = menuBtnW(); return { x: CW / 2 - w / 2, y: CH / 2 + 90, w, h: 50 }; }
+function startDaily() {
+  dailyRunKey = todayKey(new Date());
+  isDaily = true;
+  startGame(seedFromDateKey(dailyRunKey));
+}
+function shareDailyResult() {
+  if (dailyResultText) shareResult(dailyResultText);
+}
+function recordDailyStreak(key) {
+  if (dailyStreakDate === key) return;                 // already counted today
+  dailyStreak = isConsecutive(dailyStreakDate, key) ? dailyStreak + 1 : 1;
+  dailyStreakDate = key;
+  try { localStorage.setItem('veil_daily_streak', String(dailyStreak)); } catch (e) {}
+  try { localStorage.setItem('veil_daily_streak_date', dailyStreakDate); } catch (e) {}
+}
 function anyKeyAction() {
   initAudio();
-  if (state === 'menu' || state === 'gameover') { startGame(); sfxBlip(); }
+  if (state === 'gameover' && isDaily) { shareDailyResult(); isDaily = false; state = 'menu'; sfxBlip(); return; }
+  if (state === 'menu' || state === 'gameover') { isDaily = false; startGame(); sfxBlip(); }
   else if (state === 'levelclear') { nextLevel(); sfxBlip(); }
   else if (state === 'paused') state = 'playing';
 }
 window.addEventListener('keydown', (e) => {
   initAudio();
   const k = e.key;
-  if (k === 'm' || k === 'M') { setMuted(!muted); return; }
+  // dev-only level navigation (dev server build only):  [ / ] step, 1-9 jump
+  if (import.meta.env.DEV && (state === 'playing' || state === 'paused')) {
+    if (k === ']') { initLevel(level + 1); return; }
+    if (k === '[') { initLevel(Math.max(1, level - 1)); return; }
+    if (k >= '1' && k <= '9') { initLevel(parseInt(k, 10)); return; }
+  }
+  if (k === 'm' || k === 'M') { setMuted(!isMuted()); return; }
   if (k === 'r' || k === 'R') { toggleReduce(); return; }
   if (state === 'playing') {
     if (DIRS[k]) { buffered = DIRS[k]; e.preventDefault(); return; }
@@ -1062,25 +1469,51 @@ window.addEventListener('keydown', (e) => {
   anyKeyAction(); e.preventDefault();
 }, { passive: false });
 
-let touchStart = null;
+/* ----- touch: floating joystick (steer) + auto-forward + pause button ---- */
+let joyActive = false, joyOX = 0, joyOY = 0, joyX = 0, joyY = 0, joyDir = null;
+
+function localPt(t) {
+  const r = canvas.getBoundingClientRect();
+  const sx = r.width ? CW / r.width : 1, sy = r.height ? CH / r.height : 1;
+  return { x: (t.clientX - r.left) * sx, y: (t.clientY - r.top) * sy };
+}
+function pauseBtnRect() { return { x: CW - 56, y: safeTop + 8, w: 46, h: 46 }; }
+function inRect(px, py, r) { return px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h; }
+// Snap the drag vector to a 4-way grid direction, ignoring a small dead zone.
+function steerFromVec(dx, dy) {
+  const dz = Math.max(9, CELL * 0.45);
+  if (Math.abs(dx) < dz && Math.abs(dy) < dz) return null;
+  return Math.abs(dx) > Math.abs(dy) ? { x: dx > 0 ? 1 : -1, y: 0 } : { x: 0, y: dy > 0 ? 1 : -1 };
+}
+
 canvas.addEventListener('touchstart', (e) => {
   initAudio();
-  const t = e.changedTouches[0]; touchStart = { x: t.clientX, y: t.clientY }; e.preventDefault();
-}, { passive: false });
-canvas.addEventListener('touchend', (e) => {
-  const t = e.changedTouches[0]; if (!touchStart) return;
-  const dx = t.clientX - touchStart.x, dy = t.clientY - touchStart.y, dist = Math.hypot(dx, dy);
-  touchStart = null;
-  if (dist < 22) {
-    if (state === 'playing') state = 'paused';
-    else if (state === 'paused') state = 'playing';
+  const t = e.changedTouches[0], p = localPt(t);
+  if (state === 'playing') {
+    if (inRect(p.x, p.y, pauseBtnRect())) { state = 'paused'; e.preventDefault(); return; }
+    joyActive = true; joyOX = p.x; joyOY = p.y; joyX = p.x; joyY = p.y; joyDir = null;
+  } else if (state === 'paused') {
+    state = 'playing';
+  } else {
+    if (state === 'menu' && inRect(p.x, p.y, dailyBtnRect())) { startDaily(); sfxBlip(); }
     else anyKeyAction();
-    return;
   }
-  if (state === 'playing') buffered = Math.abs(dx) > Math.abs(dy) ? { x: dx > 0 ? 1 : -1, y: 0 } : { x: 0, y: dy > 0 ? 1 : -1 };
-  else anyKeyAction();
   e.preventDefault();
 }, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+  if (!joyActive || state !== 'playing') return;
+  const t = e.changedTouches[0], p = localPt(t);
+  joyX = p.x; joyY = p.y;
+  const d = steerFromVec(p.x - joyOX, p.y - joyOY);
+  if (d) { joyDir = d; buffered = d; }  // held dir is re-applied each frame in updatePlayer
+  e.preventDefault();
+}, { passive: false });
+
+// Lift finger -> stop steering, but keep advancing in the last direction.
+canvas.addEventListener('touchend', (e) => { joyActive = false; joyDir = null; e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchcancel', () => { joyActive = false; joyDir = null; });
+
 canvas.addEventListener('mousedown', () => { initAudio(); if (state !== 'playing' && state !== 'paused') anyKeyAction(); });
 
 document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'playing') state = 'paused'; last = 0; });
