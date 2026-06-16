@@ -609,9 +609,9 @@ function eCell(e) {
 function enemyCounts(lv) {
   return {
     drifter: Math.min(1 + Math.floor(lv / 2), 6),
-    chaser: lv >= 4 ? Math.min(1 + Math.floor((lv - 4) / 4), 2) : 0,
-    sentinel: lv >= 7 ? Math.min(1 + Math.floor((lv - 7) / 4), 2) : 0,
-    sleeper: lv >= 10 ? Math.min(1 + Math.floor((lv - 10) / 4), 3) : 0,
+    chaser: lv >= 3 ? Math.min(1 + Math.floor((lv - 3) / 3), 2) : 0,
+    sentinel: 0,   // disabled — "hunts only when you rest" was too unreadable; revisiting
+    sleeper: 0,    // disabled — one-shot wake was too punishing
   };
 }
 const ENEMY_INFO = {
