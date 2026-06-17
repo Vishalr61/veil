@@ -21,7 +21,6 @@ export interface LevelBlueprint {
   rifts: number;
   enemies: EnemyCounts;
   depth: number;          // 0..1 visual intensity within the band (calm -> turbulent)
-  setpiece?: 'vault';     // special-floor mechanic (The Depths L3)
 }
 
 // "The Depths" (magma band) — a crafted three-floor descent.
@@ -34,11 +33,11 @@ const AUTHORED: Record<number, LevelBlueprint> = {
   2: { title: 'BASALT COLUMNS', motif: 'pillars', density: 0.05, target: 0.64,
        caches: 4, rifts: 0, depth: 0.5,
        enemies: { drifter: 2, chaser: 0, cutter: 0, sentinel: 0, sleeper: 0 } },
-  // The climax: lava veins carve a deep vault holding the richest caches,
-  // guarded by a single dormant guardian. Breaching the vault wakes it.
-  3: { title: 'THE SEALED VAULT', motif: 'veins', density: 0.08, target: 0.66,
-       caches: 5, rifts: 2, depth: 0.9, setpiece: 'vault',
-       enemies: { drifter: 2, chaser: 0, cutter: 0, sentinel: 0, sleeper: 1 } },
+  // The climax: lava veins carve the board into chambers holding the richest
+  // caches and the first rifts; the chaser arrives. Risk + reward + a hunter.
+  3: { title: 'MOLTEN CHAMBER', motif: 'veins', density: 0.08, target: 0.66,
+       caches: 5, rifts: 2, depth: 0.9,
+       enemies: { drifter: 2, chaser: 1, cutter: 0, sentinel: 0, sleeper: 0 } },
 };
 
 // Visual intensity from position within a 3-level band: 0, 0.5, 1.0.

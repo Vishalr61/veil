@@ -143,7 +143,7 @@ function initLevel(lv) {
   const start = (COLS >> 1);
   G.player = { from: start, to: start, t: 0, dir: null, stopped: true, invuln: 1.0, tail: [], px: centerPx(start) };
   G.buffered = null; G.hasTrail = false; G.trailCells = []; G.trailPoints = [];
-  G.enemies = genEnemies(lv, bp.enemies, bp.setpiece === 'vault');
+  G.enemies = genEnemies(lv, bp.enemies);
 
   G.baseSpeed = Math.min(11 + 0.6 * (lv - 1), 18);
   G.target = bp.target;

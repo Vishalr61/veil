@@ -12,7 +12,6 @@ import { clamp } from '../core/math';
 import { CELL, COLS, ROWS } from '../core/dims';
 import { EMPTY, FILLED, OBSTACLE } from '../core/constants';
 import { centerPx, cellOfPx } from '../core/grid';
-import { exposureField } from '../sim/veil';
 import { spawnPopup } from './particles';
 import { hapticHeavy } from '../platform/haptics';
 
@@ -39,19 +38,9 @@ export const ENEMY_INFO = {
   chaser: { name: 'CHASER', desc: 'hunts you and your trail' },
   cutter: { name: 'CUTTER', desc: 'races to slice your line' },
   sentinel: { name: 'SENTINEL', desc: 'attacks while you rest on land' },
-  sleeper: { name: 'GUARDIAN', desc: 'sleeps on the vault — breach it and it wakes' },
+  sleeper: { name: 'VEIL-SLEEPER', desc: 'reveals in the dark — wake it' },
 };
-// Deterministically pick the k deepest open cells (max distance from any wall/
-// rock) — where the vault and its guardian belong. Ties break by index so the
-// choice is stable across engines (the daily replays it).
-function deepestOpenCells(k: number): number[] {
-  const dist = exposureField(COLS, ROWS, (i) => G.grid[i] === EMPTY);
-  const open: number[] = [];
-  for (let i = 0; i < dist.length; i++) if (G.grid[i] === EMPTY) open.push(i);
-  open.sort((a, b) => (dist[b] - dist[a]) || (a - b));
-  return open.slice(0, k);
-}
-export function genEnemies(lv, counts: EnemyCounts = enemyCounts(lv), vault = false) {
+export function genEnemies(lv, counts: EnemyCounts = enemyCounts(lv)) {
   const out = [];
   const n = counts;
   const spd = Math.min(115 + 8 * (lv - 1), 205);
@@ -78,16 +67,7 @@ export function genEnemies(lv, counts: EnemyCounts = enemyCounts(lv), vault = fa
   for (let i = 0; i < n.chaser; i++) place('chaser', spd * 0.74);
   for (let i = 0; i < n.cutter; i++) place('cutter', spd * 0.8);
   for (let i = 0; i < n.sentinel; i++) place('sentinel', spd * 0.82);
-  if (n.sleeper > 0 && vault) {
-    // vault guardians sit on the deepest cells (the prize), and hunt at a
-    // readable, escapable pace once breached — a chosen risk, not an ambush.
-    for (const idx of deepestOpenCells(n.sleeper)) {
-      const c = centerPx(idx);
-      out.push({ x: c.x, y: c.y, vx: 0, vy: 0, r: CELL * 0.42, type: 'sleeper', asleep: true, speed: spd * 0.7, comp: spd * 0.7 * 0.7071, steerT: 0 });
-    }
-  } else {
-    for (let i = 0; i < n.sleeper; i++) placeSleeper(spd * 0.95);
-  }
+  for (let i = 0; i < n.sleeper; i++) placeSleeper(spd * 0.95);
   return out;
 }
 export function moveEnemy(e, dt) {
