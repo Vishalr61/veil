@@ -332,6 +332,35 @@ function drawIceRock(px: number, py: number, x: number, y: number, idx: number) 
   if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(4,14,24,0.4)'; ctx.fillRect(px + s - 1.5, py, 1.5, s); }
 }
 
+const ASTEROID_SHADES = ['#161428', '#221f38', '#2f2b4a', '#3d375c'];   // cold grey-violet rock, dark -> light
+
+// A Deep Space obstacle: a pitted metallic asteroid — cold grey-violet rock lit
+// faintly by starlight, peppered with craters and mineral flecks. A seventh
+// material; rocky like the Depths basalt but cratered and cold, not lava-veined.
+function drawAsteroid(px: number, py: number, x: number, y: number, idx: number) {
+  const s = CELL;
+  const h = ((x * 374761393) ^ (y * 668265263)) >>> 0;
+  const v = h % 100;
+  const m = Math.sin(x * 0.5 + y * 0.3) + Math.sin(y * 0.66 - x * 0.2);
+  ctx.fillStyle = ASTEROID_SHADES[Math.max(0, Math.min(3, Math.round((m + 2) / 4 * 3)))];
+  ctx.fillRect(px, py, s, s);
+  ctx.fillStyle = 'rgba(180,165,220,0.1)'; ctx.fillRect(px, py, s * 0.5, s * 0.45);   // starlit upper-left
+  ctx.fillStyle = 'rgba(4,4,16,0.34)'; ctx.fillRect(px, py + s * 0.6, s, s * 0.4);     // dark underside
+
+  for (let i = 0, n = 1 + (v % 2); i < n; i++) {   // craters (dark pit + lit lip)
+    const ox = px + 3 + ((h >> (i * 5)) % Math.max(1, s - 6)), oy = py + 3 + ((h >> (i * 5 + 2)) % Math.max(1, s - 6)), cr = 1.6 + ((h >> (i * 3)) % 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.32)'; ctx.beginPath(); ctx.arc(ox, oy, cr, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(185,170,225,0.18)'; ctx.beginPath(); ctx.arc(ox - 0.5, oy - 0.5, cr * 0.55, 0, TAU); ctx.fill();
+  }
+  ctx.fillStyle = 'rgba(205,190,240,0.13)'; ctx.fillRect(px + (h % 7) + 1, py + ((h >> 3) % 7) + 1, 1.2, 1.2);   // mineral fleck
+
+  // cold violet starlight rim on top/left open edges; deep void shadow underside
+  if (G.grid[idx - COLS] === EMPTY) { ctx.fillStyle = hexA(G.pal.blobs[3], 0.38); ctx.fillRect(px, py, s, 1.5); }
+  if (G.grid[idx - 1] === EMPTY) { ctx.fillStyle = hexA(G.pal.blobs[3], 0.24); ctx.fillRect(px, py, 1.5, s); }
+  if (G.grid[idx + COLS] === EMPTY) { ctx.fillStyle = 'rgba(2,2,10,0.5)'; ctx.fillRect(px, py + s - 1.5, s, 1.5); }
+  if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(2,2,10,0.4)'; ctx.fillRect(px + s - 1.5, py, 1.5, s); }
+}
+
 function drawObstacles() {
   const style = G.pal.style;
   ctx.save();
@@ -352,6 +381,8 @@ function drawObstacles() {
         drawSkyCloud(px, py, x, y, idx);
       } else if (style === 'aurora') {
         drawIceRock(px, py, x, y, idx);
+      } else if (style === 'space') {
+        drawAsteroid(px, py, x, y, idx);
       } else {
         ctx.fillStyle = G.pal.blobs[1];                      // band-tinted solid mass (ice/coral/rock/asteroid)
         ctx.fillRect(px, py, CELL, CELL);
@@ -395,6 +426,7 @@ export function drawWorld() {
     else if (m.sp) { ctx.globalAlpha = m.a * (0.4 + 0.6 * Math.abs(Math.sin(G.time * 2.5 + m.x * 0.4))); ctx.fillStyle = G.pal.blobs[4]; }   // drifting spore
     else if (m.wi) { ctx.globalAlpha = m.a * (0.45 + 0.55 * Math.abs(Math.sin(G.time * 1.1 + m.x * 0.2))); ctx.fillStyle = G.pal.blobs[4]; }   // drifting dawn wisp
     else if (m.sn) { ctx.globalAlpha = m.a; ctx.fillStyle = G.pal.star; }   // falling snow (steady, cool white)
+    else if (m.du) { ctx.globalAlpha = m.a * (0.3 + 0.7 * Math.abs(Math.sin(G.time * 2 + m.x * 0.5))); ctx.fillStyle = Math.sin(m.x) > 0.5 ? G.pal.blobs[3] : G.pal.star; }   // twinkling stardust
     else { ctx.globalAlpha = m.a; ctx.fillStyle = G.pal.star; }
     ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, TAU); ctx.fill();
   }

@@ -574,11 +574,86 @@ function genAuroraNebula(c, p, PW, PH, depth) {
   c.globalAlpha = 1;
 }
 
+// A distant ringed gas-giant — the hero object of deep space.
+function drawRingedPlanet(c, cx, cy, r, B, depth) {
+  const drawRing = (front) => {
+    c.save(); c.translate(cx, cy); c.rotate(-0.42); c.scale(1, 0.34);
+    for (let k = 0; k < 4; k++) {
+      const rr = r * (1.45 + k * 0.26);
+      c.globalAlpha = (0.22 - k * 0.03) * (1 + depth * 0.3); c.strokeStyle = hexA(k % 2 ? B[4] : B[3], 0.6); c.lineWidth = r * 0.12;
+      c.beginPath(); front ? c.arc(0, 0, rr, 0, Math.PI) : c.arc(0, 0, rr, Math.PI, TAU); c.stroke();
+    }
+    c.restore();
+  };
+  c.globalCompositeOperation = 'lighter'; drawRing(false);            // ring behind the planet
+  c.globalCompositeOperation = 'source-over';                         // planet body occludes the back ring
+  const g = c.createRadialGradient(cx - r * 0.35, cy - r * 0.35, 0, cx, cy, r);
+  g.addColorStop(0, hexA(B[3], 1)); g.addColorStop(0.55, '#3a2b8a'); g.addColorStop(1, '#0e0824');
+  c.fillStyle = g; c.beginPath(); c.arc(cx, cy, r, 0, TAU); c.fill();
+  c.globalCompositeOperation = 'lighter';                             // atmosphere rim + front ring
+  c.globalAlpha = 0.4; c.strokeStyle = hexA(B[4], 0.6); c.lineWidth = 1.5; c.beginPath(); c.arc(cx, cy, r, 0, TAU); c.stroke();
+  drawRing(true);
+  c.globalAlpha = 1;
+}
+
+function genSpaceNebula(c, p, PW, PH, depth) {
+  const B = p.blobs;   // [near-black indigo, deep indigo, violet, bright violet, lavender]
+
+  // 1. void gradient — lifted just above the veil so revealed space reads lit
+  const base = c.createLinearGradient(0, 0, 0, PH);
+  base.addColorStop(0, '#0a0a20'); base.addColorStop(0.5, '#0d0a26'); base.addColorStop(1, '#120b2c');
+  c.fillStyle = base; c.fillRect(0, 0, PW, PH);
+
+  c.globalCompositeOperation = 'lighter';
+
+  // 2. nebula gas clouds — violet / magenta / blue cosmic gas (the signature colour)
+  for (let i = 0, n = 5 + Math.round(depth * 3); i < n; i++) {
+    const x = rand(0, PW), y = rand(0, PH), r = rand(120, 300);
+    const hue = [B[2], B[3], '#5a3a9a', '#8a3a7a'][i % 4];
+    const g = c.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, hexA(hue, 0.15 + depth * 0.06)); g.addColorStop(0.5, hexA(hue, 0.05)); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = 0.7; c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+  }
+  c.globalAlpha = 1;
+
+  // 3. dense starfield — multi-size, the brightest with cross-flares
+  for (let i = 0; i < 320; i++) {
+    const x = rand(0, PW), y = rand(0, PH), br = Math.random();
+    c.globalAlpha = rand(0.2, 0.9) * (0.5 + 0.5 * br); c.fillStyle = br < 0.1 ? hexA(B[3], 0.9) : p.star;
+    const r = br < 0.05 ? rand(1.2, 2.2) : rand(0.3, 1.1);
+    c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+    if (br < 0.04) { c.globalAlpha *= 0.6; c.fillRect(x - r * 3, y - 0.4, r * 6, 0.8); c.fillRect(x - 0.4, y - r * 3, 0.8, r * 6); }
+  }
+  c.globalAlpha = 1;
+
+  // 4. distant elliptical galaxies (small glows)
+  for (let i = 0; i < 3; i++) {
+    const x = rand(0, PW), y = rand(0, PH), r = rand(14, 34);
+    c.save(); c.translate(x, y); c.rotate(rand(0, TAU)); c.scale(1, 0.4);
+    const g = c.createRadialGradient(0, 0, 0, 0, 0, r);
+    g.addColorStop(0, hexA(B[4], 0.5)); g.addColorStop(0.4, hexA(B[3], 0.18)); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = 0.7; c.fillStyle = g; c.beginPath(); c.arc(0, 0, r, 0, TAU); c.fill(); c.restore();
+  }
+  c.globalAlpha = 1;
+
+  // 5. hero: a distant ringed planet
+  drawRingedPlanet(c, rand(PW * 0.22, PW * 0.78), rand(PH * 0.2, PH * 0.5), PH * (0.1 + depth * 0.035), B, depth);
+
+  // 6. deep vignette — it's the void
+  c.globalCompositeOperation = 'source-over';
+  const VR = Math.max(PW, PH);
+  const vig = c.createRadialGradient(PW / 2, PH * 0.5, VR * 0.38, PW / 2, PH * 0.5, VR * 0.95);
+  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.4)');
+  c.fillStyle = vig; c.fillRect(0, 0, PW, PH);
+  c.globalAlpha = 1;
+}
+
 export function genNebula(p, level, PW, PH, depth = 0) {
   level = level || 1;
   const s = createSurface(PW, PH), c = s.ctx;
   // band style drives the backdrop flavor (magma / caves / ocean / flora / sky / aurora / space)
   const style = p.style || 'space';
+  if (style === 'space') { genSpaceNebula(c, p, PW, PH, depth); return s; }
   if (style === 'magma') { genMagmaNebula(c, p, PW, PH, depth); return s; }
   if (style === 'caves') { genCrystalNebula(c, p, PW, PH, depth); return s; }
   if (style === 'ocean') { genOceanNebula(c, p, PW, PH, depth); return s; }
@@ -810,11 +885,16 @@ function fogSignature(c, pal, style, PW, PH, depth = 0) {
       c.fillRect(Math.random() * PW, Math.random() * PH, 1.2, 1.2);
     }
     c.globalAlpha = 1;
-  } else {                                              // space: faint stars in the dark
-    for (let i = 0; i < 120; i++) {
-      c.globalAlpha = rand(0.05, 0.22); c.fillStyle = pal.star;
-      c.beginPath(); c.arc(Math.random() * PW, Math.random() * PH, rand(0.3, 0.9), 0, TAU); c.fill();
+  } else {                                              // space: dim starfield + faint dust lanes in the void
+    for (let i = 0; i < 150; i++) {                      // faint stars (the veil is the unrevealed deep)
+      c.globalAlpha = rand(0.05, 0.28); c.fillStyle = Math.random() < 0.12 ? hexA(pal.blobs[3], 0.6) : pal.star;
+      c.beginPath(); c.arc(Math.random() * PW, Math.random() * PH, rand(0.3, 1), 0, TAU); c.fill();
     }
+    for (let i = 0, n = 4 + Math.round(depth * 3); i < n; i++) {   // dark dust lanes drifting across the void
+      let x = rand(0, PW), y = rand(0, PH); c.globalAlpha = rand(0.06, 0.14); c.strokeStyle = '#000'; c.lineWidth = rand(2, 6);
+      c.beginPath(); c.moveTo(x, y); for (let k = 0; k < 3; k++) { x += rand(-60, 60); y += rand(-40, 40); c.lineTo(x, y); } c.stroke();
+    }
+    c.globalAlpha = 1;
   }
   c.globalAlpha = 1;
 }
@@ -887,6 +967,15 @@ export function genFog(pal, PW, PH, depth = 0) {
       const x = rand(PW * 0.15, PW * 0.85), y = rand(PH * 0.1, PH * 0.55), r = rand(120, 220);
       const rg = c.createRadialGradient(x, y, 0, x, y, r);
       rg.addColorStop(0, hexA(pal.blobs[2], 0.07 + depth * 0.05)); rg.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+    }
+    c.restore();
+  } else if (style === 'space') {   // a faint nebula glow smouldering behind the veil
+    c.save(); c.globalCompositeOperation = 'lighter';
+    for (let i = 0, n = 2 + Math.round(depth * 3); i < n; i++) {
+      const x = rand(PW * 0.1, PW * 0.9), y = rand(PH * 0.1, PH * 0.9), r = rand(130, 240);
+      const rg = c.createRadialGradient(x, y, 0, x, y, r);
+      rg.addColorStop(0, hexA(i % 2 ? pal.blobs[3] : '#8a3a7a', 0.06 + depth * 0.05)); rg.addColorStop(1, 'rgba(0,0,0,0)');
       c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
     }
     c.restore();

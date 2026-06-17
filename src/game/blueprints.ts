@@ -150,6 +150,28 @@ const AUTHORED: Record<number, LevelBlueprint> = {
   30: { title: 'THE CORONA', motif: 'veins', density: 0.14, target: 0.82,
         caches: 13, rifts: 8, depth: 1.0,
         enemies: { drifter: 6, chaser: 4, cutter: 3, sentinel: 0, sleeper: 0 } },
+
+  // "Deep Space" (L31-35) — out past the aurora into the open cosmos: the
+  // crafted finale of the climb. The reveal target sits at the ceiling; the only
+  // way left to climb is the densest hunter packs in the run. Beyond L35 the
+  // procedural endless curve takes over (still deep space), seamlessly.
+  31: { title: 'THE VOID', motif: 'pillars', density: 0.09, target: 0.80,
+        caches: 12, rifts: 6, depth: 0.1,
+        enemies: { drifter: 5, chaser: 3, cutter: 2, sentinel: 0, sleeper: 0 } },
+  32: { title: 'STARFALL', motif: 'veins', density: 0.11, target: 0.81,
+        caches: 13, rifts: 7, depth: 0.3,
+        enemies: { drifter: 5, chaser: 4, cutter: 3, sentinel: 0, sleeper: 0 } },
+  33: { title: 'NEBULA GATE', motif: 'veins', density: 0.12, target: 0.81,
+        caches: 13, rifts: 8, depth: 0.5,
+        enemies: { drifter: 6, chaser: 4, cutter: 3, sentinel: 0, sleeper: 0 } },
+  34: { title: 'EVENT HORIZON', motif: 'veins', density: 0.13, target: 0.82,
+        caches: 14, rifts: 8, depth: 0.75,
+        enemies: { drifter: 6, chaser: 4, cutter: 3, sentinel: 0, sleeper: 0 } },
+  // The summit of the whole journey: the most crowded board in the run, against
+  // a ringed planet and the open void.
+  35: { title: 'SINGULARITY', motif: 'veins', density: 0.14, target: 0.82,
+        caches: 15, rifts: 9, depth: 1.0,
+        enemies: { drifter: 6, chaser: 5, cutter: 3, sentinel: 0, sleeper: 0 } },
 };
 
 // Visual intensity from position within a 5-level band: 0, .25, .5, .75, 1.0.
