@@ -201,8 +201,8 @@ function drawAbyssRock(px: number, py: number, x: number, y: number, idx: number
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   for (let i = 0, polyps = 2 + (v % 2); i < polyps; i++) {
     const ox = px + 3 + ((h >> (i * 5)) % Math.max(1, s - 6)), oy = py + 3 + ((h >> (i * 5 + 2)) % Math.max(1, s - 6));
-    ctx.globalAlpha = 0.22; ctx.fillStyle = G.pal.blobs[4]; ctx.beginPath(); ctx.arc(ox, oy, 3, 0, TAU); ctx.fill();
-    ctx.globalAlpha = 0.9; ctx.beginPath(); ctx.arc(ox, oy, 1.2, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 0.14; ctx.fillStyle = G.pal.blobs[4]; ctx.beginPath(); ctx.arc(ox, oy, 2.6, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.arc(ox, oy, 1.1, 0, TAU); ctx.fill();
   }
   ctx.restore();
 
@@ -243,8 +243,8 @@ function drawFloraRock(px: number, py: number, x: number, y: number, idx: number
   ctx.save(); ctx.globalCompositeOperation = 'lighter';   // glowing flora specks (fake glow, no blur)
   for (let i = 0, n = 1 + (v % 2); i < n; i++) {
     const ox = px + 3 + ((h >> (i * 5)) % Math.max(1, s - 6)), oy = py + 3 + ((h >> (i * 5 + 2)) % Math.max(1, s - 6));
-    ctx.globalAlpha = 0.2; ctx.fillStyle = G.pal.blobs[4]; ctx.beginPath(); ctx.arc(ox, oy, 3, 0, TAU); ctx.fill();
-    ctx.globalAlpha = 0.85; ctx.beginPath(); ctx.arc(ox, oy, 1.1, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 0.13; ctx.fillStyle = G.pal.blobs[4]; ctx.beginPath(); ctx.arc(ox, oy, 2.6, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.arc(ox, oy, 1, 0, TAU); ctx.fill();
   }
   // leafy/moss crown where rock meets open above
   if (G.grid[idx - COLS] === EMPTY) {

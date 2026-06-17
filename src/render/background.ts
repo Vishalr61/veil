@@ -304,7 +304,7 @@ function genOceanNebula(c, p, PW, PH, depth) {
   // 8. fish schools — tight clusters of tiny darting glints (movement/life)
   for (let i = 0, n = 2 + Math.round(depth * 2); i < n; i++) {
     const cx2 = rand(PW * 0.15, PW * 0.85), cy2 = rand(PH * 0.2, PH * 0.85);
-    for (let k = 0; k < 10; k++) { c.globalAlpha = rand(0.3, 0.7); c.fillStyle = B[4]; c.beginPath(); c.arc(cx2 + rand(-22, 22), cy2 + rand(-14, 14), rand(0.5, 1.2), 0, TAU); c.fill(); }
+    for (let k = 0; k < 10; k++) { c.globalAlpha = rand(0.18, 0.45); c.fillStyle = B[4]; c.beginPath(); c.arc(cx2 + rand(-22, 22), cy2 + rand(-14, 14), rand(0.5, 1.2), 0, TAU); c.fill(); }
   }
 
   // 9. seabed coral bumps glowing along the bottom
@@ -316,8 +316,8 @@ function genOceanNebula(c, p, PW, PH, depth) {
   }
 
   // 10. rising bubbles + marine-snow glints
-  for (let i = 0, n = 70 + Math.round(depth * 50); i < n; i++) {
-    c.globalAlpha = rand(0.2, 0.6); c.fillStyle = Math.random() < 0.5 ? B[4] : p.star;
+  for (let i = 0, n = 48 + Math.round(depth * 28); i < n; i++) {
+    c.globalAlpha = rand(0.12, 0.38); c.fillStyle = Math.random() < 0.5 ? B[4] : p.star;
     const x = Math.random() * PW, y = Math.random() * PH, r = rand(0.5, 1.8);
     c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
     if (Math.random() < 0.3) { c.globalAlpha *= 0.5; c.beginPath(); c.arc(x + 0.6, y - 0.6, r * 0.5, 0, TAU); c.fill(); }  // bubble highlight
@@ -407,8 +407,8 @@ function genFloraNebula(c, p, PW, PH, depth) {
   }
 
   // 7. drifting spore glints
-  for (let i = 0, n = 90 + Math.round(depth * 50); i < n; i++) {
-    c.globalAlpha = rand(0.2, 0.6); c.fillStyle = Math.random() < 0.45 ? B[4] : p.star;
+  for (let i = 0, n = 56 + Math.round(depth * 28); i < n; i++) {
+    c.globalAlpha = rand(0.12, 0.38); c.fillStyle = Math.random() < 0.45 ? B[4] : p.star;
     c.beginPath(); c.arc(Math.random() * PW, Math.random() * PH, rand(0.4, 1.4), 0, TAU); c.fill();
   }
 
@@ -564,8 +564,8 @@ function fogSignature(c, pal, style, PW, PH, depth = 0) {
       c.globalAlpha = rand(0.1, 0.3); c.strokeStyle = hexA(pal.blobs[4], 0.6); c.lineWidth = 0.7;
       c.beginPath(); c.arc(x, y, r, 0, TAU); c.stroke();
     }
-    for (let i = 0; i < 45; i++) {                       // bioluminescent glints
-      c.globalAlpha = rand(0.12, 0.4); c.fillStyle = Math.random() < 0.35 ? hexA(pal.blobs[4], 0.6) : 'rgba(150,200,210,0.4)';
+    for (let i = 0; i < 30; i++) {                       // bioluminescent glints
+      c.globalAlpha = rand(0.08, 0.26); c.fillStyle = Math.random() < 0.35 ? hexA(pal.blobs[4], 0.5) : 'rgba(150,200,210,0.32)';
       c.fillRect(Math.random() * PW, Math.random() * PH, 1.2, 1.2);
     }
     c.globalAlpha = 1;
@@ -630,8 +630,8 @@ function fogSignature(c, pal, style, PW, PH, depth = 0) {
       let x = rand(0, PW), y = rand(0, PH); c.globalAlpha = rand(0.1, 0.22); c.strokeStyle = '#000'; c.lineWidth = rand(0.8, 1.8);
       c.beginPath(); c.moveTo(x, y); for (let k = 0; k < 4; k++) { x += rand(-30, 30); y += rand(10, 44); c.lineTo(x, y); } c.stroke();
     }
-    for (let i = 0; i < 50; i++) {                       // spore glints
-      c.globalAlpha = rand(0.12, 0.4); c.fillStyle = Math.random() < 0.35 ? hexA(pal.blobs[4], 0.6) : 'rgba(170,210,170,0.4)';
+    for (let i = 0; i < 34; i++) {                       // spore glints
+      c.globalAlpha = rand(0.08, 0.26); c.fillStyle = Math.random() < 0.35 ? hexA(pal.blobs[4], 0.5) : 'rgba(170,210,170,0.32)';
       c.fillRect(Math.random() * PW, Math.random() * PH, 1.2, 1.2);
     }
     c.globalAlpha = 1;
