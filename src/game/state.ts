@@ -1,0 +1,81 @@
+/* =========================================================================
+   Shared mutable game state — the single source of truth.
+
+   Every subsystem (capture, enemies, player, flow, render) reads and writes
+   through this one object. It's a CONST object mutated by property, not a set
+   of exported `let` bindings: ES module live bindings are read-only for
+   importers, so primitives like `score` couldn't be reassigned from another
+   module. Property mutation (`G.score = ...`) works everywhere.
+
+   Persisted values (high score, daily streak, onboarding) are loaded from
+   localStorage at startup in legacy.ts, right after this object is created.
+   ========================================================================= */
+
+import { COLS, ROWS } from '../core/dims';
+import { SeededRng } from '../core/rng';
+import { bandForLevel } from '../core/bands';
+
+export const G = {
+  // settings
+  reduceMotion: false,
+
+  // grid + run identity
+  grid: new Uint8Array(COLS * ROWS),
+  veilBoard: new Uint8Array(0) as Uint8Array,   // hidden content per cell, revealed on capture
+  state: 'menu',                    // scene machine: menu | playing | paused | dead | levelclear | gameover
+  gameSeed: 1,                      // per-run seed; the daily challenge sets this to a date seed
+  rng: new SeededRng(1),            // seeded simulation stream, re-forked per level in initLevel
+
+  // daily challenge
+  isDaily: false,
+  dailyRunKey: '',
+  dailyResultText: '',
+  dailyBest: 0,
+  dailyPlayedKey: '',
+  dailyStreak: 0,
+  dailyStreakDate: '',
+
+  // onboarding
+  onboarded: false,
+  onboarding: false,
+  firstMoveDone: false,
+  seenEnemies: new Set<string>(),
+
+  // progression / scoring
+  level: 1,
+  score: 0, dispScore: 0,
+  highScore: 0,
+  lives: 3,
+  combo: 0, comboT: 0,
+  percent: 0, dispPercent: 0,
+  target: 0.68,
+  baseSpeed: 9.5,
+  time: 0, menuT: 0,
+  lcTimer: 0, goTimer: 0,
+  lastBonus: 0,
+
+  // player + trail
+  player: null as any, buffered: null as any,
+  hasTrail: false, trailCells: [] as any[], trailPoints: [] as any[],
+
+  // entities
+  enemies: [] as any[], particles: [] as any[], motes: [] as any[],
+  popups: [] as any[], pickups: [] as any[], twinkles: [] as any[],
+  revealQueue: [] as any[],
+
+  // background art
+  nebula: null as any, fog: null as any, pal: bandForLevel(1),
+  borderPath: null as any,
+  menuNebula: null as any,
+
+  // presentation / fx (never affects the daily-deterministic sim)
+  shakeAmt: 0, flash: 0, zoom: 1,
+  timeScale: 1, timeScaleTarget: 1,   // global slow-mo (death cinematic only)
+  deathFreeze: 0, drawSoundLock: 0,
+  enemyFreezeT: 0, enemySlowT: 0,     // power-up effects on enemies
+  shield: false,
+  pickupSpawnT: 6,
+  shootingStars: [] as any[], shootTimer: 4,
+  banner: { text: '', sub: '', t: 0 } as { text: string; sub: string; t: number; enemy?: string },
+  hintActive: false,
+};
