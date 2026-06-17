@@ -57,6 +57,7 @@ export const G = {
   // player + trail
   player: null as any, buffered: null as any,
   hasTrail: false, trailCells: [] as any[], trailPoints: [] as any[],
+  joyActive: false, joyDir: null as any,   // held floating-joystick steer (set by touch input)
 
   // entities
   enemies: [] as any[], particles: [] as any[], motes: [] as any[],
