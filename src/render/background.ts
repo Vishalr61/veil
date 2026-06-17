@@ -26,15 +26,15 @@ export function hexA(hex, a) {
 // `depth` (0..1 within the band) makes the lower floors hotter and brighter.
 function genMagmaNebula(c, p, PW, PH, depth) {
   const B = p.blobs;   // [near-black, dark, deep-red, lava, bright]
-  // HOT vs COLD: the rock is COOL basalt; only LAVA (lakes/veins/glow/embers)
-  // is warm. The contrast is what makes the molten light read as molten.
-  const R0 = '#070611', R1 = '#0f0d1b', R2 = '#181426';   // cool basalt darks
+  // Uncovered = a LIT molten chamber: the revealed rock is clearly brighter than
+  // the near-black covered veil (the "draw light into the dark" payoff). Within
+  // the reveal it's still hot/cold: cool-violet rock vs warm orange lava.
+  const R0 = '#15101f', R1 = '#241a30', R2 = '#34233a';   // lit basalt (brighter than the veil's near-black)
 
-  // 1. Cool basalt grade — violet-black ceiling down to a slate floor (the warm
-  //    glow from the lakes below heats it back up where the lava is).
+  // 1. Lit basalt grade — violet ceiling down to a warm molten floor.
   const base = c.createLinearGradient(0, 0, 0, PH);
-  base.addColorStop(0, '#050410'); base.addColorStop(0.5, R0);
-  base.addColorStop(0.85, R1); base.addColorStop(1, R2);
+  base.addColorStop(0, '#120d1c'); base.addColorStop(0.5, R0);
+  base.addColorStop(0.85, R1); base.addColorStop(1, '#4a2018');
   c.fillStyle = base; c.fillRect(0, 0, PW, PH);
 
   // 2. Sedimentary strata — layered rock (the "tunneling down" read).
@@ -60,6 +60,12 @@ function genMagmaNebula(c, p, PW, PH, depth) {
   }
   c.globalAlpha = 1;
   c.globalCompositeOperation = 'lighter';
+
+  // 2.5 Warm ambient — molten light fills the WHOLE chamber so the uncovered area
+  //     reads clearly brighter than the dark covered veil (the core "light" payoff).
+  const aw = c.createRadialGradient(PW / 2, PH * 0.62, 0, PW / 2, PH * 0.62, Math.max(PW, PH) * 0.72);
+  aw.addColorStop(0, hexA(B[3], 0.24)); aw.addColorStop(0.5, hexA(B[2], 0.17)); aw.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = aw; c.fillRect(0, 0, PW, PH);
 
   // 3. Focal forge-glow — a deep warm light source so the chamber reads as LIT.
   const fx = rand(PW * 0.3, PW * 0.7), fy = rand(PH * 0.58, PH * 0.82), fr = PH * (0.42 + depth * 0.12);
@@ -126,12 +132,12 @@ function genMagmaNebula(c, p, PW, PH, depth) {
   //    larger side so wide screens don't black out the edges; softer than before).
   c.globalCompositeOperation = 'source-over';
   const VR = Math.max(PW, PH);
-  const vig = c.createRadialGradient(PW / 2, PH * 0.52, VR * 0.3, PW / 2, PH * 0.52, VR * 0.85);
-  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.46)');
+  const vig = c.createRadialGradient(PW / 2, PH * 0.52, VR * 0.34, PW / 2, PH * 0.52, VR * 0.9);
+  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.3)');
   c.fillStyle = vig; c.fillRect(0, 0, PW, PH);
-  const ceil = c.createLinearGradient(0, 0, 0, PH * 0.22);
-  ceil.addColorStop(0, 'rgba(0,0,0,0.28)'); ceil.addColorStop(1, 'rgba(0,0,0,0)');
-  c.fillStyle = ceil; c.fillRect(0, 0, PW, PH * 0.22);
+  const ceil = c.createLinearGradient(0, 0, 0, PH * 0.2);
+  ceil.addColorStop(0, 'rgba(0,0,0,0.2)'); ceil.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = ceil; c.fillRect(0, 0, PW, PH * 0.2);
   c.globalAlpha = 1;
 }
 
