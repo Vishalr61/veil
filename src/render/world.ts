@@ -140,43 +140,41 @@ function drawDepthsRock(px: number, py: number, x: number, y: number, idx: numbe
   if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(px + s - 1, py, 1, s); ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(px + s - 2.5, py, 1.5, s); }
 }
 
-const CAVE_SHADES = ['#241a38', '#2c2042', '#34264c', '#3c2c56'];   // violet basalt, dark -> light
+const FACET_TONES = ['#322248', '#3c2a58', '#46306a', '#2a1c44'];   // cut-crystal facets, varied
 
-// A Crystal Caves obstacle cell: cool violet stone studded with bright crystal
-// facets — the caves counterpart to drawDepthsRock (same readable raised mass +
-// smooth tone + soft rim, but crystal accents instead of lava).
+// A Crystal Caves obstacle: a faceted CUT-CRYSTAL block — geometric planes split
+// from an off-center hub, with light-catching edges and bright crystal rims.
+// Deliberately NOT the Depths' smooth dark basalt: brighter, angular, refractive.
 function drawCavesRock(px: number, py: number, x: number, y: number, idx: number) {
   const s = CELL;
   const h = ((x * 374761393) ^ (y * 668265263)) >>> 0;
   const v = h % 100;
-  const m = Math.sin(x * 0.55 + y * 0.32) + Math.sin(y * 0.7 - x * 0.22);
-  ctx.fillStyle = CAVE_SHADES[Math.max(0, Math.min(3, Math.round((m + 2) / 4 * 3)))];
-  ctx.fillRect(px, py, s, s);
-  ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(px + (h % 7) + 2, py + ((h >> 2) % 6) + 2, 1.3, 1.3);
-  ctx.fillStyle = 'rgba(210,196,235,0.1)'; ctx.fillRect(px + ((h >> 3) % 9) + 2, py + ((h >> 6) % 9) + 2, 1.1, 1.1);
+  const hx = px + s * 0.5 + ((h % 7) - 3), hy = py + s * 0.5 + (((h >> 3) % 7) - 3);   // off-center facet hub
+  const cn = [[px, py], [px + s, py], [px + s, py + s], [px, py + s]];
 
-  if (v < 18) {                       // CRYSTAL VEIN — a bright lilac fissure
-    const y0 = py + 3 + (h % 4), y1 = py + s - 4 - ((h >> 2) % 4);
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = hexA(G.pal.blobs[3], 0.55); ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(px + 2, y0); ctx.lineTo(px + s - 3, y1); ctx.stroke(); ctx.restore();
-  } else if (v < 32) {                // sheen
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = 'rgba(220,180,255,0.22)'; ctx.lineWidth = 1.1;
-    ctx.beginPath(); ctx.moveTo(px + s * 0.2, py + s * 0.8); ctx.lineTo(px + s * 0.7, py + s * 0.16); ctx.stroke(); ctx.restore();
-  } else if (v < 44) {                // EMBEDDED CRYSTAL — a small glowing amethyst facet
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    const ox = px + 5 + (h % Math.max(1, s - 10)), oy = py + 5 + ((h >> 4) % Math.max(1, s - 10));
-    ctx.shadowColor = G.pal.blobs[4]; ctx.shadowBlur = 6; ctx.fillStyle = hexA(G.pal.blobs[4], 0.85);
-    ctx.beginPath(); ctx.moveTo(ox, oy - 3); ctx.lineTo(ox + 2, oy); ctx.lineTo(ox, oy + 3); ctx.lineTo(ox - 2, oy); ctx.closePath(); ctx.fill(); ctx.restore();
-  } else if (v < 52) {                // faint cool mineral tint
-    ctx.fillStyle = 'rgba(150,120,200,0.12)'; ctx.fillRect(px, py, s, s);
+  // 1. triangular facets fanning from the hub — each a different violet tone (cut gem)
+  for (let i = 0; i < 4; i++) {
+    ctx.fillStyle = FACET_TONES[(h >> (i * 2)) & 3];
+    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(cn[i][0], cn[i][1]); ctx.lineTo(cn[(i + 1) % 4][0], cn[(i + 1) % 4][1]); ctx.closePath(); ctx.fill();
   }
 
-  if (G.grid[idx - COLS] === EMPTY) { ctx.fillStyle = 'rgba(216,200,240,0.4)'; ctx.fillRect(px, py, s, 1); ctx.fillStyle = 'rgba(216,200,240,0.15)'; ctx.fillRect(px, py + 1, s, 1.5); }
-  if (G.grid[idx - 1] === EMPTY) { ctx.fillStyle = 'rgba(216,200,240,0.28)'; ctx.fillRect(px, py, 1, s); ctx.fillStyle = 'rgba(216,200,240,0.1)'; ctx.fillRect(px + 1, py, 1.5, s); }
-  if (G.grid[idx + COLS] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(px, py + s - 1, s, 1); ctx.fillStyle = 'rgba(0,0,0,0.24)'; ctx.fillRect(px, py + s - 2.5, s, 1.5); }
-  if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(px + s - 1, py, 1, s); ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(px + s - 2.5, py, 1.5, s); }
+  // 2. light-catching facet edges + an occasional bright glint at the hub
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  ctx.strokeStyle = hexA(G.pal.blobs[3], 0.28); ctx.lineWidth = 0.7;
+  for (const c of cn) { ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(c[0], c[1]); ctx.stroke(); }
+  if (v < 36) { ctx.shadowColor = G.pal.blobs[4]; ctx.shadowBlur = 5; ctx.fillStyle = hexA(G.pal.blobs[4], 0.75); ctx.beginPath(); ctx.arc(hx, hy, 1.5, 0, TAU); ctx.fill(); }
+  ctx.restore();
+
+  // 3. sharp bright crystal rim on open-facing edges (defines the cluster); dark
+  //    grounding shadow on the bottom/right.
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = hexA(G.pal.blobs[3], 0.45); ctx.lineWidth = 1; ctx.beginPath();
+  if (G.grid[idx - COLS] === EMPTY) { ctx.moveTo(px + 0.5, py + 0.6); ctx.lineTo(px + s - 0.5, py + 0.6); }
+  if (G.grid[idx + COLS] === EMPTY) { ctx.moveTo(px + 0.5, py + s - 0.6); ctx.lineTo(px + s - 0.5, py + s - 0.6); }
+  if (G.grid[idx - 1] === EMPTY) { ctx.moveTo(px + 0.6, py + 0.5); ctx.lineTo(px + 0.6, py + s - 0.5); }
+  if (G.grid[idx + 1] === EMPTY) { ctx.moveTo(px + s - 0.6, py + 0.5); ctx.lineTo(px + s - 0.6, py + s - 0.5); }
+  ctx.stroke(); ctx.restore();
+  if (G.grid[idx + COLS] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(px, py + s - 1.5, s, 1.5); }
+  if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.32)'; ctx.fillRect(px + s - 1.5, py, 1.5, s); }
 }
 
 function drawObstacles() {

@@ -174,6 +174,13 @@ function genCrystalNebula(c, p, PW, PH, depth) {
     g.addColorStop(0, Math.random() < 0.5 ? hexA('#2a1648', 0.5) : 'rgba(0,0,0,0.45)'); g.addColorStop(1, 'rgba(0,0,0,0)');
     c.globalAlpha = rand(0.3, 0.6); c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
   }
+  // crystalline rock facets — angular planes give the rock a geometric, cut surface
+  for (let i = 0; i < 30; i++) {
+    const x = rand(0, PW), y = rand(0, PH), sz = rand(24, 64);
+    c.globalAlpha = rand(0.05, 0.13); c.fillStyle = Math.random() < 0.5 ? '#0c0618' : '#3a2658';
+    c.save(); c.translate(x, y); c.rotate(rand(0, TAU));
+    c.beginPath(); c.moveTo(0, -sz * rand(0.6, 1)); c.lineTo(sz * rand(0.3, 0.6), 0); c.lineTo(0, sz * rand(0.6, 1)); c.lineTo(-sz * rand(0.3, 0.6), 0); c.closePath(); c.fill(); c.restore();
+  }
   c.globalAlpha = 1; c.globalCompositeOperation = 'lighter';
 
   // 2. violet ambient wash — fills the grotto with light so uncovered clearly reads brighter than the veil
@@ -181,8 +188,19 @@ function genCrystalNebula(c, p, PW, PH, depth) {
   aw.addColorStop(0, hexA(B[3], 0.2)); aw.addColorStop(0.5, hexA(B[2], 0.17)); aw.addColorStop(1, 'rgba(0,0,0,0)');
   c.fillStyle = aw; c.fillRect(0, 0, PW, PH);
 
+  // 2.5 mineral veins — thin lilac crystal seams threading the rock (fills the empty space with structure)
+  for (let i = 0, seeds = 5 + Math.round(depth * 4); i < seeds; i++) {
+    let vx = rand(0, PW), vy = rand(0, PH), ang = rand(0, TAU);
+    c.shadowColor = B[4]; c.shadowBlur = 5 + depth * 5;
+    c.globalAlpha = rand(0.18, 0.34) + depth * 0.12; c.strokeStyle = B[3]; c.lineWidth = rand(0.7, 1.5);
+    c.beginPath(); c.moveTo(vx, vy);
+    for (let k = 0, segs = 4 + ((Math.random() * 4) | 0); k < segs; k++) { ang += rand(-0.6, 0.6); const len = rand(18, 40); vx += Math.cos(ang) * len; vy += Math.sin(ang) * len; c.lineTo(vx, vy); }
+    c.stroke();
+  }
+  c.shadowBlur = 0;
+
   // 3. geodes — large crystal-lined hollows glowing from within
-  for (let i = 0, n = 2 + Math.round(depth * 2); i < n; i++) {
+  for (let i = 0, n = 3 + Math.round(depth * 2); i < n; i++) {
     const x = rand(PW * 0.1, PW * 0.9), y = rand(PH * 0.22, PH * 0.92), r = rand(60, 120);
     const g = c.createRadialGradient(x, y, 0, x, y, r);
     g.addColorStop(0, hexA(B[4], 0.5)); g.addColorStop(0.5, hexA(B[3], 0.3)); g.addColorStop(1, 'rgba(0,0,0,0)');
@@ -190,11 +208,11 @@ function genCrystalNebula(c, p, PW, PH, depth) {
   }
 
   // 4. crystal clusters — the hero element, more/larger deeper
-  for (let i = 0, n = 6 + Math.round(depth * 6); i < n; i++)
-    drawCrystalCluster(c, rand(PW * 0.06, PW * 0.94), rand(PH * 0.15, PH * 0.95), rand(14, 34), B, depth);
+  for (let i = 0, n = 9 + Math.round(depth * 7); i < n; i++)
+    drawCrystalCluster(c, rand(PW * 0.06, PW * 0.94), rand(PH * 0.12, PH * 0.96), rand(13, 36), B, depth);
 
   // 5. prism glints — sparkle in the rock
-  for (let i = 0, n = 80 + Math.round(depth * 50); i < n; i++) {
+  for (let i = 0, n = 100 + Math.round(depth * 60); i < n; i++) {
     c.globalAlpha = rand(0.2, 0.7); c.fillStyle = Math.random() < 0.4 ? B[4] : p.star;
     c.beginPath(); c.arc(Math.random() * PW, Math.random() * PH, rand(0.4, 1.3), 0, TAU); c.fill();
   }
