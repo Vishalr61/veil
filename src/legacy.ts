@@ -17,9 +17,9 @@ import { shareResult } from './platform/share';
 import { EMPTY, FILLED, TRAIL, OBSTACLE, COMBO_WINDOW, SS } from './core/constants';
 import { ENEMY_COL, ENEMY_GLOW, CHASER_COL, CHASER_GLOW } from './core/palettes';
 import { bandForLevel, BANDS } from './core/bands';
-import { hexA, genNebula, genFog } from './render/background';
+import { genNebula, genFog } from './render/background';
 import { canvas, ctx } from './render/surface';
-import { glowText, retroTitle, drawScanlines, retroButton, fmtScore, drawGlowOrb, roundRectPath, pointAlong } from './render/primitives';
+import { glowText, drawScanlines, roundRectPath } from './render/primitives';
 import {
   COLS, ROWS, CELL, PW, PH, MARGIN, HUD_H, CW, CH, OFF_X, OFF_Y, INTERIOR_TOTAL,
   safeTop, safeBottom, computeLayout, applyCanvasSize, setInteriorTotal,
@@ -29,7 +29,10 @@ import { cellIndex, centerPx, cellOfPx } from './core/grid';
 import { drawWorld, tickShootingStars } from './render/world';
 import { spawnPopup, updatePopups, updateParticles, initMotes, updateMotes } from './game/particles';
 import { eCell, ENEMY_INFO, genEnemies, moveEnemy } from './game/enemies';
-import { comboMult, recomputeBorderPath, recomputePercent, doCapture } from './game/capture';
+import { recomputeBorderPath, recomputePercent, doCapture } from './game/capture';
+import { playBtnRect, dailyBtnRect, pauseBtnRect } from './render/geometry';
+import { drawHUD } from './render/hud';
+import { drawMenu, drawLevelClear, drawGameOver, drawPaused, drawAttractWorld } from './render/overlays';
 import {
   initAudio, setMuted, isMuted, setPadLevel,
   sfxStartDraw, sfxCapture, sfxBold, sfxDeath, sfxLevel, sfxPickup, sfxShield, sfxBlip, sfxBest,
@@ -393,125 +396,8 @@ function update(dt) {
 }
 
 
-/* ----------------------------- HUD ------------------------------------- */
-function drawHUD() {
-  ctx.save();
-  ctx.fillStyle = 'rgba(6,9,20,0.55)'; ctx.fillRect(0, 0, CW, HUD_H);
-  ctx.strokeStyle = 'rgba(120,170,255,0.12)'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(0, HUD_H - 0.5); ctx.lineTo(CW, HUD_H - 0.5); ctx.stroke();
-  ctx.restore();
-  const cy = safeTop + (HUD_H - safeTop) / 2;   // center below the notch / safe inset
-
-  glowText('SCORE', MARGIN + 8, cy - 13, 11, '#6f86b8', { align: 'left', blur: 0, spacing: 1, font: 'mono' });
-  glowText(fmtScore(G.dispScore), MARGIN + 8, cy + 6, 24, G.pal.trail, { align: 'left', blur: 8, font: 'mono', core: '#fff', spacing: 1 });
-
-  // combo meter
-  if (G.combo > 1 && G.state === 'playing') {
-    const mx = MARGIN + 128, mw = 64;
-    const mult = comboMult();
-    glowText('x' + mult.toFixed(1), mx, cy - 9, 14, G.pal.accent, { align: 'left', blur: 10, weight: 800 });
-    ctx.save();
-    roundRectPath(mx, cy + 2, mw, 5, 2.5); ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.fill(); ctx.clip();
-    ctx.fillStyle = G.pal.accent; ctx.shadowColor = G.pal.accent; ctx.shadowBlur = 8;
-    ctx.fillRect(mx, cy + 2, mw * clamp(G.comboT / COMBO_WINDOW, 0, 1), 5);
-    ctx.restore();
-  }
-
-  // power-up status (center-left, under hint of bar)
-  if (G.enemyFreezeT > 0) glowText('FREEZE ' + G.enemyFreezeT.toFixed(1), CW / 2 - 150, cy, 11, '#8fe6ff', { align: 'right', blur: 6, weight: 800, spacing: 1 });
-  if (G.enemySlowT > 0) glowText('SLOW ' + G.enemySlowT.toFixed(1), CW / 2 + 150, cy, 11, '#9fb8ff', { align: 'left', blur: 6, weight: 800, spacing: 1 });
-
-  // percent bar
-  const barW = 230, barH = 11, bx = CW / 2 - barW / 2, by = cy - barH / 2 + 4;
-  ctx.save();
-  roundRectPath(bx, by, barW, barH, 5); ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fill(); ctx.clip();
-  const fillW = barW * clamp(G.dispPercent / G.target, 0, 1);
-  const g = ctx.createLinearGradient(bx, 0, bx + barW, 0);
-  g.addColorStop(0, G.pal.edge); g.addColorStop(1, G.pal.edge2);
-  ctx.fillStyle = g; ctx.shadowColor = G.pal.edge; ctx.shadowBlur = 10; ctx.fillRect(bx, by, fillW, barH);
-  ctx.restore();
-  glowText(Math.round(G.dispPercent * 100) + '%', CW / 2, by - 9, 11, G.pal.edge2, { blur: 6, weight: 800 });
-  glowText('TARGET ' + Math.round(G.target * 100) + '%', CW / 2, by + barH + 9, 9, '#7f93c0', { blur: 0, spacing: 1.5, weight: 700 });
-
-  // right cluster (kept left of the pause button at CW-56)
-  let rx = CW - 66;
-  ctx.save();
-  ctx.translate(rx - 7, cy);
-  ctx.strokeStyle = isMuted() ? '#6a7290' : G.pal.accent; ctx.fillStyle = isMuted() ? '#6a7290' : G.pal.accent; ctx.lineWidth = 1.6;
-  ctx.beginPath(); ctx.moveTo(-7, -2.5); ctx.lineTo(-3, -2.5); ctx.lineTo(1, -6); ctx.lineTo(1, 6); ctx.lineTo(-3, 2.5); ctx.lineTo(-7, 2.5); ctx.closePath(); ctx.fill();
-  if (isMuted()) { ctx.beginPath(); ctx.moveTo(4, -5); ctx.lineTo(9, 5); ctx.moveTo(9, -5); ctx.lineTo(4, 5); ctx.stroke(); }
-  else { ctx.beginPath(); ctx.arc(2, 0, 5, -0.7, 0.7); ctx.stroke(); ctx.beginPath(); ctx.arc(2, 0, 8, -0.7, 0.7); ctx.globalAlpha = 0.6; ctx.stroke(); }
-  ctx.restore();
-  rx -= 26;
-
-  if (G.shield) { drawGlowOrb(rx - 5, cy, 4.5, '#7dffc4', '#7dffc4', 13); rx -= 18; }
-
-  for (let i = 0; i < Math.min(G.lives, 6); i++) drawGlowOrb(rx - i * 16, cy, 4, '#fff', G.pal.player, 11);
-  rx -= Math.min(G.lives, 6) * 16 + 8;
-  glowText('LVL ' + G.level, rx, cy, 19, G.pal.edge2, { align: 'right', blur: 8, font: 'mono', spacing: 1 });
-}
-
-/* ----------------------------- overlays -------------------------------- */
-function dim(a) { ctx.save(); ctx.fillStyle = `rgba(3,5,12,${a})`; ctx.fillRect(0, 0, CW, CH); ctx.restore(); }
-function drawMenu() {
-  dim(0.6);
-  const cx = CW / 2, cyc = CH / 2, bob = Math.sin(G.menuT * 1.4) * 3;
-  glowText('HI ' + fmtScore(G.highScore), cx, CH * 0.15, 22, '#ffe93b', { blur: 8, font: 'mono', spacing: 1 });
-  retroTitle('VEIL', cx, cyc - 92 + bob, 50, { blur: 22, glow: '#00f0ff', spacing: 2 });
-  glowText('DRAW LIGHT INTO THE DARK', cx, cyc - 52 + bob, 21, '#00f0ff', { blur: 8, font: 'mono', spacing: 2 });
-  const blink = 0.45 + 0.55 * Math.sin(G.menuT * 4);
-  glowText('PRESS START', cx, cyc - 8, 11, '#ffffff', { blur: 10, font: 'pixel', alpha: blink });
-
-  retroButton(playBtnRect(), 'PLAY', '#39ff14');
-  const tk = todayKey(new Date()), done = G.dailyPlayedKey === tk;
-  retroButton(dailyBtnRect(), done ? 'DAILY ✓' : 'DAILY', '#ff2d95');
-
-  glowText('DRAG TO STEER', cx, cyc + 158, 18, '#9fd8ff', { blur: 4, font: 'mono', spacing: 1 });
-  const liveStreak = (G.dailyStreakDate === tk || isConsecutive(G.dailyStreakDate, tk)) ? G.dailyStreak : 0;
-  if (liveStreak > 1) glowText('STREAK ' + liveStreak, cx, cyc + 184, 18, '#ffb15a', { blur: 4, font: 'mono', spacing: 1 });
-}
-function drawLevelClear() {
-  dim(0.45);
-  const cx = CW / 2, cyc = CH / 2, t = clamp((2.9 - G.lcTimer) * 2.2, 0, 1), pop = 1 + (1 - t) * 0.3;
-  glowText('VEIL CLEARED', cx, cyc - 36, 44 * pop, G.pal.edge2, { blur: 26, font: 'mono', spacing: 2, core: '#fff', alpha: t });
-  glowText('LEVEL ' + G.level + '  ·  ' + Math.round(G.percent * 100) + '% revealed', cx, cyc + 8, 16, '#cfe6ff', { blur: 8, weight: 600, spacing: 1, alpha: t });
-  glowText('+ ' + G.lastBonus + '  bonus', cx, cyc + 40, 18, G.pal.accent, { blur: 12, weight: 800, alpha: t });
-  glowText('next: level ' + (G.level + 1), cx, cyc + 78, 12, '#7f97c8', { blur: 0, spacing: 2, alpha: t * (0.6 + 0.4 * Math.sin(G.menuT * 4)) });
-}
-function drawGameOver() {
-  dim(0.6);
-  const cx = CW / 2, cyc = CH / 2, t = clamp(G.goTimer * 1.6, 0, 1);
-  glowText('THE DARK WINS', cx, cyc - 40, 46, '#ff6b7e', { blur: 26, font: 'mono', spacing: 2, core: '#fff', alpha: t });
-  glowText('SCORE  ' + fmtScore(G.score), cx, cyc + 6, 22, '#dff1ff', { blur: 12, weight: 700, spacing: 2, alpha: t });
-  const isBest = G.score >= G.highScore && G.score > 0;
-  glowText((isBest ? 'NEW BEST!  ' : 'BEST  ') + fmtScore(G.highScore), cx, cyc + 38, 14, isBest ? '#ffe27a' : G.pal.edge, { blur: 8, weight: 700, spacing: 1, alpha: t });
-  const blink = 0.5 + 0.5 * Math.sin(G.menuT * 3);
-  if (G.isDaily) {
-    glowText('DAILY  ' + G.dailyRunKey + (G.dailyStreak > 1 ? '   🔥 ' + G.dailyStreak : ''), cx, cyc + 60, 12, '#9fd0ff', { blur: 6, spacing: 2, weight: 700, alpha: t });
-    glowText('TAP TO SHARE RESULT', cx, cyc + 96, 15, '#cfe6ff', { blur: 10, weight: 700, spacing: 2, alpha: t * blink });
-  } else {
-    glowText('reached level ' + G.level, cx, cyc + 60, 12, '#7f97c8', { blur: 0, spacing: 1, alpha: t });
-    glowText('PRESS ANY KEY TO RETRY', cx, cyc + 96, 15, '#cfe6ff', { blur: 10, weight: 700, spacing: 2, alpha: t * blink });
-  }
-}
-function drawPaused() {
-  dim(0.55);
-  const cx = CW / 2, cyc = CH / 2;
-  glowText('PAUSED', cx, cyc - 10, 30, '#cfe6ff', { blur: 18, font: 'pixel', spacing: 2, core: '#fff' });
-  const blink = 0.5 + 0.5 * Math.sin(G.menuT * 3);
-  glowText('P / ESC resume      M mute      R reduce motion', cx, cyc + 36, 13, '#9fb6e8', { blur: 8, weight: 700, spacing: 1, alpha: blink });
-}
 
 /* ----------------------------- main render ----------------------------- */
-function drawAttractWorld() {
-  if (!G.menuNebula) G.menuNebula = genNebula(BANDS[0], 1, PW, PH);
-  ctx.save();
-  ctx.translate(OFF_X, OFF_Y);
-  ctx.globalAlpha = 0.5; ctx.drawImage(G.menuNebula.canvas, 0, 0, PW, PH); ctx.globalAlpha = 1;
-  ctx.globalCompositeOperation = 'lighter';
-  for (const m of G.motes) { ctx.globalAlpha = m.a * 0.8; ctx.fillStyle = '#cfe6ff'; ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, TAU); ctx.fill(); }
-  ctx.restore();
-}
 function drawTouchUI() {
   // pause / resume button (top-right, inside the safe area)
   const r = pauseBtnRect();
@@ -594,9 +480,6 @@ function toggleReduce() {
   if (G.reduceMotion) { G.shakeAmt = 0; G.zoom = 1; G.timeScale = 1; G.timeScaleTarget = 1; }
   if (G.state === 'playing') spawnPopup(G.player.px.x, G.player.px.y, 'MOTION ' + (G.reduceMotion ? 'OFF' : 'ON'), G.pal.edge2, 14);
 }
-function menuBtnW() { return Math.min(264, CW - 56); }
-function playBtnRect() { const w = menuBtnW(); return { x: CW / 2 - w / 2, y: CH / 2 + 26, w, h: 50 }; }
-function dailyBtnRect() { const w = menuBtnW(); return { x: CW / 2 - w / 2, y: CH / 2 + 90, w, h: 50 }; }
 function startDaily() {
   G.dailyRunKey = todayKey(new Date());
   G.isDaily = true;
@@ -648,7 +531,6 @@ function localPt(t) {
   const sx = r.width ? CW / r.width : 1, sy = r.height ? CH / r.height : 1;
   return { x: (t.clientX - r.left) * sx, y: (t.clientY - r.top) * sy };
 }
-function pauseBtnRect() { return { x: CW - 56, y: safeTop + 8, w: 46, h: 46 }; }
 function inRect(px, py, r) { return px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h; }
 // Snap the drag vector to a 4-way grid direction, ignoring a small dead zone.
 function steerFromVec(dx, dy) {
