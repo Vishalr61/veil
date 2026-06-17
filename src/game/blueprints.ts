@@ -70,6 +70,25 @@ const AUTHORED: Record<number, LevelBlueprint> = {
   10: { title: 'THE GEODE CORE', motif: 'veins', density: 0.12, target: 0.74,
         caches: 8, rifts: 4, depth: 1.0,
         enemies: { drifter: 3, chaser: 2, cutter: 2, sentinel: 0, sleeper: 0 } },
+
+  // "The Abyss" (L11-15) — the ocean trench. No new enemy type (the roster is
+  // fully introduced by now); the climb continues by intensity + the environment.
+  11: { title: 'THE SHALLOWS', motif: 'pillars', density: 0.08, target: 0.74,
+        caches: 7, rifts: 3, depth: 0.1,
+        enemies: { drifter: 3, chaser: 1, cutter: 1, sentinel: 0, sleeper: 0 } },
+  12: { title: 'DRIFT CURRENT', motif: 'veins', density: 0.10, target: 0.76,
+        caches: 8, rifts: 4, depth: 0.3,
+        enemies: { drifter: 3, chaser: 2, cutter: 1, sentinel: 0, sleeper: 0 } },
+  13: { title: 'THE TRENCH', motif: 'veins', density: 0.12, target: 0.78,
+        caches: 9, rifts: 4, depth: 0.5,
+        enemies: { drifter: 4, chaser: 2, cutter: 1, sentinel: 0, sleeper: 0 } },
+  14: { title: 'BLACK WATER', motif: 'veins', density: 0.13, target: 0.79,
+        caches: 9, rifts: 5, depth: 0.75,
+        enemies: { drifter: 4, chaser: 2, cutter: 2, sentinel: 0, sleeper: 0 } },
+  // Summit of the trench: the most crowded, deepest, darkest water.
+  15: { title: 'THE MAW', motif: 'veins', density: 0.14, target: 0.80,
+        caches: 10, rifts: 6, depth: 1.0,
+        enemies: { drifter: 4, chaser: 3, cutter: 2, sentinel: 0, sleeper: 0 } },
 };
 
 // Visual intensity from position within a 5-level band: 0, .25, .5, .75, 1.0.

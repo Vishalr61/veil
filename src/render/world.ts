@@ -177,6 +177,39 @@ function drawCavesRock(px: number, py: number, x: number, y: number, idx: number
   if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.32)'; ctx.fillRect(px + s - 1.5, py, 1.5, s); }
 }
 
+const ABYSS_SHADES = ['#0a2630', '#0e2e3a', '#123642', '#163e4c'];   // dark teal stone, dark -> light
+
+// An Abyss obstacle: smooth dark-teal encrusted stone with glowing bioluminescent
+// specks — softer/rounder than the Depths basalt and the Caves crystal, with a
+// soft cyan-lit rim. A third distinct material.
+function drawAbyssRock(px: number, py: number, x: number, y: number, idx: number) {
+  const s = CELL;
+  const h = ((x * 374761393) ^ (y * 668265263)) >>> 0;
+  const v = h % 100;
+  const m = Math.sin(x * 0.55 + y * 0.32) + Math.sin(y * 0.7 - x * 0.22);
+  ctx.fillStyle = ABYSS_SHADES[Math.max(0, Math.min(3, Math.round((m + 2) / 4 * 3)))];
+  ctx.fillRect(px, py, s, s);
+  ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(px + (h % 7) + 2, py + ((h >> 2) % 6) + 2, 1.3, 1.3);
+  ctx.fillStyle = 'rgba(150,210,220,0.1)'; ctx.fillRect(px + ((h >> 3) % 9) + 2, py + ((h >> 6) % 9) + 2, 1.1, 1.1);
+
+  if (v < 22) {                       // BIO-SPECK — a glowing coral polyp
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const ox = px + 4 + (h % Math.max(1, s - 8)), oy = py + 4 + ((h >> 4) % Math.max(1, s - 8));
+    ctx.shadowColor = G.pal.blobs[4]; ctx.shadowBlur = 6; ctx.fillStyle = hexA(G.pal.blobs[4], 0.8);
+    ctx.beginPath(); ctx.arc(ox, oy, 1.6, 0, TAU); ctx.fill(); ctx.restore();
+  } else if (v < 36) {                // a faint caustic streak
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = hexA(G.pal.blobs[3], 0.18); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(px + 1, py + 3 + (h % 5)); ctx.lineTo(px + s - 1, py + 5 + (h % 5)); ctx.stroke(); ctx.restore();
+  } else if (v < 46) {                // encrusted mineral tint
+    ctx.fillStyle = 'rgba(60,140,150,0.12)'; ctx.fillRect(px, py, s, s);
+  }
+
+  if (G.grid[idx - COLS] === EMPTY) { ctx.fillStyle = 'rgba(150,220,225,0.32)'; ctx.fillRect(px, py, s, 1); ctx.fillStyle = 'rgba(150,220,225,0.12)'; ctx.fillRect(px, py + 1, s, 1.5); }
+  if (G.grid[idx - 1] === EMPTY) { ctx.fillStyle = 'rgba(150,220,225,0.24)'; ctx.fillRect(px, py, 1, s); ctx.fillStyle = 'rgba(150,220,225,0.09)'; ctx.fillRect(px + 1, py, 1.5, s); }
+  if (G.grid[idx + COLS] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(px, py + s - 1, s, 1); ctx.fillStyle = 'rgba(0,0,0,0.24)'; ctx.fillRect(px, py + s - 2.5, s, 1.5); }
+  if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(px + s - 1, py, 1, s); ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(px + s - 2.5, py, 1.5, s); }
+}
+
 function drawObstacles() {
   const style = G.pal.style;
   ctx.save();
@@ -189,6 +222,8 @@ function drawObstacles() {
         drawDepthsRock(px, py, x, y, idx);
       } else if (style === 'caves') {
         drawCavesRock(px, py, x, y, idx);
+      } else if (style === 'ocean') {
+        drawAbyssRock(px, py, x, y, idx);
       } else {
         ctx.fillStyle = G.pal.blobs[1];                      // band-tinted solid mass (ice/coral/rock/asteroid)
         ctx.fillRect(px, py, CELL, CELL);
@@ -228,6 +263,7 @@ export function drawWorld() {
   for (const m of G.motes) {
     if (m.em) { ctx.globalAlpha = m.a * (0.55 + 0.45 * Math.sin(G.time * 8 + m.x)); ctx.fillStyle = G.pal.blobs[3]; }
     else if (m.cr) { ctx.globalAlpha = m.a * (0.35 + 0.65 * Math.abs(Math.sin(G.time * 3 + m.x * 0.5))); ctx.fillStyle = G.pal.blobs[4]; }
+    else if (m.bu) { ctx.globalAlpha = m.a * 0.8; ctx.fillStyle = G.pal.blobs[4]; }   // rising bubble
     else { ctx.globalAlpha = m.a; ctx.fillStyle = G.pal.star; }
     ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, TAU); ctx.fill();
   }

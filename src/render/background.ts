@@ -226,6 +226,87 @@ function genCrystalNebula(c, p, PW, PH, depth) {
   c.globalAlpha = 1;
 }
 
+// The Abyss — a LIT ocean trench: deep teal water (brighter than the veil) with
+// god-ray light shafts from the surface, wavering caustic ripples, rising
+// bubbles, drifting bioluminescent blooms, and a hero vent bloom. Distinct from
+// the Depths (lava) and Caves (crystal) by motif (water/light) and hue (cyan).
+function genOceanNebula(c, p, PW, PH, depth) {
+  const B = p.blobs;   // [near-black, dark teal, teal, bright cyan, aqua]
+
+  // 1. lit deep-water grade — lighter near the top (toward the distant surface)
+  const base = c.createLinearGradient(0, 0, 0, PH);
+  base.addColorStop(0, '#0a2c36'); base.addColorStop(0.5, '#072028'); base.addColorStop(1, '#04141c');
+  c.fillStyle = base; c.fillRect(0, 0, PW, PH);
+  for (let i = 0; i < 10; i++) {   // water depth mottle
+    const x = rand(0, PW), y = rand(0, PH), r = rand(120, 280);
+    const g = c.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, Math.random() < 0.5 ? hexA(B[1], 0.6) : 'rgba(0,0,0,0.4)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = rand(0.3, 0.6); c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+  }
+  c.globalAlpha = 1; c.globalCompositeOperation = 'lighter';
+
+  // 2. cyan ambient — fills the trench with light (uncovered reads brighter than veil)
+  const aw = c.createRadialGradient(PW / 2, PH * 0.35, 0, PW / 2, PH * 0.35, Math.max(PW, PH) * 0.78);
+  aw.addColorStop(0, hexA(B[2], 0.22)); aw.addColorStop(0.5, hexA(B[1], 0.18)); aw.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = aw; c.fillRect(0, 0, PW, PH);
+
+  // 3. god-ray shafts — sunlight piercing down from the surface
+  for (let i = 0, n = 2 + Math.round(depth * 2); i < n; i++) {
+    const x = rand(PW * 0.15, PW * 0.85), w = rand(36, 80);
+    const g = c.createLinearGradient(0, 0, 0, PH * 0.85);
+    g.addColorStop(0, hexA(B[3], 0.12 + depth * 0.05)); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = 0.7; c.fillStyle = g;
+    c.beginPath(); c.moveTo(x - w * 0.3, 0); c.lineTo(x + w * 0.3, 0); c.lineTo(x + w, PH * 0.85); c.lineTo(x - w, PH * 0.85); c.closePath(); c.fill();
+  }
+  c.globalAlpha = 1;
+
+  // 4. caustic ripples — wavering horizontal light bands (the signature)
+  for (let i = 0, n = 16 + Math.round(depth * 10); i < n; i++) {
+    const y = rand(0, PH); c.globalAlpha = rand(0.05, 0.14); c.strokeStyle = B[4]; c.lineWidth = rand(0.6, 1.6);
+    c.beginPath(); let lx = 0; c.moveTo(0, y);
+    for (let k = 1; k <= 8; k++) c.lineTo(k / 8 * PW, y + Math.sin(k * 1.3 + i) * rand(4, 12));
+    c.stroke();
+  }
+
+  // 5. bioluminescent blooms — soft glowing plankton/jelly orbs
+  for (let i = 0, n = 5 + Math.round(depth * 4); i < n; i++) {
+    const x = rand(0, PW), y = rand(PH * 0.1, PH * 0.95), r = rand(26, 64);
+    const g = c.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, hexA(B[4], 0.6)); g.addColorStop(0.5, hexA(B[3], 0.28)); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = rand(0.4, 0.7); c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+  }
+
+  // 6. HERO landmark — a large bioluminescent vent: a bright core with rising tendrils
+  const vx = rand(PW * 0.25, PW * 0.75), vy = rand(PH * 0.55, PH * 0.9);
+  const vg = c.createRadialGradient(vx, vy, 0, vx, vy, PH * 0.34);
+  vg.addColorStop(0, hexA(B[4], 0.5)); vg.addColorStop(0.4, hexA(B[3], 0.22)); vg.addColorStop(1, 'rgba(0,0,0,0)');
+  c.globalAlpha = 0.8; c.fillStyle = vg; c.beginPath(); c.arc(vx, vy, PH * 0.34, 0, TAU); c.fill();
+  c.shadowColor = B[4]; c.shadowBlur = 8;
+  for (let t = 0; t < 6; t++) {
+    let tx = vx + rand(-30, 30), ty = vy; c.globalAlpha = rand(0.25, 0.5); c.strokeStyle = B[4]; c.lineWidth = rand(1, 2.4);
+    c.beginPath(); c.moveTo(tx, ty);
+    for (let k = 0; k < 5; k++) { tx += rand(-14, 14); ty -= rand(24, 44); c.lineTo(tx, ty); }
+    c.stroke();
+  }
+  c.shadowBlur = 0;
+
+  // 7. rising bubbles + marine-snow glints
+  for (let i = 0, n = 60 + Math.round(depth * 40); i < n; i++) {
+    c.globalAlpha = rand(0.2, 0.6); c.fillStyle = Math.random() < 0.5 ? B[4] : p.star;
+    const x = Math.random() * PW, y = Math.random() * PH, r = rand(0.5, 1.8);
+    c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+    if (Math.random() < 0.3) { c.globalAlpha *= 0.5; c.beginPath(); c.arc(x + 0.6, y - 0.6, r * 0.5, 0, TAU); c.fill(); }  // bubble highlight
+  }
+
+  // 8. gentle, aspect-aware vignette
+  c.globalCompositeOperation = 'source-over';
+  const VR = Math.max(PW, PH);
+  const vig = c.createRadialGradient(PW / 2, PH * 0.5, VR * 0.34, PW / 2, PH * 0.5, VR * 0.9);
+  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.3)');
+  c.fillStyle = vig; c.fillRect(0, 0, PW, PH);
+  c.globalAlpha = 1;
+}
+
 export function genNebula(p, level, PW, PH, depth = 0) {
   level = level || 1;
   const s = createSurface(PW, PH), c = s.ctx;
@@ -233,6 +314,7 @@ export function genNebula(p, level, PW, PH, depth = 0) {
   const style = p.style || 'space';
   if (style === 'magma') { genMagmaNebula(c, p, PW, PH, depth); return s; }
   if (style === 'caves') { genCrystalNebula(c, p, PW, PH, depth); return s; }
+  if (style === 'ocean') { genOceanNebula(c, p, PW, PH, depth); return s; }
   c.fillStyle = '#04050d'; c.fillRect(0, 0, PW, PH);
   c.globalCompositeOperation = 'lighter';
   c.fillStyle = '#04050d'; c.fillRect(0, 0, PW, PH);
@@ -357,11 +439,21 @@ function fogSignature(c, pal, style, PW, PH, depth = 0) {
       c.fillRect(Math.random() * PW, Math.random() * PH, 1.2, 1.2);
     }
     c.globalAlpha = 1;
-  } else if (style === 'ocean') {                       // horizontal caustic ripples
-    for (let i = 0; i < 28; i++) {
+  } else if (style === 'ocean') {                       // deep water — caustics + bubbles + bio glints
+    for (let i = 0; i < 28; i++) {                       // horizontal caustic ripples
       c.globalAlpha = rand(0.04, 0.1); c.fillStyle = d2;
       c.beginPath(); c.ellipse(rand(0, PW), rand(0, PH), rand(40, 120), rand(1.5, 4), 0, 0, TAU); c.fill();
     }
+    for (let i = 0, n = 26 + Math.round(depth * 14); i < n; i++) {   // bubbles
+      const x = rand(0, PW), y = rand(0, PH), r = rand(1, 3.5);
+      c.globalAlpha = rand(0.1, 0.3); c.strokeStyle = hexA(pal.blobs[4], 0.6); c.lineWidth = 0.7;
+      c.beginPath(); c.arc(x, y, r, 0, TAU); c.stroke();
+    }
+    for (let i = 0; i < 45; i++) {                       // bioluminescent glints
+      c.globalAlpha = rand(0.12, 0.4); c.fillStyle = Math.random() < 0.35 ? hexA(pal.blobs[4], 0.6) : 'rgba(150,200,210,0.4)';
+      c.fillRect(Math.random() * PW, Math.random() * PH, 1.2, 1.2);
+    }
+    c.globalAlpha = 1;
   } else if (style === 'sky') {                         // soft cloud cover
     for (let i = 0; i < 18; i++) {
       const x = rand(0, PW), y = rand(0, PH), r = rand(34, 96);
@@ -433,8 +525,8 @@ export function genFog(pal, PW, PH, depth = 0) {
   const s = createSurface(PW, PH), c = s.ctx;
   // The Depths veil is COOL basalt (warm ember cracks come from fogSignature);
   // other bands keep their band-tinted near-black.
-  const d0 = style === 'magma' ? '#0a0813' : style === 'caves' ? '#0b0716' : pal.blobs[0];
-  const d1 = style === 'magma' ? '#15121f' : style === 'caves' ? '#1a1030' : pal.blobs[1];
+  const d0 = style === 'magma' ? '#0a0813' : style === 'caves' ? '#0b0716' : style === 'ocean' ? '#04161c' : pal.blobs[0];
+  const d1 = style === 'magma' ? '#15121f' : style === 'caves' ? '#1a1030' : style === 'ocean' ? '#0a3038' : pal.blobs[1];
   c.fillStyle = d0; c.fillRect(0, 0, PW, PH);
   const g = c.createLinearGradient(0, 0, 0, PH);
   g.addColorStop(0, hexA(d1, 0.5)); g.addColorStop(1, hexA(d0, 0));   // subtle lift up top
@@ -462,6 +554,15 @@ export function genFog(pal, PW, PH, depth = 0) {
       const x = rand(PW * 0.12, PW * 0.88), y = rand(PH * 0.2, PH * 0.95), r = rand(110, 220);
       const rg = c.createRadialGradient(x, y, 0, x, y, r);
       rg.addColorStop(0, hexA(pal.blobs[3], 0.09 + depth * 0.06)); rg.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+    }
+    c.restore();
+  } else if (style === 'ocean') {   // a faint bioluminescent glow behind the veil
+    c.save(); c.globalCompositeOperation = 'lighter';
+    for (let i = 0, n = 3 + Math.round(depth * 3); i < n; i++) {
+      const x = rand(PW * 0.12, PW * 0.88), y = rand(PH * 0.15, PH * 0.95), r = rand(110, 210);
+      const rg = c.createRadialGradient(x, y, 0, x, y, r);
+      rg.addColorStop(0, hexA(pal.blobs[3], 0.08 + depth * 0.05)); rg.addColorStop(1, 'rgba(0,0,0,0)');
       c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
     }
     c.restore();
