@@ -108,6 +108,27 @@ const AUTHORED: Record<number, LevelBlueprint> = {
   20: { title: 'THE HEARTWOOD', motif: 'veins', density: 0.14, target: 0.80,
         caches: 11, rifts: 6, depth: 1.0,
         enemies: { drifter: 5, chaser: 3, cutter: 2, sentinel: 0, sleeper: 0 } },
+
+  // "The Expanse" (L21-25) — breaking out of the dark into open dawn sky. Highest
+  // targets in the run (brushing the 0.82 ceiling); the climb is pure pressure as
+  // hunters and rifts peak. Floor 1 is a calm re-entry above the cloud banks.
+  21: { title: 'FIRST LIGHT', motif: 'pillars', density: 0.08, target: 0.76,
+        caches: 9, rifts: 3, depth: 0.1,
+        enemies: { drifter: 4, chaser: 2, cutter: 1, sentinel: 0, sleeper: 0 } },
+  22: { title: 'THE UPDRAFT', motif: 'veins', density: 0.10, target: 0.77,
+        caches: 10, rifts: 4, depth: 0.3,
+        enemies: { drifter: 4, chaser: 3, cutter: 2, sentinel: 0, sleeper: 0 } },
+  23: { title: 'CLOUDBREAK', motif: 'veins', density: 0.12, target: 0.79,
+        caches: 10, rifts: 5, depth: 0.5,
+        enemies: { drifter: 5, chaser: 3, cutter: 2, sentinel: 0, sleeper: 0 } },
+  24: { title: 'THE HIGH REACHES', motif: 'veins', density: 0.13, target: 0.80,
+        caches: 11, rifts: 6, depth: 0.75,
+        enemies: { drifter: 5, chaser: 3, cutter: 2, sentinel: 0, sleeper: 0 } },
+  // Summit: the sun breaks the horizon — most hunters and rifts in the run, the
+  // highest reveal target, the brightest sky. Clearing it climbs into the Aurora.
+  25: { title: 'DAYBREAK', motif: 'veins', density: 0.14, target: 0.81,
+        caches: 12, rifts: 7, depth: 1.0,
+        enemies: { drifter: 5, chaser: 4, cutter: 3, sentinel: 0, sleeper: 0 } },
 };
 
 // Visual intensity from position within a 5-level band: 0, .25, .5, .75, 1.0.

@@ -40,14 +40,15 @@ export function initMotes() {
   const caves = style === 'caves';   // Crystal Caves: slow-drifting crystal sparkle
   const ocean = style === 'ocean';   // the Abyss: rising bubbles
   const flora = style === 'flora';   // the Overgrowth: drifting glowing spores
+  const sky = style === 'sky';       // the Expanse: slow-drifting dawn wisps
   for (let i = 0; i < 46; i++)
     G.motes.push({
       x: Math.random() * PW, y: Math.random() * PH,
-      vx: caves ? rand(-3, 3) : ocean ? rand(-4, 4) : flora ? rand(-4, 4) : rand(-5, 5),
-      vy: magma ? rand(-26, -10) : ocean ? rand(-22, -8) : caves ? rand(-3, 3) : flora ? rand(-5, 5) : rand(-6, 6),
-      r: rand(0.5, magma ? 1.9 : caves ? 1.7 : ocean ? 1.8 : flora ? 1.7 : 1.6),
-      a: magma ? rand(0.15, 0.5) : caves ? rand(0.2, 0.55) : ocean || flora ? rand(0.1, 0.3) : rand(0.05, 0.3),
-      em: magma, cr: caves, bu: ocean, sp: flora,
+      vx: caves ? rand(-3, 3) : ocean ? rand(-4, 4) : flora ? rand(-4, 4) : sky ? rand(-12, 12) : rand(-5, 5),
+      vy: magma ? rand(-26, -10) : ocean ? rand(-22, -8) : caves ? rand(-3, 3) : flora ? rand(-5, 5) : sky ? rand(-2, 2) : rand(-6, 6),
+      r: rand(0.5, magma ? 1.9 : caves ? 1.7 : ocean ? 1.8 : flora ? 1.7 : sky ? 1.8 : 1.6),
+      a: magma ? rand(0.15, 0.5) : caves ? rand(0.2, 0.55) : ocean || flora ? rand(0.1, 0.3) : sky ? rand(0.06, 0.22) : rand(0.05, 0.3),
+      em: magma, cr: caves, bu: ocean, sp: flora, wi: sky,
     });
 }
 export function updateMotes(dt) {

@@ -260,6 +260,38 @@ function drawFloraRock(px: number, py: number, x: number, y: number, idx: number
   if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(px + s - 1.5, py, 1.5, s); }
 }
 
+const CLOUD_SHADES = ['#3a3450', '#4c4466', '#5e5680', '#74698f'];   // cool dusk cloud, dark -> light
+
+// An Expanse obstacle: a dense dawn cloud — a cool shadowed body with a warm
+// sunlit crown and soft puff texture. The cool tone contrasts the warm dawn sky
+// so the barrier stays readable; a fifth, soft material. No per-cell shadowBlur.
+function drawSkyCloud(px: number, py: number, x: number, y: number, idx: number) {
+  const s = CELL;
+  const h = ((x * 374761393) ^ (y * 668265263)) >>> 0;
+  const v = h % 100;
+  const m = Math.sin(x * 0.5 + y * 0.3) + Math.sin(y * 0.66 - x * 0.2);
+  ctx.fillStyle = CLOUD_SHADES[Math.max(0, Math.min(3, Math.round((m + 2) / 4 * 3)))];
+  ctx.fillRect(px, py, s, s);
+  ctx.fillStyle = hexA(G.pal.blobs[3], 0.16); ctx.fillRect(px, py, s, s * 0.42);          // dawn-lit upper band
+  ctx.fillStyle = 'rgba(14,10,28,0.34)'; ctx.fillRect(px, py + s * 0.6, s, s * 0.4);       // shadowed underside
+  ctx.fillStyle = 'rgba(230,224,245,0.12)'; ctx.fillRect(px + (h % 6) + 2, py + ((h >> 2) % 5) + 2, 2.4, 2.4);   // puff highlight
+  ctx.fillStyle = 'rgba(10,6,22,0.14)'; ctx.fillRect(px + ((h >> 3) % 8) + 2, py + ((h >> 5) % 7) + 4, 1.6, 1.6); // puff hollow
+
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';   // sunlit highlights (fake glow, no blur)
+  for (let i = 0, n = 1 + (v % 2); i < n; i++) {
+    const ox = px + 3 + ((h >> (i * 5)) % Math.max(1, s - 6)), oy = py + 2 + ((h >> (i * 5 + 2)) % Math.max(1, Math.floor(s * 0.5)));
+    ctx.globalAlpha = 0.12; ctx.fillStyle = G.pal.blobs[4]; ctx.beginPath(); ctx.arc(ox, oy, 2.6, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(ox, oy, 1, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+
+  // bright sunlit crown on top/left open edges; strong cool shadow on the underside
+  if (G.grid[idx - COLS] === EMPTY) { ctx.fillStyle = hexA(G.pal.blobs[4], 0.5); ctx.fillRect(px, py, s, 1.5); }
+  if (G.grid[idx - 1] === EMPTY) { ctx.fillStyle = hexA(G.pal.blobs[4], 0.28); ctx.fillRect(px, py, 1.5, s); }
+  if (G.grid[idx + COLS] === EMPTY) { ctx.fillStyle = 'rgba(8,6,20,0.5)'; ctx.fillRect(px, py + s - 1.5, s, 1.5); }
+  if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(8,6,20,0.4)'; ctx.fillRect(px + s - 1.5, py, 1.5, s); }
+}
+
 function drawObstacles() {
   const style = G.pal.style;
   ctx.save();
@@ -276,6 +308,8 @@ function drawObstacles() {
         drawAbyssRock(px, py, x, y, idx);
       } else if (style === 'flora') {
         drawFloraRock(px, py, x, y, idx);
+      } else if (style === 'sky') {
+        drawSkyCloud(px, py, x, y, idx);
       } else {
         ctx.fillStyle = G.pal.blobs[1];                      // band-tinted solid mass (ice/coral/rock/asteroid)
         ctx.fillRect(px, py, CELL, CELL);
@@ -317,6 +351,7 @@ export function drawWorld() {
     else if (m.cr) { ctx.globalAlpha = m.a * (0.35 + 0.65 * Math.abs(Math.sin(G.time * 3 + m.x * 0.5))); ctx.fillStyle = G.pal.blobs[4]; }
     else if (m.bu) { ctx.globalAlpha = m.a * 0.8; ctx.fillStyle = G.pal.blobs[4]; }   // rising bubble
     else if (m.sp) { ctx.globalAlpha = m.a * (0.4 + 0.6 * Math.abs(Math.sin(G.time * 2.5 + m.x * 0.4))); ctx.fillStyle = G.pal.blobs[4]; }   // drifting spore
+    else if (m.wi) { ctx.globalAlpha = m.a * (0.45 + 0.55 * Math.abs(Math.sin(G.time * 1.1 + m.x * 0.2))); ctx.fillStyle = G.pal.blobs[4]; }   // drifting dawn wisp
     else { ctx.globalAlpha = m.a; ctx.fillStyle = G.pal.star; }
     ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, TAU); ctx.fill();
   }

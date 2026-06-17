@@ -421,6 +421,73 @@ function genFloraNebula(c, p, PW, PH, depth) {
   c.globalAlpha = 1;
 }
 
+// The Expanse — a LIT dawn sky: a bright warm gradient with a hero sun low on the
+// horizon, radiating sun-rays, soft gold-lit clouds, distant birds, and fading
+// stars high up. Bright/airy — the deliberate contrast to four dark caverns.
+function genSkyNebula(c, p, PW, PH, depth) {
+  const B = p.blobs;   // [deep indigo, dusk purple, mauve-pink, gold-peach, cream]
+
+  // 1. dawn gradient — indigo aloft down to a warm gold horizon (bright/lit)
+  const base = c.createLinearGradient(0, 0, 0, PH);
+  base.addColorStop(0, '#161630'); base.addColorStop(0.45, '#3a2c54'); base.addColorStop(0.75, '#9a5a7a'); base.addColorStop(1, '#e09858');
+  c.fillStyle = base; c.fillRect(0, 0, PW, PH);
+
+  c.globalCompositeOperation = 'lighter';
+
+  // 2. the SUN — a hero glowing disc low on the horizon
+  const sx = rand(PW * 0.25, PW * 0.75), sy = PH * rand(0.72, 0.86), sr = PH * (0.4 + depth * 0.12);
+  const sg = c.createRadialGradient(sx, sy, 0, sx, sy, sr);
+  sg.addColorStop(0, hexA(B[4], 0.85)); sg.addColorStop(0.18, hexA(B[3], 0.6)); sg.addColorStop(0.5, hexA(B[3], 0.18)); sg.addColorStop(1, 'rgba(0,0,0,0)');
+  c.globalAlpha = 0.95; c.fillStyle = sg; c.beginPath(); c.arc(sx, sy, sr, 0, TAU); c.fill();
+  c.globalAlpha = 0.9; c.fillStyle = hexA('#fff4e0', 0.85); c.beginPath(); c.arc(sx, sy, PH * 0.05, 0, TAU); c.fill();
+
+  // 3. sun rays radiating up from the sun
+  for (let i = 0, n = 5 + Math.round(depth * 3); i < n; i++) {
+    const a = -Math.PI / 2 + rand(-1.1, 1.1), len = PH * rand(0.5, 0.9), w = rand(10, 26);
+    c.save(); c.translate(sx, sy); c.rotate(a);
+    const g = c.createLinearGradient(0, 0, 0, -len);
+    g.addColorStop(0, hexA(B[4], 0.1 + depth * 0.04)); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = 0.6; c.fillStyle = g;
+    c.beginPath(); c.moveTo(-w * 0.3, 0); c.lineTo(w * 0.3, 0); c.lineTo(w, -len); c.lineTo(-w, -len); c.closePath(); c.fill();
+    c.restore();
+  }
+  c.globalAlpha = 1;
+
+  // 4. soft puffy clouds — gold-lit lower, cooler higher
+  c.globalCompositeOperation = 'source-over';
+  for (let i = 0, n = 6 + Math.round(depth * 3); i < n; i++) {
+    const cy = rand(PH * 0.15, PH * 0.85), cw = rand(80, 200), cx = rand(-40, PW + 40);
+    for (let k = 0; k < 5; k++) {
+      const ex = cx + rand(-cw * 0.5, cw * 0.5), ey = cy + rand(-10, 10), er = rand(20, 50);
+      const g = c.createRadialGradient(ex, ey, 0, ex, ey, er);
+      g.addColorStop(0, hexA(ey > PH * 0.55 ? B[3] : B[2], 0.28)); g.addColorStop(1, 'rgba(0,0,0,0)');
+      c.globalAlpha = rand(0.2, 0.4); c.fillStyle = g; c.beginPath(); c.arc(ex, ey, er, 0, TAU); c.fill();
+    }
+  }
+
+  // 5. distant birds — small V silhouettes
+  c.strokeStyle = hexA(B[1], 0.7); c.lineWidth = 1;
+  for (let i = 0, n = 4 + Math.round(depth * 3); i < n; i++) {
+    const bx = rand(PW * 0.1, PW * 0.9), by = rand(PH * 0.15, PH * 0.5), bw = rand(4, 8);
+    c.globalAlpha = rand(0.3, 0.6); c.beginPath(); c.moveTo(bx - bw, by); c.lineTo(bx, by - bw * 0.5); c.lineTo(bx + bw, by); c.stroke();
+  }
+
+  // 6. fading stars high in the sky (dawn)
+  c.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 60; i++) {
+    const y = rand(0, PH * 0.5); c.globalAlpha = rand(0.1, 0.4) * (1 - y / (PH * 0.5));
+    c.fillStyle = p.star; c.beginPath(); c.arc(rand(0, PW), y, rand(0.4, 1.2), 0, TAU); c.fill();
+  }
+
+  // 7. gentle vignette (lighter than the caverns — it's open sky)
+  c.globalCompositeOperation = 'source-over';
+  const VR = Math.max(PW, PH);
+  const vig = c.createRadialGradient(PW / 2, PH * 0.5, VR * 0.4, PW / 2, PH * 0.5, VR * 0.95);
+  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.22)');
+  c.fillStyle = vig; c.fillRect(0, 0, PW, PH);
+  c.globalAlpha = 1;
+}
+
 export function genNebula(p, level, PW, PH, depth = 0) {
   level = level || 1;
   const s = createSurface(PW, PH), c = s.ctx;
@@ -430,6 +497,7 @@ export function genNebula(p, level, PW, PH, depth = 0) {
   if (style === 'caves') { genCrystalNebula(c, p, PW, PH, depth); return s; }
   if (style === 'ocean') { genOceanNebula(c, p, PW, PH, depth); return s; }
   if (style === 'flora') { genFloraNebula(c, p, PW, PH, depth); return s; }
+  if (style === 'sky') { genSkyNebula(c, p, PW, PH, depth); return s; }
   c.fillStyle = '#04050d'; c.fillRect(0, 0, PW, PH);
   c.globalCompositeOperation = 'lighter';
   c.fillStyle = '#04050d'; c.fillRect(0, 0, PW, PH);
@@ -569,13 +637,24 @@ function fogSignature(c, pal, style, PW, PH, depth = 0) {
       c.fillRect(Math.random() * PW, Math.random() * PH, 1.2, 1.2);
     }
     c.globalAlpha = 1;
-  } else if (style === 'sky') {                         // soft cloud cover
-    for (let i = 0; i < 18; i++) {
-      const x = rand(0, PW), y = rand(0, PH), r = rand(34, 96);
+  } else if (style === 'sky') {                         // pre-dawn night — stars, dark cloud banks, a coming-light hint low
+    for (let i = 0; i < 80; i++) {                       // night stars (denser/brighter up high)
+      const x = rand(0, PW), y = Math.pow(Math.random(), 1.6) * PH;
+      c.globalAlpha = rand(0.08, 0.5) * (1 - y / PH * 0.6); c.fillStyle = Math.random() < 0.25 ? hexA(pal.blobs[4], 0.7) : pal.star;
+      c.beginPath(); c.arc(x, y, rand(0.3, 1.1), 0, TAU); c.fill();
+    }
+    for (let i = 0; i < 9; i++) {                        // dark horizontal cloud banks (cool, low-lying)
+      const y = rand(PH * 0.4, PH), w = rand(70, 180), h = rand(8, 22);
+      c.globalAlpha = rand(0.1, 0.2); c.fillStyle = Math.random() < 0.5 ? '#05060f' : d1;
+      c.beginPath(); c.ellipse(rand(0, PW), y, w, h, 0, 0, TAU); c.fill();
+    }
+    for (let i = 0; i < 16; i++) {                       // soft cloud cover puffs (cool, dim)
+      const x = rand(0, PW), y = rand(PH * 0.25, PH), r = rand(34, 96);
       const rg = c.createRadialGradient(x, y, 0, x, y, r);
-      rg.addColorStop(0, hexA(d2, 0.14)); rg.addColorStop(1, 'rgba(0,0,0,0)');
+      rg.addColorStop(0, hexA(d1, 0.16)); rg.addColorStop(1, 'rgba(0,0,0,0)');
       c.globalAlpha = 1; c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
     }
+    c.globalAlpha = 1;
   } else if (style === 'magma') {                       // a textured dark BASALT WALL — the unmined rock you stare at
     // faint layered strata so the veil reads as a stone face, not flat dark
     for (let i = 0; i < 9; i++) {
@@ -649,8 +728,8 @@ export function genFog(pal, PW, PH, depth = 0) {
   const s = createSurface(PW, PH), c = s.ctx;
   // The Depths veil is COOL basalt (warm ember cracks come from fogSignature);
   // other bands keep their band-tinted near-black.
-  const d0 = style === 'magma' ? '#0a0813' : style === 'caves' ? '#0b0716' : style === 'ocean' ? '#04161c' : style === 'flora' ? '#06160c' : pal.blobs[0];
-  const d1 = style === 'magma' ? '#15121f' : style === 'caves' ? '#1a1030' : style === 'ocean' ? '#0a3038' : style === 'flora' ? '#0e3018' : pal.blobs[1];
+  const d0 = style === 'magma' ? '#0a0813' : style === 'caves' ? '#0b0716' : style === 'ocean' ? '#04161c' : style === 'flora' ? '#06160c' : style === 'sky' ? '#070a1e' : pal.blobs[0];
+  const d1 = style === 'magma' ? '#15121f' : style === 'caves' ? '#1a1030' : style === 'ocean' ? '#0a3038' : style === 'flora' ? '#0e3018' : style === 'sky' ? '#141a3c' : pal.blobs[1];
   c.fillStyle = d0; c.fillRect(0, 0, PW, PH);
   const g = c.createLinearGradient(0, 0, 0, PH);
   g.addColorStop(0, hexA(d1, 0.5)); g.addColorStop(1, hexA(d0, 0));   // subtle lift up top
@@ -698,6 +777,13 @@ export function genFog(pal, PW, PH, depth = 0) {
       rg.addColorStop(0, hexA(pal.blobs[3], 0.08 + depth * 0.05)); rg.addColorStop(1, 'rgba(0,0,0,0)');
       c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
     }
+    c.restore();
+  } else if (style === 'sky') {   // a coming-dawn glow low on the horizon, behind the night veil
+    c.save(); c.globalCompositeOperation = 'lighter';
+    const gy = PH * (1.02 - depth * 0.06), gx = PW * 0.5, r = PW * (0.7 + depth * 0.25);
+    const rg = c.createRadialGradient(gx, gy, 0, gx, gy, r);
+    rg.addColorStop(0, hexA(pal.blobs[3], 0.1 + depth * 0.08)); rg.addColorStop(0.5, hexA(pal.blobs[2], 0.05 + depth * 0.04)); rg.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = rg; c.beginPath(); c.arc(gx, gy, r, 0, TAU); c.fill();
     c.restore();
   }
   for (let i = 0; i < 500; i++) {
