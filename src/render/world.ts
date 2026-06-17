@@ -88,52 +88,56 @@ function drawShootingStars() {
   }
   ctx.restore();
 }
-// A single Depths obstacle cell: raised, textured rock that reads clearly as a
-// solid barrier (lighter than the floor, stony rim — NOT the coastline glow).
-// One of 5 variants chosen deterministically from the cell coords so the wall
-// is a varied rockface, not uniform boxes: basalt / cracked / obsidian / ore /
-// sulfur. The lava character lives INSIDE the rock (crack glow, ore), so the
-// outline stays stony and never competes with the captured-edge coastline.
+const ROCK_SHADES = ['#2c2740', '#322d49', '#383351', '#3e3858'];   // cool basalt, dark -> light
+
+// A single Depths obstacle cell: raised, textured rock that reads as a solid
+// barrier (lighter than the floor; stony rim, NOT the coastline glow). The body
+// tone varies SMOOTHLY across cells (low-frequency, no per-tile banding) so a
+// cluster reads as one rock mass. 5 deterministic variants add surface interest:
+// basalt / cracked / obsidian / ore / sulfur — the lava lives INSIDE the rock.
 function drawDepthsRock(px: number, py: number, x: number, y: number, idx: number) {
   const s = CELL;
   const h = ((x * 374761393) ^ (y * 668265263)) >>> 0;
   const v = h % 100;
-  const obsidian = v >= 18 && v < 32;
 
-  // raised body — clearly lighter than the dark floor so it pops as a mass
-  ctx.fillStyle = obsidian ? '#221d31' : '#36314a';
+  // body: smoothly-varying basalt tone, continuous across cells (flat fill, no
+  // internal gradient/band — that was what made it look tiled).
+  const m = Math.sin(x * 0.55 + y * 0.32) + Math.sin(y * 0.7 - x * 0.22);   // ~-2..2, smooth
+  ctx.fillStyle = ROCK_SHADES[Math.max(0, Math.min(3, Math.round((m + 2) / 4 * 3)))];
   ctx.fillRect(px, py, s, s);
-  ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.fillRect(px, py + s * 0.55, s, s * 0.45);   // volume shade
-  ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(px + (h % 7) + 2, py + (h % 5) + 3, 1.5, 1.5);
-  ctx.fillStyle = 'rgba(185,180,205,0.12)'; ctx.fillRect(px + ((h >> 3) % 9) + 2, py + ((h >> 6) % 9) + 2, 1.5, 1.5);
+
+  // fine mineral grain (stable per cell)
+  ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(px + (h % 7) + 2, py + ((h >> 2) % 6) + 2, 1.3, 1.3);
+  ctx.fillStyle = 'rgba(196,192,220,0.1)'; ctx.fillRect(px + ((h >> 3) % 9) + 2, py + ((h >> 6) % 9) + 2, 1.1, 1.1);
 
   if (v < 18) {                       // CRACKED — dark fissure with a molten glow inside
     const y0 = py + 3 + (h % 4), y1 = py + s - 4 - ((h >> 2) % 4);
-    ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 1.4;
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1.4;
     ctx.beginPath(); ctx.moveTo(px + 2, y0); ctx.lineTo(px + s - 3, y1); ctx.stroke();
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = hexA(G.pal.blobs[3], 0.5); ctx.lineWidth = 0.7;
+    ctx.strokeStyle = hexA(G.pal.blobs[3], 0.45); ctx.lineWidth = 0.7;
     ctx.beginPath(); ctx.moveTo(px + 2, y0); ctx.lineTo(px + s - 3, y1); ctx.stroke(); ctx.restore();
-  } else if (obsidian) {              // OBSIDIAN — glassy diagonal sheen
+  } else if (v < 32) {                // OBSIDIAN — glassy diagonal sheen on the same body tone
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = 'rgba(170,185,255,0.22)'; ctx.lineWidth = 1.2;
-    ctx.beginPath(); ctx.moveTo(px + s * 0.18, py + s * 0.82); ctx.lineTo(px + s * 0.72, py + s * 0.14); ctx.stroke(); ctx.restore();
-  } else if (v < 44) {                // ORE — a glowing ember/gold speck in the rock
+    ctx.strokeStyle = 'rgba(170,185,255,0.2)'; ctx.lineWidth = 1.1;
+    ctx.beginPath(); ctx.moveTo(px + s * 0.2, py + s * 0.8); ctx.lineTo(px + s * 0.7, py + s * 0.16); ctx.stroke(); ctx.restore();
+  } else if (v < 44) {                // ORE — a glowing gold speck embedded in the rock
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     const ox = px + 4 + (h % Math.max(1, s - 8)), oy = py + 4 + ((h >> 4) % Math.max(1, s - 8));
-    const g = ctx.createRadialGradient(ox, oy, 0, ox, oy, 4);
+    const g = ctx.createRadialGradient(ox, oy, 0, ox, oy, 3.5);
     g.addColorStop(0, G.pal.blobs[4]); g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(ox, oy, 4, 0, TAU); ctx.fill(); ctx.restore();
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(ox, oy, 3.5, 0, TAU); ctx.fill(); ctx.restore();
   } else if (v < 52) {                // SULFUR — faint volcanic-mineral tint
-    ctx.fillStyle = 'rgba(190,160,70,0.13)'; ctx.fillRect(px, py, s, s);
+    ctx.fillStyle = 'rgba(190,160,70,0.11)'; ctx.fillRect(px, py, s, s);
   }                                   // else (~48%) plain basalt
 
-  // raised silhouette vs the floor: lit top/left, shadowed bottom/right — only
-  // on edges facing open space, so a rock mass has a defined stony outline.
-  if (G.grid[idx - COLS] === EMPTY) { ctx.fillStyle = 'rgba(195,190,215,0.4)'; ctx.fillRect(px, py, s, 1.5); }
-  if (G.grid[idx - 1] === EMPTY) { ctx.fillStyle = 'rgba(195,190,215,0.3)'; ctx.fillRect(px, py, 1.5, s); }
-  if (G.grid[idx + COLS] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(px, py + s - 1.5, s, 1.5); }
-  if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(px + s - 1.5, py, 1.5, s); }
+  // soft silhouette ONLY on open-facing edges (2-step falloff = rounded mass, not
+  // a hard tile bevel). Interior edges (rock meeting rock) get nothing, so a
+  // cluster reads as one seamless mass with a defined stony outline.
+  if (G.grid[idx - COLS] === EMPTY) { ctx.fillStyle = 'rgba(206,202,230,0.4)'; ctx.fillRect(px, py, s, 1); ctx.fillStyle = 'rgba(206,202,230,0.15)'; ctx.fillRect(px, py + 1, s, 1.5); }
+  if (G.grid[idx - 1] === EMPTY) { ctx.fillStyle = 'rgba(206,202,230,0.28)'; ctx.fillRect(px, py, 1, s); ctx.fillStyle = 'rgba(206,202,230,0.1)'; ctx.fillRect(px + 1, py, 1.5, s); }
+  if (G.grid[idx + COLS] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(px, py + s - 1, s, 1); ctx.fillStyle = 'rgba(0,0,0,0.24)'; ctx.fillRect(px, py + s - 2.5, s, 1.5); }
+  if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(px + s - 1, py, 1, s); ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(px + s - 2.5, py, 1.5, s); }
 }
 
 function drawObstacles() {
