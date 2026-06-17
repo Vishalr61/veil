@@ -290,15 +290,40 @@ function genOceanNebula(c, p, PW, PH, depth) {
   }
   c.shadowBlur = 0;
 
-  // 7. rising bubbles + marine-snow glints
-  for (let i = 0, n = 60 + Math.round(depth * 40); i < n; i++) {
+  // 7. bioluminescent kelp — tall wavy strands rising from the seabed (vertical life)
+  for (let i = 0, n = 4 + Math.round(depth * 3); i < n; i++) {
+    let kx = rand(0, PW), ky = PH + 10;
+    c.shadowColor = B[4]; c.shadowBlur = 6;
+    c.globalAlpha = rand(0.12, 0.28); c.strokeStyle = B[3]; c.lineWidth = rand(1, 2.2);
+    c.beginPath(); c.moveTo(kx, ky);
+    for (let k = 0; k < 7; k++) { kx += Math.sin(k * 0.9 + i) * rand(6, 16); ky -= rand(40, 70); c.lineTo(kx, ky); }
+    c.stroke();
+  }
+  c.shadowBlur = 0;
+
+  // 8. fish schools — tight clusters of tiny darting glints (movement/life)
+  for (let i = 0, n = 2 + Math.round(depth * 2); i < n; i++) {
+    const cx2 = rand(PW * 0.15, PW * 0.85), cy2 = rand(PH * 0.2, PH * 0.85);
+    for (let k = 0; k < 10; k++) { c.globalAlpha = rand(0.3, 0.7); c.fillStyle = B[4]; c.beginPath(); c.arc(cx2 + rand(-22, 22), cy2 + rand(-14, 14), rand(0.5, 1.2), 0, TAU); c.fill(); }
+  }
+
+  // 9. seabed coral bumps glowing along the bottom
+  for (let i = 0; i < 14; i++) {
+    const bx2 = rand(0, PW), r = rand(8, 22);
+    const g = c.createRadialGradient(bx2, PH, 0, bx2, PH, r);
+    g.addColorStop(0, hexA(B[3], 0.4)); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = rand(0.3, 0.6); c.fillStyle = g; c.beginPath(); c.arc(bx2, PH, r, 0, TAU); c.fill();
+  }
+
+  // 10. rising bubbles + marine-snow glints
+  for (let i = 0, n = 70 + Math.round(depth * 50); i < n; i++) {
     c.globalAlpha = rand(0.2, 0.6); c.fillStyle = Math.random() < 0.5 ? B[4] : p.star;
     const x = Math.random() * PW, y = Math.random() * PH, r = rand(0.5, 1.8);
     c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
     if (Math.random() < 0.3) { c.globalAlpha *= 0.5; c.beginPath(); c.arc(x + 0.6, y - 0.6, r * 0.5, 0, TAU); c.fill(); }  // bubble highlight
   }
 
-  // 8. gentle, aspect-aware vignette
+  // 11. gentle, aspect-aware vignette
   c.globalCompositeOperation = 'source-over';
   const VR = Math.max(PW, PH);
   const vig = c.createRadialGradient(PW / 2, PH * 0.5, VR * 0.34, PW / 2, PH * 0.5, VR * 0.9);

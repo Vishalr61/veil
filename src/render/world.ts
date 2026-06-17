@@ -192,22 +192,34 @@ function drawAbyssRock(px: number, py: number, x: number, y: number, idx: number
   ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(px + (h % 7) + 2, py + ((h >> 2) % 6) + 2, 1.3, 1.3);
   ctx.fillStyle = 'rgba(150,210,220,0.1)'; ctx.fillRect(px + ((h >> 3) % 9) + 2, py + ((h >> 6) % 9) + 2, 1.1, 1.1);
 
-  if (v < 22) {                       // BIO-SPECK — a glowing coral polyp
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    const ox = px + 4 + (h % Math.max(1, s - 8)), oy = py + 4 + ((h >> 4) % Math.max(1, s - 8));
-    ctx.shadowColor = G.pal.blobs[4]; ctx.shadowBlur = 6; ctx.fillStyle = hexA(G.pal.blobs[4], 0.8);
-    ctx.beginPath(); ctx.arc(ox, oy, 1.6, 0, TAU); ctx.fill(); ctx.restore();
-  } else if (v < 36) {                // a faint caustic streak
-    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = hexA(G.pal.blobs[3], 0.18); ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(px + 1, py + 3 + (h % 5)); ctx.lineTo(px + s - 1, py + 5 + (h % 5)); ctx.stroke(); ctx.restore();
-  } else if (v < 46) {                // encrusted mineral tint
-    ctx.fillStyle = 'rgba(60,140,150,0.12)'; ctx.fillRect(px, py, s, s);
+  // boulder volume — rounded encrusted stone (darker lower) so it's not a flat tile
+  ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.fillRect(px, py + s * 0.6, s, s * 0.4);
+  ctx.fillStyle = 'rgba(120,200,205,0.07)'; ctx.fillRect(px, py, s, s * 0.3);
+
+  // bioluminescent polyps — 2-3 consistent glowing dots (the signature coral detail)
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.shadowColor = G.pal.blobs[4]; ctx.shadowBlur = 5;
+  for (let i = 0, polyps = 2 + (v % 2); i < polyps; i++) {
+    const ox = px + 3 + ((h >> (i * 5)) % Math.max(1, s - 6)), oy = py + 3 + ((h >> (i * 5 + 2)) % Math.max(1, s - 6));
+    ctx.fillStyle = hexA(G.pal.blobs[4], 0.85); ctx.beginPath(); ctx.arc(ox, oy, 1.3, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+
+  // a small coral "crown" of bumps where the rock meets open water above
+  if (G.grid[idx - COLS] === EMPTY) {
+    ctx.save(); ctx.fillStyle = hexA(G.pal.blobs[2], 0.55);
+    for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(px + (i + 0.5) * s / 3, py + 1.5, 1.6, 0, TAU); ctx.fill(); }
+    ctx.restore();
   }
 
-  if (G.grid[idx - COLS] === EMPTY) { ctx.fillStyle = 'rgba(150,220,225,0.32)'; ctx.fillRect(px, py, s, 1); ctx.fillStyle = 'rgba(150,220,225,0.12)'; ctx.fillRect(px, py + 1, s, 1.5); }
-  if (G.grid[idx - 1] === EMPTY) { ctx.fillStyle = 'rgba(150,220,225,0.24)'; ctx.fillRect(px, py, 1, s); ctx.fillStyle = 'rgba(150,220,225,0.09)'; ctx.fillRect(px + 1, py, 1.5, s); }
-  if (G.grid[idx + COLS] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(px, py + s - 1, s, 1); ctx.fillStyle = 'rgba(0,0,0,0.24)'; ctx.fillRect(px, py + s - 2.5, s, 1.5); }
-  if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(px + s - 1, py, 1, s); ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(px + s - 2.5, py, 1.5, s); }
+  // encrusted bioluminescent rim on open edges + grounding shadow
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = hexA(G.pal.blobs[3], 0.42); ctx.lineWidth = 1; ctx.beginPath();
+  if (G.grid[idx - COLS] === EMPTY) { ctx.moveTo(px + 0.5, py + 0.6); ctx.lineTo(px + s - 0.5, py + 0.6); }
+  if (G.grid[idx + COLS] === EMPTY) { ctx.moveTo(px + 0.5, py + s - 0.6); ctx.lineTo(px + s - 0.5, py + s - 0.6); }
+  if (G.grid[idx - 1] === EMPTY) { ctx.moveTo(px + 0.6, py + 0.5); ctx.lineTo(px + 0.6, py + s - 0.5); }
+  if (G.grid[idx + 1] === EMPTY) { ctx.moveTo(px + s - 0.6, py + 0.5); ctx.lineTo(px + s - 0.6, py + s - 0.5); }
+  ctx.stroke(); ctx.restore();
+  if (G.grid[idx + COLS] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(px, py + s - 1.5, s, 1.5); }
+  if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(px + s - 1.5, py, 1.5, s); }
 }
 
 function drawObstacles() {
