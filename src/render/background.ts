@@ -26,11 +26,15 @@ export function hexA(hex, a) {
 // `depth` (0..1 within the band) makes the lower floors hotter and brighter.
 function genMagmaNebula(c, p, PW, PH, depth) {
   const B = p.blobs;   // [near-black, dark, deep-red, lava, bright]
+  // HOT vs COLD: the rock is COOL basalt; only LAVA (lakes/veins/glow/embers)
+  // is warm. The contrast is what makes the molten light read as molten.
+  const R0 = '#070611', R1 = '#0f0d1b', R2 = '#181426';   // cool basalt darks
 
-  // 1. Rich vertical grade — crimson-black ceiling down to a molten floor.
+  // 1. Cool basalt grade — violet-black ceiling down to a slate floor (the warm
+  //    glow from the lakes below heats it back up where the lava is).
   const base = c.createLinearGradient(0, 0, 0, PH);
-  base.addColorStop(0, '#0a0204'); base.addColorStop(0.45, B[0]);
-  base.addColorStop(0.8, B[1]); base.addColorStop(1, '#46100a');
+  base.addColorStop(0, '#050410'); base.addColorStop(0.5, R0);
+  base.addColorStop(0.85, R1); base.addColorStop(1, R2);
   c.fillStyle = base; c.fillRect(0, 0, PW, PH);
 
   // 2. Sedimentary strata — layered rock (the "tunneling down" read).
@@ -42,7 +46,7 @@ function genMagmaNebula(c, p, PW, PH, depth) {
     if (prevEdge) {
       const t = Math.random();
       c.globalAlpha = rand(0.28, 0.5);
-      c.fillStyle = t < 0.5 ? '#050102' : t < 0.82 ? B[1] : B[2];
+      c.fillStyle = t < 0.5 ? '#040409' : t < 0.82 ? R1 : R2;
       c.beginPath(); c.moveTo(0, prevEdge[0]);
       for (let k = 1; k <= 8; k++) c.lineTo(k / 8 * PW, prevEdge[k]);
       for (let k = 8; k >= 0; k--) c.lineTo(k / 8 * PW, edge[k]);
@@ -290,7 +294,10 @@ function fogSignature(c, pal, style, PW, PH, depth = 0) {
 export function genFog(pal, PW, PH, depth = 0) {
   const style = pal.style || 'space';
   const s = createSurface(PW, PH), c = s.ctx;
-  const d0 = pal.blobs[0], d1 = pal.blobs[1];           // band-tinted near-black
+  // The Depths veil is COOL basalt (warm ember cracks come from fogSignature);
+  // other bands keep their band-tinted near-black.
+  const d0 = style === 'magma' ? '#0a0813' : pal.blobs[0];
+  const d1 = style === 'magma' ? '#15121f' : pal.blobs[1];
   c.fillStyle = d0; c.fillRect(0, 0, PW, PH);
   const g = c.createLinearGradient(0, 0, 0, PH);
   g.addColorStop(0, hexA(d1, 0.5)); g.addColorStop(1, hexA(d0, 0));   // subtle lift up top

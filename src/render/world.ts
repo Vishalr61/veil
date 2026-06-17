@@ -97,9 +97,9 @@ function drawObstacles() {
       if (G.grid[idx] !== OBSTACLE) continue;
       const px = x * CELL, py = y * CELL;
       if (magma) {
-        // cooled basalt: dark body with a glowing lava seam only where it meets
+        // COOL basalt body with a glowing warm lava seam only where it meets
         // open space, so the seams trace the chamber outlines like cracks.
-        ctx.fillStyle = G.pal.blobs[1];
+        ctx.fillStyle = '#1e1a2b';                                    // cool stone (contrasts the lava)
         ctx.fillRect(px, py, CELL, CELL);
         ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(px, py + CELL - 2, CELL, 2);
         ctx.save();
@@ -164,9 +164,11 @@ export function drawWorld() {
   if (G.borderPath) {
     ctx.save();
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.shadowColor = G.pal.edge; ctx.shadowBlur = 14; ctx.strokeStyle = G.pal.edge;
-    ctx.globalAlpha = 0.5; ctx.lineWidth = 3.5; ctx.stroke(G.borderPath);
-    ctx.globalAlpha = 0.95; ctx.lineWidth = 1.4; ctx.shadowBlur = 6; ctx.strokeStyle = G.pal.edge2; ctx.stroke(G.borderPath);
+    // tamed: a soft warm glow + a crisp hot-WHITE core, so the captured edge
+    // reads as light cutting the rock rather than a screaming orange band.
+    ctx.shadowColor = G.pal.edge; ctx.shadowBlur = 8; ctx.strokeStyle = G.pal.edge;
+    ctx.globalAlpha = 0.32; ctx.lineWidth = 2.5; ctx.stroke(G.borderPath);
+    ctx.globalAlpha = 0.9; ctx.lineWidth = 1; ctx.shadowBlur = 4; ctx.strokeStyle = '#fff'; ctx.stroke(G.borderPath);
     ctx.restore();
   }
 
