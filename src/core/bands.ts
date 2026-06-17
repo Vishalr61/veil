@@ -23,21 +23,21 @@ export interface Band {
 export const BANDS: Band[] = [
   { name: 'the depths', style: 'magma', blobs: ['#0a0202', '#3a0e08', '#8a1e0e', '#ff5a1e', '#ffc24f'],
     star: '#ffd9b0', edge: '#ff7a3a', edge2: '#ffc88f', trail: '#fff0e0', player: '#ffffff', accent: '#ff8a3a' },
-  { name: 'crystal caves', style: 'caves', blobs: ['#06060e', '#161430', '#2e2a6a', '#6a5cff', '#a0e0ff'],
-    star: '#dfeaff', edge: '#7a8cff', edge2: '#c2d6ff', trail: '#eef2ff', player: '#ffffff', accent: '#9a8cff' },
+  { name: 'crystal caves', style: 'caves', blobs: ['#0a0612', '#1c0e34', '#4a1e72', '#a64dff', '#e89dff'],
+    star: '#f3e0ff', edge: '#c060ff', edge2: '#e8b8ff', trail: '#f6ecff', player: '#ffffff', accent: '#d070e8' },
   { name: 'the abyss', style: 'ocean', blobs: ['#02080c', '#063b42', '#0a8d82', '#23e0c8', '#86ffe8'],
     star: '#d8fff8', edge: '#39f0e0', edge2: '#aafff2', trail: '#eafffb', player: '#ffffff', accent: '#5ffbd0' },
-  { name: 'the surface', style: 'surface', blobs: ['#06100a', '#143018', '#2e6e2e', '#5ec24f', '#bfff8f'],
-    star: '#eaffe0', edge: '#7adf6a', edge2: '#c8ffb0', trail: '#f0ffe8', player: '#ffffff', accent: '#8aff6a' },
-  { name: 'open sky', style: 'sky', blobs: ['#081628', '#143a5e', '#2e6ea0', '#6ab0e8', '#cfe8ff'],
-    star: '#ffffff', edge: '#a8d4ff', edge2: '#e0f2ff', trail: '#f4fbff', player: '#ffffff', accent: '#9ccfff' },
+  { name: 'the overgrowth', style: 'flora', blobs: ['#04120a', '#0c2c18', '#1e6e3a', '#3fd86a', '#b8ff9a'],
+    star: '#e6ffd0', edge: '#5fe87a', edge2: '#c2ffb0', trail: '#eeffe0', player: '#ffffff', accent: '#7aff8a' },
+  { name: 'the expanse', style: 'sky', blobs: ['#1a1838', '#3a2c54', '#9a5a7a', '#ff9e6a', '#ffe0c0'],
+    star: '#fff2e0', edge: '#ffba70', edge2: '#ffe6c8', trail: '#fff4e8', player: '#ffffff', accent: '#ff9a7a' },
   { name: 'aurora', style: 'aurora', blobs: ['#04081a', '#0e2a3a', '#1e7a5e', '#4fffb0', '#c0a0ff'],
     star: '#eafff4', edge: '#6affc0', edge2: '#c8ffe6', trail: '#f0fff8', player: '#ffffff', accent: '#a07aff' },
   { name: 'deep space', style: 'space', blobs: ['#060616', '#191642', '#3a2b8a', '#7a5cff', '#c2a0ff'],
     star: '#eae6ff', edge: '#9a7aff', edge2: '#d6c8ff', trail: '#f0ecff', player: '#ffffff', accent: '#b89aff' },
 ];
 
-const LEVELS_PER_BAND = 3;
+export const LEVELS_PER_BAND = 5;
 
 export function bandForLevel(level: number): Band {
   const i = Math.floor((level - 1) / LEVELS_PER_BAND);

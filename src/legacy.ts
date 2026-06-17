@@ -14,7 +14,7 @@ import { genObstacles, openInteriorCount } from './sim/terrain';
 import { todayKey, seedFromDateKey, shareText, isConsecutive } from './daily/daily';
 import { shareResult } from './platform/share';
 import { EMPTY, FILLED, OBSTACLE, SS } from './core/constants';
-import { bandForLevel } from './core/bands';
+import { bandForLevel, LEVELS_PER_BAND } from './core/bands';
 import { genNebula, genFog } from './render/background';
 import { canvas, ctx } from './render/surface';
 import { glowText, drawScanlines, roundRectPath } from './render/primitives';
@@ -94,10 +94,15 @@ function processReveal() {
   for (let k = 0; k < n && G.revealQueue.length; k++) {
     const { idx } = G.revealQueue.shift();
     clearFogCell(idx);
-    if (Math.random() < 0.5) {
-      const c = centerPx(idx), ang = Math.random() * TAU, sp = rand(15, 70);
-      G.particles.push({ x: c.x, y: c.y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
-        life: rand(0.3, 0.9), max: 0.9, r: rand(1, 2.6), col: Math.random() < 0.5 ? G.pal.blobs[4] : G.pal.edge });
+    // fog "shatters" as it clears: a few fast rock shards + ember bits
+    if (Math.random() < 0.45) {
+      const c = centerPx(idx), bits = 1 + ((Math.random() * 2) | 0);
+      for (let b = 0; b < bits; b++) {
+        const ang = Math.random() * TAU, sp = rand(40, 130);
+        G.particles.push({ x: c.x, y: c.y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+          life: rand(0.25, 0.7), max: 0.7, r: rand(0.8, 2.2),
+          col: Math.random() < 0.4 ? G.pal.blobs[4] : Math.random() < 0.7 ? G.pal.edge : '#1a0604' });
+      }
     }
   }
 }
@@ -154,9 +159,9 @@ function initLevel(lv) {
   G.pickups.length = 0; G.popups.length = 0; G.particles.length = 0; G.revealQueue.length = 0;
   G.pickupSpawnT = G.rng.range(5, 8);
   recomputeBorderPath(); recomputePercent(); G.dispPercent = G.percent;
-  const floor = ((lv - 1) % 3) + 1;   // which floor of the current band (descent feel)
+  const floor = ((lv - 1) % LEVELS_PER_BAND) + 1;   // which floor of the current band (climb feel)
   G.banner = { text: bp.title || ('LEVEL ' + lv),
-    sub: G.pal.name.toUpperCase() + '  ·  floor ' + floor + '/3  ·  reveal ' + Math.round(G.target * 100) + '%', t: 2.0 };
+    sub: G.pal.name.toUpperCase() + '  ·  floor ' + floor + '/' + LEVELS_PER_BAND + '  ·  reveal ' + Math.round(G.target * 100) + '%', t: 2.0 };
   // a level that introduces a new enemy always teaches what it does (wins over the title)
   const newType = newEnemyAtLevel(lv);
   if (newType) G.banner = { text: ENEMY_INFO[newType].name, sub: ENEMY_INFO[newType].desc, t: 3.4, enemy: newType };

@@ -23,26 +23,160 @@ export interface LevelBlueprint {
   depth: number;          // 0..1 visual intensity within the band (calm -> turbulent)
 }
 
-// "The Depths" (magma band) — a crafted three-floor descent.
+// "The Depths" (magma band) — a crafted five-floor climb. Pressure (target,
+// hunters, rifts) and reward (caches) both rise monotonically; cutter/sentinel
+// are held for later bands, so the Depths roster is drifter + chaser only.
 const AUTHORED: Record<number, LevelBlueprint> = {
   // Teach the loop: open board, one slow bouncer, caches only, no punishment.
-  1: { title: 'SURFACE CRACK', motif: 'open', density: 0, target: 0.60,
-       caches: 3, rifts: 0, depth: 0.15,
+  1: { title: 'SURFACE CRACK', motif: 'open', density: 0, target: 0.58,
+       caches: 3, rifts: 0, depth: 0.10,
        enemies: { drifter: 1, chaser: 0, cutter: 0, sentinel: 0, sleeper: 0 } },
   // Teach routing: scattered basalt columns, still no rifts/hunters.
-  2: { title: 'BASALT COLUMNS', motif: 'pillars', density: 0.05, target: 0.64,
-       caches: 4, rifts: 0, depth: 0.5,
+  2: { title: 'BASALT COLUMNS', motif: 'pillars', density: 0.05, target: 0.62,
+       caches: 4, rifts: 0, depth: 0.30,
        enemies: { drifter: 2, chaser: 0, cutter: 0, sentinel: 0, sleeper: 0 } },
-  // The climax: lava veins carve the board into chambers holding the richest
-  // caches and the first rifts; the chaser arrives. Risk + reward + a hunter.
-  3: { title: 'MOLTEN CHAMBER', motif: 'veins', density: 0.08, target: 0.66,
-       caches: 5, rifts: 2, depth: 0.9,
+  // Risk arrives: lava veins carve chambers, the first rifts appear, and the
+  // chaser debuts (auto "NEW THREAT" card).
+  3: { title: 'MOLTEN VEINS', motif: 'veins', density: 0.08, target: 0.66,
+       caches: 5, rifts: 2, depth: 0.55,
        enemies: { drifter: 2, chaser: 1, cutter: 0, sentinel: 0, sleeper: 0 } },
+  // Ramp: denser rock, more drifters, hotter.
+  4: { title: 'MAGMA RISE', motif: 'veins', density: 0.10, target: 0.68,
+       caches: 6, rifts: 2, depth: 0.78,
+       enemies: { drifter: 3, chaser: 1, cutter: 0, sentinel: 0, sleeper: 0 } },
+  // Summit by intensity: TWO chasers converging, max rifts + caches, highest
+  // target, hottest visuals. Clearing it climbs into the Crystal Caves (L6).
+  5: { title: 'THE FORGE-HEART', motif: 'veins', density: 0.10, target: 0.70,
+       caches: 7, rifts: 3, depth: 1.0,
+       enemies: { drifter: 2, chaser: 2, cutter: 0, sentinel: 0, sleeper: 0 } },
+
+  // "Crystal Caves" (L6-10) — a crafted climb in the amethyst grotto, harder
+  // than the Depths and introducing the CUTTER as its signature new threat.
+  // Gentle re-entry on floor 1, then the climb resumes.
+  6: { title: 'GEODE HOLLOW', motif: 'pillars', density: 0.06, target: 0.66,
+       caches: 4, rifts: 1, depth: 0.1,
+       enemies: { drifter: 2, chaser: 1, cutter: 0, sentinel: 0, sleeper: 0 } },
+  // The cutter debuts (auto "NEW THREAT" card) — races to slice your line.
+  7: { title: 'FAULT LINE', motif: 'veins', density: 0.08, target: 0.68,
+       caches: 5, rifts: 2, depth: 0.3,
+       enemies: { drifter: 2, chaser: 1, cutter: 1, sentinel: 0, sleeper: 0 } },
+  8: { title: 'THE PRISM', motif: 'pillars', density: 0.10, target: 0.70,
+       caches: 6, rifts: 2, depth: 0.5,
+       enemies: { drifter: 3, chaser: 1, cutter: 1, sentinel: 0, sleeper: 0 } },
+  9: { title: 'SHARD MAZE', motif: 'veins', density: 0.11, target: 0.72,
+       caches: 7, rifts: 3, depth: 0.75,
+       enemies: { drifter: 3, chaser: 2, cutter: 1, sentinel: 0, sleeper: 0 } },
+  // Summit: two chasers + two cutters, max rifts + caches, brightest crystal.
+  10: { title: 'THE GEODE CORE', motif: 'veins', density: 0.12, target: 0.74,
+        caches: 8, rifts: 4, depth: 1.0,
+        enemies: { drifter: 3, chaser: 2, cutter: 2, sentinel: 0, sleeper: 0 } },
+
+  // "The Abyss" (L11-15) — the ocean trench. No new enemy type (the roster is
+  // fully introduced by now); the climb continues by intensity + the environment.
+  11: { title: 'THE SHALLOWS', motif: 'pillars', density: 0.08, target: 0.74,
+        caches: 7, rifts: 3, depth: 0.1,
+        enemies: { drifter: 3, chaser: 1, cutter: 1, sentinel: 0, sleeper: 0 } },
+  12: { title: 'DRIFT CURRENT', motif: 'veins', density: 0.10, target: 0.76,
+        caches: 8, rifts: 4, depth: 0.3,
+        enemies: { drifter: 3, chaser: 2, cutter: 1, sentinel: 0, sleeper: 0 } },
+  13: { title: 'THE TRENCH', motif: 'veins', density: 0.12, target: 0.78,
+        caches: 9, rifts: 4, depth: 0.5,
+        enemies: { drifter: 4, chaser: 2, cutter: 1, sentinel: 0, sleeper: 0 } },
+  14: { title: 'BLACK WATER', motif: 'veins', density: 0.13, target: 0.79,
+        caches: 9, rifts: 5, depth: 0.75,
+        enemies: { drifter: 4, chaser: 2, cutter: 2, sentinel: 0, sleeper: 0 } },
+  // Summit of the trench: the most crowded, deepest, darkest water.
+  15: { title: 'THE MAW', motif: 'veins', density: 0.14, target: 0.80,
+        caches: 10, rifts: 6, depth: 1.0,
+        enemies: { drifter: 4, chaser: 3, cutter: 2, sentinel: 0, sleeper: 0 } },
+
+  // "The Overgrowth" (L16-20) — the bioluminescent fungal cavern. Near the
+  // reveal ceiling now; the climb is mostly about pressure (enemies + rifts).
+  16: { title: 'ROOTWAY', motif: 'pillars', density: 0.08, target: 0.75,
+        caches: 8, rifts: 3, depth: 0.1,
+        enemies: { drifter: 3, chaser: 2, cutter: 1, sentinel: 0, sleeper: 0 } },
+  17: { title: 'SPOREFALL', motif: 'veins', density: 0.10, target: 0.76,
+        caches: 9, rifts: 4, depth: 0.3,
+        enemies: { drifter: 4, chaser: 2, cutter: 1, sentinel: 0, sleeper: 0 } },
+  18: { title: 'THE THICKET', motif: 'veins', density: 0.12, target: 0.78,
+        caches: 9, rifts: 5, depth: 0.5,
+        enemies: { drifter: 4, chaser: 2, cutter: 2, sentinel: 0, sleeper: 0 } },
+  19: { title: 'MYCELIUM DEEP', motif: 'veins', density: 0.13, target: 0.79,
+        caches: 10, rifts: 5, depth: 0.75,
+        enemies: { drifter: 4, chaser: 3, cutter: 2, sentinel: 0, sleeper: 0 } },
+  // Summit: the densest growth, most hunters, brightest spore-light.
+  20: { title: 'THE HEARTWOOD', motif: 'veins', density: 0.14, target: 0.80,
+        caches: 11, rifts: 6, depth: 1.0,
+        enemies: { drifter: 5, chaser: 3, cutter: 2, sentinel: 0, sleeper: 0 } },
+
+  // "The Expanse" (L21-25) — breaking out of the dark into open dawn sky. Highest
+  // targets in the run (brushing the 0.82 ceiling); the climb is pure pressure as
+  // hunters and rifts peak. Floor 1 is a calm re-entry above the cloud banks.
+  21: { title: 'FIRST LIGHT', motif: 'pillars', density: 0.08, target: 0.76,
+        caches: 9, rifts: 3, depth: 0.1,
+        enemies: { drifter: 4, chaser: 2, cutter: 1, sentinel: 0, sleeper: 0 } },
+  22: { title: 'THE UPDRAFT', motif: 'veins', density: 0.10, target: 0.77,
+        caches: 10, rifts: 4, depth: 0.3,
+        enemies: { drifter: 4, chaser: 3, cutter: 2, sentinel: 0, sleeper: 0 } },
+  23: { title: 'CLOUDBREAK', motif: 'veins', density: 0.12, target: 0.79,
+        caches: 10, rifts: 5, depth: 0.5,
+        enemies: { drifter: 5, chaser: 3, cutter: 2, sentinel: 0, sleeper: 0 } },
+  24: { title: 'THE HIGH REACHES', motif: 'veins', density: 0.13, target: 0.80,
+        caches: 11, rifts: 6, depth: 0.75,
+        enemies: { drifter: 5, chaser: 3, cutter: 2, sentinel: 0, sleeper: 0 } },
+  // Summit: the sun breaks the horizon — most hunters and rifts in the run, the
+  // highest reveal target, the brightest sky. Clearing it climbs into the Aurora.
+  25: { title: 'DAYBREAK', motif: 'veins', density: 0.14, target: 0.81,
+        caches: 12, rifts: 7, depth: 1.0,
+        enemies: { drifter: 5, chaser: 4, cutter: 3, sentinel: 0, sleeper: 0 } },
+
+  // "Aurora" (L26-30) — the polar night beneath flowing green-violet curtains.
+  // The reveal targets brush the 0.82 ceiling; the climb is pure pressure as the
+  // hunter pack peaks. Floor 1 is a calm starlit re-entry over the snow.
+  26: { title: 'POLAR NIGHT', motif: 'pillars', density: 0.09, target: 0.78,
+        caches: 11, rifts: 5, depth: 0.1,
+        enemies: { drifter: 4, chaser: 3, cutter: 2, sentinel: 0, sleeper: 0 } },
+  27: { title: 'THE SHIMMER', motif: 'veins', density: 0.11, target: 0.79,
+        caches: 11, rifts: 6, depth: 0.3,
+        enemies: { drifter: 5, chaser: 3, cutter: 2, sentinel: 0, sleeper: 0 } },
+  28: { title: 'FROSTFALL', motif: 'veins', density: 0.12, target: 0.80,
+        caches: 12, rifts: 6, depth: 0.5,
+        enemies: { drifter: 5, chaser: 4, cutter: 2, sentinel: 0, sleeper: 0 } },
+  29: { title: 'GLACIER CROWN', motif: 'veins', density: 0.13, target: 0.81,
+        caches: 12, rifts: 7, depth: 0.75,
+        enemies: { drifter: 5, chaser: 4, cutter: 3, sentinel: 0, sleeper: 0 } },
+  // Summit: the corona blazes overhead — the most crowded board of the run, the
+  // highest reveal target. Clearing it climbs out into Deep Space.
+  30: { title: 'THE CORONA', motif: 'veins', density: 0.14, target: 0.82,
+        caches: 13, rifts: 8, depth: 1.0,
+        enemies: { drifter: 6, chaser: 4, cutter: 3, sentinel: 0, sleeper: 0 } },
+
+  // "Deep Space" (L31-35) — out past the aurora into the open cosmos: the
+  // crafted finale of the climb. The reveal target sits at the ceiling; the only
+  // way left to climb is the densest hunter packs in the run. Beyond L35 the
+  // procedural endless curve takes over (still deep space), seamlessly.
+  31: { title: 'THE VOID', motif: 'pillars', density: 0.09, target: 0.80,
+        caches: 12, rifts: 6, depth: 0.1,
+        enemies: { drifter: 5, chaser: 3, cutter: 2, sentinel: 0, sleeper: 0 } },
+  32: { title: 'STARFALL', motif: 'veins', density: 0.11, target: 0.81,
+        caches: 13, rifts: 7, depth: 0.3,
+        enemies: { drifter: 5, chaser: 4, cutter: 3, sentinel: 0, sleeper: 0 } },
+  33: { title: 'NEBULA GATE', motif: 'veins', density: 0.12, target: 0.81,
+        caches: 13, rifts: 8, depth: 0.5,
+        enemies: { drifter: 6, chaser: 4, cutter: 3, sentinel: 0, sleeper: 0 } },
+  34: { title: 'EVENT HORIZON', motif: 'veins', density: 0.13, target: 0.82,
+        caches: 14, rifts: 8, depth: 0.75,
+        enemies: { drifter: 6, chaser: 4, cutter: 3, sentinel: 0, sleeper: 0 } },
+  // The summit of the whole journey: the most crowded board in the run, against
+  // a ringed planet and the open void.
+  35: { title: 'SINGULARITY', motif: 'veins', density: 0.14, target: 0.82,
+        caches: 15, rifts: 9, depth: 1.0,
+        enemies: { drifter: 6, chaser: 5, cutter: 3, sentinel: 0, sleeper: 0 } },
 };
 
-// Visual intensity from position within a 3-level band: 0, 0.5, 1.0.
+// Visual intensity from position within a 5-level band: 0, .25, .5, .75, 1.0.
 export function depthForLevel(lv: number): number {
-  return (((lv - 1) % 3) + 3) % 3 / 2;
+  return (((lv - 1) % 5) + 5) % 5 / 4;
 }
 
 export function blueprintForLevel(lv: number): LevelBlueprint {
