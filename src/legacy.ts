@@ -21,21 +21,14 @@ import { hexA, genNebula, genFog } from './render/background';
 import { canvas, ctx } from './render/surface';
 import { glowText, retroTitle, drawScanlines, retroButton, fmtScore, drawGlowOrb, roundRectPath, pointAlong } from './render/primitives';
 import {
+  COLS, ROWS, CELL, PW, PH, MARGIN, HUD_H, CW, CH, OFF_X, OFF_Y, INTERIOR_TOTAL,
+  safeTop, safeBottom, computeLayout, applyCanvasSize, setInteriorTotal,
+} from './core/dims';
+import {
   initAudio, setMuted, isMuted, setPadLevel,
   sfxStartDraw, sfxCapture, sfxBold, sfxDeath, sfxLevel, sfxPickup, sfxShield, sfxBlip, sfxBest,
 } from './audio/audio';
 
-/* ----------------------------- config ---------------------------------- */
-/* Layout is derived from the device viewport at startup (see computeLayout)
-   so the play field fills the screen in portrait instead of letterboxing.
-   These are seeded with sane defaults and overwritten before first render. */
-let COLS = 24, ROWS = 44, CELL = 16;
-let PW = COLS * CELL, PH = ROWS * CELL;
-let MARGIN = 0, HUD_H = 64;
-let CW = PW, CH = HUD_H + PH;
-let OFF_X = 0, OFF_Y = HUD_H;
-let INTERIOR_TOTAL = (COLS - 2) * (ROWS - 2);
-let safeTop = 0, safeBottom = 0;
 
 /* ----------------------------- utilities ------------------------------- */
 
@@ -55,42 +48,6 @@ function cellOfPx(px) {
 
 /* ----------------------------- canvas / layout ------------------------- */
 
-// Read iOS/Android safe-area insets (notch / home indicator). Needs the page
-// meta to use viewport-fit=cover, which index.html sets.
-function readSafeInsets() {
-  // Read the --sat/--sab custom properties (defined in index.html with env()).
-  // Reading resolved CSS vars off :root is more reliable than a probe element.
-  try {
-    const cs = getComputedStyle(document.documentElement);
-    safeTop = parseFloat(cs.getPropertyValue('--sat')) || 0;
-    safeBottom = parseFloat(cs.getPropertyValue('--sab')) || 0;
-  } catch (e) { safeTop = 0; safeBottom = 0; }
-}
-
-// Derive grid dimensions + offsets so the play field fills the viewport.
-function computeLayout() {
-  readSafeInsets();
-  const vw = Math.max(320, window.innerWidth | 0);
-  const vh = Math.max(480, window.innerHeight | 0);
-  CW = vw; CH = vh; MARGIN = 0;
-  HUD_H = Math.round(Math.min(70, vh * 0.06) + safeTop + 10);
-  const top = HUD_H, bottom = vh - Math.max(safeBottom, 6), availH = bottom - top;
-  const cell = clamp(Math.round(vw / 23), 12, 34);   // ~23 columns on a phone
-  COLS = Math.max(14, Math.floor(vw / cell));
-  ROWS = Math.max(16, Math.floor(availH / cell));
-  CELL = cell;
-  PW = COLS * CELL; PH = ROWS * CELL;
-  OFF_X = Math.floor((vw - PW) / 2);
-  OFF_Y = top + Math.floor((availH - PH) / 2);
-  INTERIOR_TOTAL = (COLS - 2) * (ROWS - 2);
-}
-function applyCanvasSize() {
-  canvas.width = Math.round(CW * SS);
-  canvas.height = Math.round(CH * SS);
-  canvas.style.width = CW + 'px';
-  canvas.style.height = CH + 'px';
-  ctx.setTransform(SS, 0, 0, SS, 0, 0);
-}
 let lastVW = 0, lastVH = 0;
 function relayout(force) {
   const vw = window.innerWidth | 0, vh = window.innerHeight | 0;
@@ -643,7 +600,7 @@ function initLevel(lv) {
       grid[y * COLS + x] = (x === 0 || y === 0 || x === COLS - 1 || y === ROWS - 1) ? FILLED : EMPTY;
   const obst = genObstacles(rng.fork('terrain'), { cols: COLS, rows: ROWS, level: lv, startIdx: COLS >> 1 });
   for (let i = 0; i < grid.length; i++) if (obst[i]) grid[i] = OBSTACLE;
-  INTERIOR_TOTAL = openInteriorCount(obst, COLS, ROWS);   // target denominator excludes rock
+  setInteriorTotal(openInteriorCount(obst, COLS, ROWS));   // target denominator excludes rock
   veilBoard = genVeilBoard(rng.fork('veil'), { cols: COLS, rows: ROWS, level: lv, isOpen: (i) => grid[i] === EMPTY });
 
   nebula = genNebula(pal, lv, PW, PH); fog = genFog(pal, PW, PH); genTwinkles();
