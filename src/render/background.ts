@@ -20,76 +20,91 @@ export function hexA(hex, a) {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
 
-// The Depths — a dark molten cavern. Mostly black basalt with deep glowing lava
-// POOLS set into rock strata, organic crack-webs spreading from them, and a
-// cavern vignette — atmospheric, not a wall of flame. `depth` (0..1 within the
-// band) makes the lower floors hotter and more cracked.
+// The Depths — the inside of a mine wall. SOLID dark stone (fractured facets,
+// strata, uneven value) is the dominant surface; branching lava VEINS thread
+// glowing through it, with mineral glints and heat from below. Reads as
+// tunneling down through rock, not glow floating on black. `depth` (0..1 within
+// the band) makes the lower floors hotter and more veined.
 function genMagmaNebula(c, p, PW, PH, depth) {
   const B = p.blobs;   // [near-black, dark, deep-red, lava, bright]
 
-  // base: deep basalt, only a touch warmer toward the bottom
-  const base = c.createLinearGradient(0, 0, 0, PH);
-  base.addColorStop(0, '#0b0304'); base.addColorStop(0.6, B[0]); base.addColorStop(1, '#1c0705');
-  c.fillStyle = base; c.fillRect(0, 0, PW, PH);
+  // 1. dark stone base
+  c.fillStyle = B[0]; c.fillRect(0, 0, PW, PH);
 
-  // rock strata — soft dark horizontal shelves give a layered, geological feel
-  for (let i = 0, n = 5; i < n; i++) {
-    const y = (i + 0.5) / n * PH + rand(-22, 22), h = rand(26, 64);
-    const g = c.createLinearGradient(0, y - h, 0, y + h);
-    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, 'rgba(0,0,0,0.38)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-    c.fillStyle = g; c.fillRect(0, y - h, PW, h * 2);
-  }
-
-  c.globalCompositeOperation = 'lighter';
-
-  // lava pools — deep molten pools glowing from within, set into the rock
-  const pools: { x: number; y: number; r: number }[] = [];
-  for (let i = 0, n = 5 + Math.round(depth * 4); i < n; i++) {
-    const x = rand(PW * 0.08, PW * 0.92), y = rand(PH * 0.18, PH * 0.95), r = rand(48, 130);
-    pools.push({ x, y, r });
+  // 2. broad value variation — big soft patches so the rock isn't flat black
+  for (let i = 0; i < 9; i++) {
+    const x = rand(0, PW), y = rand(0, PH), r = rand(120, 280);
     const g = c.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, hexA(B[4], 0.7)); g.addColorStop(0.28, hexA(B[3], 0.55));
-    g.addColorStop(0.65, hexA(B[2], 0.28)); g.addColorStop(1, 'rgba(0,0,0,0)');
-    c.globalAlpha = rand(0.5, 0.85); c.fillStyle = g;
-    c.beginPath(); c.ellipse(x, y, r, r * rand(0.55, 0.82), 0, 0, TAU); c.fill();
+    g.addColorStop(0, Math.random() < 0.5 ? hexA(B[1], 0.5) : 'rgba(0,0,0,0.5)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = rand(0.3, 0.6); c.fillStyle = g;
+    c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
   }
 
-  // glowing cracks — an organic web spreading out from the pools
-  for (const pool of pools) {
-    for (let b = 0, branches = 2 + ((Math.random() * 3) | 0); b < branches; b++) {
-      let x = pool.x, y = pool.y, ang = rand(0, TAU);
-      c.shadowColor = B[4]; c.shadowBlur = 5 + depth * 6;
-      c.globalAlpha = rand(0.22, 0.46) + depth * 0.18; c.strokeStyle = B[3]; c.lineWidth = rand(0.8, 2);
-      c.beginPath(); c.moveTo(x, y);
-      for (let s = 0, segs = 3 + ((Math.random() * 4) | 0); s < segs; s++) {
-        ang += rand(-0.7, 0.7); const len = rand(16, 44);
-        x += Math.cos(ang) * len; y += Math.sin(ang) * len; c.lineTo(x, y);
-      }
-      c.stroke();
+  // 3. rock facets — subtle angular planes give the stone a fractured surface
+  for (let i = 0; i < 28; i++) {
+    const x = rand(0, PW), y = rand(0, PH), s = rand(26, 70);
+    c.globalAlpha = rand(0.05, 0.14); c.fillStyle = Math.random() < 0.55 ? '#000' : B[1];
+    c.save(); c.translate(x, y); c.rotate(rand(0, TAU));
+    c.beginPath();
+    c.moveTo(rand(-s, -s * 0.3), rand(-s, -s * 0.3)); c.lineTo(rand(s * 0.3, s), rand(-s, 0));
+    c.lineTo(rand(0, s), rand(s * 0.3, s)); c.lineTo(rand(-s, 0), rand(0, s));
+    c.closePath(); c.fill(); c.restore();
+  }
+
+  // 4. horizontal strata — faint geological layers (descending through rock)
+  for (let i = 0; i < 6; i++) {
+    const y = (i + rand(0.2, 0.8)) / 6 * PH;
+    c.globalAlpha = rand(0.1, 0.2); c.strokeStyle = '#000'; c.lineWidth = rand(2, 6);
+    c.beginPath(); let lx = 0; c.moveTo(0, y);
+    for (let k = 0; k < 8; k++) { lx += PW / 8; c.lineTo(lx, y + rand(-10, 10)); }
+    c.stroke();
+  }
+  c.globalAlpha = 1;
+
+  // 5. heat from below — a subtle warm rise through the lower rock
+  c.globalCompositeOperation = 'lighter';
+  const heat = c.createLinearGradient(0, PH, 0, PH * 0.5);
+  heat.addColorStop(0, hexA(B[2], 0.24 + depth * 0.14)); heat.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = heat; c.fillRect(0, PH * 0.5, PW, PH * 0.5);
+
+  // 6. glowing lava veins — branching crack networks threading the rock (the hero)
+  const drawSeg = (x0, y0, x1, y1, w) => {
+    c.shadowColor = B[4]; c.shadowBlur = 7 + depth * 7;
+    c.globalAlpha = 0.5; c.strokeStyle = B[3]; c.lineWidth = w;
+    c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+    c.shadowBlur = 0; c.globalAlpha = 0.95; c.strokeStyle = B[4]; c.lineWidth = Math.max(0.6, w * 0.35);
+    c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+  };
+  const stack: any[] = [];
+  for (let i = 0, seeds = 3 + Math.round(depth * 3); i < seeds; i++)
+    stack.push({ x: rand(0, PW), y: rand(0, PH), ang: rand(0, TAU), width: rand(2.2, 3.6), life: 5 + ((Math.random() * 4) | 0) });
+  let guard = 0;
+  while (stack.length && guard++ < 400) {
+    const v = stack.pop(); let x = v.x, y = v.y, ang = v.ang, width = v.width, life = v.life;
+    while (life-- > 0) {
+      ang += rand(-0.5, 0.5);
+      const len = rand(14, 30), nx = x + Math.cos(ang) * len, ny = y + Math.sin(ang) * len;
+      drawSeg(x, y, nx, ny, width);
+      x = nx; y = ny; width = Math.max(0.8, width * 0.92);
+      if (x < -20 || x > PW + 20 || y < -20 || y > PH + 20) break;
+      if (Math.random() < 0.22 && width > 1.2 && stack.length < 60)
+        stack.push({ x, y, ang: ang + (Math.random() < 0.5 ? 1 : -1) * rand(0.5, 1.1), width: width * 0.7, life: 2 + ((Math.random() * 3) | 0) });
     }
   }
   c.shadowBlur = 0;
 
-  // bright molten centers — a hot pinpoint at the heart of each pool
-  for (const pool of pools) {
-    const g = c.createRadialGradient(pool.x, pool.y, 0, pool.x, pool.y, pool.r * 0.4);
-    g.addColorStop(0, hexA(B[4], 0.9)); g.addColorStop(1, 'rgba(0,0,0,0)');
-    c.globalAlpha = rand(0.4, 0.7); c.fillStyle = g;
-    c.beginPath(); c.arc(pool.x, pool.y, pool.r * 0.4, 0, TAU); c.fill();
+  // 7. mineral glints — tiny crystal sparkles caught in the stone
+  for (let i = 0, n = 70 + Math.round(depth * 40); i < n; i++) {
+    c.globalAlpha = rand(0.15, 0.6);
+    c.fillStyle = Math.random() < 0.25 ? B[4] : Math.random() < 0.5 ? p.star : B[2];
+    c.beginPath(); c.arc(Math.random() * PW, Math.random() * PH, rand(0.4, 1.2), 0, TAU); c.fill();
   }
 
-  // sparse embers drifting above the pools
-  for (let i = 0, n = 50 + Math.round(depth * 50); i < n; i++) {
-    const pool = pools[(Math.random() * pools.length) | 0];
-    const x = pool.x + rand(-pool.r, pool.r), y = pool.y + rand(-pool.r * 1.4, pool.r * 0.3);
-    c.globalAlpha = rand(0.18, 0.6); c.fillStyle = Math.random() < 0.4 ? B[4] : B[3];
-    c.beginPath(); c.arc(x, y, rand(0.5, 1.3), 0, TAU); c.fill();
-  }
-
+  // 8. cavern vignette — darken the edges for enclosed depth
   c.globalCompositeOperation = 'source-over';
-  // cavern vignette — darken the edges for a sense of enclosed depth
-  const vig = c.createRadialGradient(PW / 2, PH * 0.55, PH * 0.18, PW / 2, PH * 0.55, PH * 0.78);
-  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.55)');
+  const vig = c.createRadialGradient(PW / 2, PH * 0.5, PH * 0.15, PW / 2, PH * 0.5, PH * 0.82);
+  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.62)');
   c.fillStyle = vig; c.fillRect(0, 0, PW, PH);
   c.globalAlpha = 1;
 }
