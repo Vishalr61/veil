@@ -22,13 +22,18 @@ export function drawHUD() {
   ctx.beginPath(); ctx.moveTo(0, HUD_H - 0.5); ctx.lineTo(CW, HUD_H - 0.5); ctx.stroke();
   ctx.restore();
   const cy = safeTop + (HUD_H - safeTop) / 2;   // center below the notch / safe inset
+  // Group the readouts into a centered band so a wide window isn't sparse. On a
+  // phone the band IS the full width, so left/right anchors match the old layout.
+  const band = Math.min(CW - 24, 780);
+  const lx = Math.max((CW - band) / 2, MARGIN + 10);
+  const rxAnchor = Math.min((CW + band) / 2, CW - 66);
 
-  glowText('SCORE', MARGIN + 8, cy - 13, 11, '#6f86b8', { align: 'left', blur: 0, spacing: 1, font: 'mono' });
-  glowText(fmtScore(G.dispScore), MARGIN + 8, cy + 6, 24, G.pal.trail, { align: 'left', blur: 8, font: 'mono', core: '#fff', spacing: 1 });
+  glowText('SCORE', lx, cy - 13, 10, '#6f86b8', { align: 'left', blur: 0, spacing: 2, font: 'mono' });
+  glowText(fmtScore(G.dispScore), lx, cy + 6, 24, G.pal.trail, { align: 'left', blur: 8, font: 'mono', core: '#fff', spacing: 1 });
 
   // combo meter
   if (G.combo > 1 && G.state === 'playing') {
-    const mx = MARGIN + 128, mw = 64;
+    const mx = lx + 118, mw = 64;
     const mult = comboMult();
     glowText('x' + mult.toFixed(1), mx, cy - 9, 14, G.pal.accent, { align: 'left', blur: 10, weight: 800 });
     ctx.save();
@@ -56,8 +61,8 @@ export function drawHUD() {
   glowText(Math.round(G.dispPercent * 100) + '%', CW / 2, cy - 10, 17, '#ffffff', { blur: 8, font: 'mono', core: '#fff', spacing: 1 });
   glowText('TARGET ' + Math.round(G.target * 100) + '%', CW / 2, by + barH + 8, 8.5, '#7f93c0', { blur: 0, spacing: 1.5, weight: 700 });
 
-  // right cluster (kept left of the pause button at CW-56)
-  let rx = CW - 66;
+  // right cluster (band-anchored, kept left of the pause button at CW-56)
+  let rx = rxAnchor;
   ctx.save();
   ctx.translate(rx - 7, cy);
   ctx.strokeStyle = isMuted() ? '#6a7290' : G.pal.accent; ctx.fillStyle = isMuted() ? '#6a7290' : G.pal.accent; ctx.lineWidth = 1.6;
