@@ -14,8 +14,11 @@ import { isMuted } from '../audio/audio';
 
 export function drawHUD() {
   ctx.save();
-  ctx.fillStyle = 'rgba(6,9,20,0.55)'; ctx.fillRect(0, 0, CW, HUD_H);
-  ctx.strokeStyle = 'rgba(120,170,255,0.12)'; ctx.lineWidth = 1;
+  const bg = ctx.createLinearGradient(0, 0, 0, HUD_H);
+  bg.addColorStop(0, 'rgba(4,6,14,0.88)'); bg.addColorStop(1, 'rgba(7,10,22,0.45)');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, CW, HUD_H);
+  ctx.globalAlpha = 0.5; ctx.shadowColor = G.pal.edge; ctx.shadowBlur = 8;     // band-tinted glowing hairline
+  ctx.strokeStyle = G.pal.edge2; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(0, HUD_H - 0.5); ctx.lineTo(CW, HUD_H - 0.5); ctx.stroke();
   ctx.restore();
   const cy = safeTop + (HUD_H - safeTop) / 2;   // center below the notch / safe inset
@@ -39,17 +42,19 @@ export function drawHUD() {
   if (G.enemyFreezeT > 0) glowText('FREEZE ' + G.enemyFreezeT.toFixed(1), CW / 2 - 150, cy, 11, '#8fe6ff', { align: 'right', blur: 6, weight: 800, spacing: 1 });
   if (G.enemySlowT > 0) glowText('SLOW ' + G.enemySlowT.toFixed(1), CW / 2 + 150, cy, 11, '#9fb8ff', { align: 'left', blur: 6, weight: 800, spacing: 1 });
 
-  // percent bar
-  const barW = 230, barH = 11, bx = CW / 2 - barW / 2, by = cy - barH / 2 + 4;
+  // CENTER — progress toward the reveal target: big % over a rounded glowing bar
+  const barW = Math.min(240, CW * 0.4), barH = 7, bx = CW / 2 - barW / 2, by = cy + 5;
+  const frac = clamp(G.dispPercent / G.target, 0, 1);
   ctx.save();
-  roundRectPath(bx, by, barW, barH, 5); ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fill(); ctx.clip();
-  const fillW = barW * clamp(G.dispPercent / G.target, 0, 1);
+  roundRectPath(bx, by, barW, barH, barH / 2); ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fill();
+  roundRectPath(bx, by, barW, barH, barH / 2); ctx.clip();
   const g = ctx.createLinearGradient(bx, 0, bx + barW, 0);
   g.addColorStop(0, G.pal.edge); g.addColorStop(1, G.pal.edge2);
-  ctx.fillStyle = g; ctx.shadowColor = G.pal.edge; ctx.shadowBlur = 10; ctx.fillRect(bx, by, fillW, barH);
+  ctx.fillStyle = g; ctx.shadowColor = G.pal.edge; ctx.shadowBlur = 10; ctx.fillRect(bx, by, barW * frac, barH);
   ctx.restore();
-  glowText(Math.round(G.dispPercent * 100) + '%', CW / 2, by - 9, 11, G.pal.edge2, { blur: 6, weight: 800 });
-  glowText('TARGET ' + Math.round(G.target * 100) + '%', CW / 2, by + barH + 9, 9, '#7f93c0', { blur: 0, spacing: 1.5, weight: 700 });
+  if (frac > 0.02 && frac < 0.999) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; drawGlowOrb(bx + barW * frac, by + barH / 2, 2.4, '#fff', G.pal.edge2, 9); ctx.restore(); }
+  glowText(Math.round(G.dispPercent * 100) + '%', CW / 2, cy - 10, 17, '#ffffff', { blur: 8, font: 'mono', core: '#fff', spacing: 1 });
+  glowText('TARGET ' + Math.round(G.target * 100) + '%', CW / 2, by + barH + 8, 8.5, '#7f93c0', { blur: 0, spacing: 1.5, weight: 700 });
 
   // right cluster (kept left of the pause button at CW-56)
   let rx = CW - 66;
