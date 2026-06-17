@@ -20,76 +20,78 @@ export function hexA(hex, a) {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
 
-// The Depths — a molten cavern, not a tinted star field. Heat rises from a lava
-// sea below; glowing veins crack the rock; embers drift up. `depth` (0..1 within
-// the band) drives how hot/turbulent it gets across the three floors.
+// The Depths — a dark molten cavern. Mostly black basalt with deep glowing lava
+// POOLS set into rock strata, organic crack-webs spreading from them, and a
+// cavern vignette — atmospheric, not a wall of flame. `depth` (0..1 within the
+// band) makes the lower floors hotter and more cracked.
 function genMagmaNebula(c, p, PW, PH, depth) {
   const B = p.blobs;   // [near-black, dark, deep-red, lava, bright]
 
-  // base: cool dark basalt up top, warming toward the molten floor below
+  // base: deep basalt, only a touch warmer toward the bottom
   const base = c.createLinearGradient(0, 0, 0, PH);
-  base.addColorStop(0, '#160406'); base.addColorStop(0.5, B[0]);
-  base.addColorStop(0.82, B[1]); base.addColorStop(1, '#5c1810');
+  base.addColorStop(0, '#0b0304'); base.addColorStop(0.6, B[0]); base.addColorStop(1, '#1c0705');
   c.fillStyle = base; c.fillRect(0, 0, PW, PH);
+
+  // rock strata — soft dark horizontal shelves give a layered, geological feel
+  for (let i = 0, n = 5; i < n; i++) {
+    const y = (i + 0.5) / n * PH + rand(-22, 22), h = rand(26, 64);
+    const g = c.createLinearGradient(0, y - h, 0, y + h);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, 'rgba(0,0,0,0.38)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = g; c.fillRect(0, y - h, PW, h * 2);
+  }
 
   c.globalCompositeOperation = 'lighter';
 
-  // the molten sea — a strong glow rising from the bottom edge, hotter deeper
-  const seaH = PH * (0.42 + depth * 0.18);
-  const sea = c.createLinearGradient(0, PH, 0, PH - seaH);
-  sea.addColorStop(0, hexA(B[4], 0.4 + depth * 0.28)); sea.addColorStop(0.25, hexA(B[3], 0.38));
-  sea.addColorStop(0.7, hexA(B[2], 0.16)); sea.addColorStop(1, 'rgba(0,0,0,0)');
-  c.fillStyle = sea; c.fillRect(0, PH - seaH, PW, seaH);
-
-  // molten rock clouds — soft glowing masses, biased toward the floor
-  for (let i = 0, n = 26 + Math.round(depth * 10); i < n; i++) {
-    const x = rand(-80, PW + 80), yf = Math.random(), y = PH * (1 - yf * yf) + rand(-40, 40);
-    const r = rand(70, 260), col = Math.random() < 0.6 ? B[2] : B[3];
+  // lava pools — deep molten pools glowing from within, set into the rock
+  const pools: { x: number; y: number; r: number }[] = [];
+  for (let i = 0, n = 5 + Math.round(depth * 4); i < n; i++) {
+    const x = rand(PW * 0.08, PW * 0.92), y = rand(PH * 0.18, PH * 0.95), r = rand(48, 130);
+    pools.push({ x, y, r });
     const g = c.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, col); g.addColorStop(0.45, col + '55'); g.addColorStop(1, 'rgba(0,0,0,0)');
-    c.globalAlpha = rand(0.16, 0.4); c.fillStyle = g;
-    c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+    g.addColorStop(0, hexA(B[4], 0.7)); g.addColorStop(0.28, hexA(B[3], 0.55));
+    g.addColorStop(0.65, hexA(B[2], 0.28)); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = rand(0.5, 0.85); c.fillStyle = g;
+    c.beginPath(); c.ellipse(x, y, r, r * rand(0.55, 0.82), 0, 0, TAU); c.fill();
   }
 
-  // lava veins — branching cracks of light, each with a bright hot core
-  for (let i = 0, n = 9 + Math.round(depth * 8); i < n; i++) {
-    const pts: number[][] = [[rand(0, PW), PH + 10]];
-    for (let k = 0; k < 7; k++) { const [px, py] = pts[k]; pts.push([px + rand(-36, 36), py - rand(36, 78)]); }
-    const trace = () => { c.beginPath(); c.moveTo(pts[0][0], pts[0][1]); for (let k = 1; k < pts.length; k++) c.lineTo(pts[k][0], pts[k][1]); c.stroke(); };
-    c.shadowColor = B[4]; c.shadowBlur = 9 + depth * 10;
-    c.globalAlpha = rand(0.3, 0.55) + depth * 0.18; c.strokeStyle = B[3]; c.lineWidth = rand(2, 4) + depth * 1.5; trace();
-    c.shadowBlur = 0;
-    c.globalAlpha = rand(0.5, 0.8); c.strokeStyle = B[4]; c.lineWidth = rand(0.8, 1.6); trace();
-  }
-
-  // hot cores — the brightest molten pockets, in the lower field
-  for (let i = 0; i < 5; i++) {
-    const x = rand(PW * 0.12, PW * 0.88), y = rand(PH * 0.45, PH * 0.96), r = rand(40, 100);
-    const g = c.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, B[4]); g.addColorStop(0.3, B[3] + '88'); g.addColorStop(1, 'rgba(0,0,0,0)');
-    c.globalAlpha = rand(0.4, 0.7); c.fillStyle = g;
-    c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
-  }
-
-  // rising embers — sparks, denser and brighter near the floor, thinning upward
-  for (let i = 0, n = 150 + Math.round(depth * 130); i < n; i++) {
-    const r0 = Math.random(), y = PH * (1 - r0 * r0), low = 1 - y / PH, x = Math.random() * PW;
-    c.globalAlpha = rand(0.2, 0.85) * (0.35 + low * 0.65);
-    c.fillStyle = Math.random() < 0.35 ? B[4] : B[3];
-    if (Math.random() < 0.06) { c.shadowColor = B[4]; c.shadowBlur = 5; } else c.shadowBlur = 0;
-    c.beginPath(); c.arc(x, y, rand(0.5, 1.6) * (0.6 + low), 0, TAU); c.fill();
+  // glowing cracks — an organic web spreading out from the pools
+  for (const pool of pools) {
+    for (let b = 0, branches = 2 + ((Math.random() * 3) | 0); b < branches; b++) {
+      let x = pool.x, y = pool.y, ang = rand(0, TAU);
+      c.shadowColor = B[4]; c.shadowBlur = 5 + depth * 6;
+      c.globalAlpha = rand(0.22, 0.46) + depth * 0.18; c.strokeStyle = B[3]; c.lineWidth = rand(0.8, 2);
+      c.beginPath(); c.moveTo(x, y);
+      for (let s = 0, segs = 3 + ((Math.random() * 4) | 0); s < segs; s++) {
+        ang += rand(-0.7, 0.7); const len = rand(16, 44);
+        x += Math.cos(ang) * len; y += Math.sin(ang) * len; c.lineTo(x, y);
+      }
+      c.stroke();
+    }
   }
   c.shadowBlur = 0;
 
-  // heat haze — faint warm horizontal shimmer over the lower field
-  for (let i = 0; i < 4; i++) {
-    const y = rand(PH * 0.4, PH), h = rand(28, 70);
-    const g = c.createLinearGradient(0, y - h, 0, y + h);
-    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, hexA(B[3], 0.07)); g.addColorStop(1, 'rgba(0,0,0,0)');
-    c.globalAlpha = rand(0.25, 0.45); c.fillStyle = g; c.fillRect(0, y - h, PW, h * 2);
+  // bright molten centers — a hot pinpoint at the heart of each pool
+  for (const pool of pools) {
+    const g = c.createRadialGradient(pool.x, pool.y, 0, pool.x, pool.y, pool.r * 0.4);
+    g.addColorStop(0, hexA(B[4], 0.9)); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = rand(0.4, 0.7); c.fillStyle = g;
+    c.beginPath(); c.arc(pool.x, pool.y, pool.r * 0.4, 0, TAU); c.fill();
   }
 
-  c.shadowBlur = 0; c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
+  // sparse embers drifting above the pools
+  for (let i = 0, n = 50 + Math.round(depth * 50); i < n; i++) {
+    const pool = pools[(Math.random() * pools.length) | 0];
+    const x = pool.x + rand(-pool.r, pool.r), y = pool.y + rand(-pool.r * 1.4, pool.r * 0.3);
+    c.globalAlpha = rand(0.18, 0.6); c.fillStyle = Math.random() < 0.4 ? B[4] : B[3];
+    c.beginPath(); c.arc(x, y, rand(0.5, 1.3), 0, TAU); c.fill();
+  }
+
+  c.globalCompositeOperation = 'source-over';
+  // cavern vignette — darken the edges for a sense of enclosed depth
+  const vig = c.createRadialGradient(PW / 2, PH * 0.55, PH * 0.18, PW / 2, PH * 0.55, PH * 0.78);
+  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.55)');
+  c.fillStyle = vig; c.fillRect(0, 0, PW, PH);
+  c.globalAlpha = 1;
 }
 
 export function genNebula(p, level, PW, PH, depth = 0) {
