@@ -145,10 +145,14 @@ export function drawWorld() {
   }
   ctx.restore();
 
-  // floating motes over the revealed cosmos
+  // floating motes over the revealed cosmos — warm flickering embers in magma
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  for (const m of G.motes) { ctx.globalAlpha = m.a; ctx.fillStyle = G.pal.star; ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, TAU); ctx.fill(); }
+  for (const m of G.motes) {
+    if (m.em) { ctx.globalAlpha = m.a * (0.55 + 0.45 * Math.sin(G.time * 8 + m.x)); ctx.fillStyle = G.pal.blobs[3]; }
+    else { ctx.globalAlpha = m.a; ctx.fillStyle = G.pal.star; }
+    ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, TAU); ctx.fill();
+  }
   ctx.restore();
 
   ctx.drawImage(G.fog.canvas, 0, 0, PW, PH);
@@ -232,10 +236,19 @@ export function drawWorld() {
       ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 1.9, 0, TAU); ctx.stroke(); ctx.restore();
     }
     ctx.save();
+    // hunters (chaser) get a tracking eye: the pupil + glint lean toward the
+    // player, so a glance reads "this one is watching you". Others stay neutral.
+    let ex = 0, ey = 0;
+    if (isCh && G.player && G.player.px) {
+      const dx = G.player.px.x - e.x, dy = G.player.px.y - e.y, d = Math.hypot(dx, dy) || 1;
+      ex = dx / d; ey = dy / d;
+    }
     ctx.fillStyle = frozen ? 'rgba(10,30,50,0.5)' : 'rgba(20,0,6,0.55)';
-    ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 0.62, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(e.x + ex * e.r * 0.2, e.y + ey * e.r * 0.2, e.r * 0.62, 0, TAU); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.globalAlpha = 0.9;
-    ctx.beginPath(); ctx.arc(e.x - e.r * 0.18, e.y - e.r * 0.18, e.r * 0.22, 0, TAU); ctx.fill();
+    const gx = isCh ? e.x + ex * e.r * 0.34 : e.x - e.r * 0.18;
+    const gy = isCh ? e.y + ey * e.r * 0.34 : e.y - e.r * 0.18;
+    ctx.beginPath(); ctx.arc(gx, gy, e.r * 0.22, 0, TAU); ctx.fill();
     ctx.restore();
   }
 

@@ -20,20 +20,20 @@ export function hexA(hex, a) {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
 
-// The Depths — the inside of a mine wall. SOLID dark stone (fractured facets,
-// strata, uneven value) is the dominant surface; branching lava VEINS thread
-// glowing through it, with mineral glints and heat from below. Reads as
-// tunneling down through rock, not glow floating on black. `depth` (0..1 within
-// the band) makes the lower floors hotter and more veined.
+// The Depths — a lit molten cavern. Dark layered rock (strata) is the surface;
+// a deep forge-glow lights the chamber, light shafts angle down, molten lakes
+// pool and bloom at the floor, and bloomed lava veins seep through the rock.
+// `depth` (0..1 within the band) makes the lower floors hotter and brighter.
 function genMagmaNebula(c, p, PW, PH, depth) {
   const B = p.blobs;   // [near-black, dark, deep-red, lava, bright]
 
-  // 1. dark base
-  c.fillStyle = B[0]; c.fillRect(0, 0, PW, PH);
+  // 1. Rich vertical grade — crimson-black ceiling down to a molten floor.
+  const base = c.createLinearGradient(0, 0, 0, PH);
+  base.addColorStop(0, '#0a0204'); base.addColorStop(0.45, B[0]);
+  base.addColorStop(0.8, B[1]); base.addColorStop(1, '#46100a');
+  c.fillStyle = base; c.fillRect(0, 0, PW, PH);
 
-  // 2. SEDIMENTARY STRATA — stacked wavy rock layers, the dominant surface. This
-  //    is what reads as "tunneling down through rock": clearly layered, varied
-  //    dark tones with the odd warmer (iron-rich) seam.
+  // 2. Sedimentary strata — layered rock (the "tunneling down" read).
   const N = 11;
   let prevEdge: number[] | null = null;
   for (let i = 0; i <= N; i++) {
@@ -41,13 +41,13 @@ function genMagmaNebula(c, p, PW, PH, depth) {
     for (let k = 0; k <= 8; k++) edge.push(baseY + rand(-16, 16));
     if (prevEdge) {
       const t = Math.random();
-      c.globalAlpha = rand(0.32, 0.6);
+      c.globalAlpha = rand(0.28, 0.5);
       c.fillStyle = t < 0.5 ? '#050102' : t < 0.82 ? B[1] : B[2];
       c.beginPath(); c.moveTo(0, prevEdge[0]);
       for (let k = 1; k <= 8; k++) c.lineTo(k / 8 * PW, prevEdge[k]);
       for (let k = 8; k >= 0; k--) c.lineTo(k / 8 * PW, edge[k]);
       c.closePath(); c.fill();
-      if (t >= 0.82) {   // a glowing iron/lava seam along a warm layer's edge
+      if (t >= 0.82) {
         c.globalAlpha = rand(0.3, 0.55); c.strokeStyle = hexA(B[3], 0.6); c.lineWidth = 1.2;
         c.beginPath(); c.moveTo(0, prevEdge[0]); for (let k = 1; k <= 8; k++) c.lineTo(k / 8 * PW, prevEdge[k]); c.stroke();
       }
@@ -55,19 +55,41 @@ function genMagmaNebula(c, p, PW, PH, depth) {
     prevEdge = edge;
   }
   c.globalAlpha = 1;
-
-  // 3. heat from below — warm rise through the lower rock
   c.globalCompositeOperation = 'lighter';
-  const heat = c.createLinearGradient(0, PH, 0, PH * 0.4);
-  heat.addColorStop(0, hexA(B[2], 0.32 + depth * 0.16)); heat.addColorStop(1, 'rgba(0,0,0,0)');
-  c.fillStyle = heat; c.fillRect(0, PH * 0.4, PW, PH * 0.6);
 
-  // 4. LAVA VEINS — bright branching cracks seeping DOWN through the strata
+  // 3. Focal forge-glow — a deep warm light source so the chamber reads as LIT.
+  const fx = rand(PW * 0.3, PW * 0.7), fy = rand(PH * 0.58, PH * 0.82), fr = PH * (0.42 + depth * 0.12);
+  const fg = c.createRadialGradient(fx, fy, 0, fx, fy, fr);
+  fg.addColorStop(0, hexA(B[3], 0.34 + depth * 0.22)); fg.addColorStop(0.4, hexA(B[2], 0.16)); fg.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = fg; c.beginPath(); c.arc(fx, fy, fr, 0, TAU); c.fill();
+
+  // 4. Light shafts angling down from above (subtle volumetrics).
+  for (let i = 0, n = 2 + Math.round(depth); i < n; i++) {
+    const x = rand(PW * 0.2, PW * 0.8), w = rand(28, 64);
+    const g = c.createLinearGradient(0, 0, 0, PH * 0.72);
+    g.addColorStop(0, hexA(B[3], 0.09 + depth * 0.05)); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = 0.6; c.fillStyle = g;
+    c.beginPath(); c.moveTo(x - w * 0.4, 0); c.lineTo(x + w * 0.4, 0); c.lineTo(x + w, PH * 0.72); c.lineTo(x - w, PH * 0.72); c.closePath(); c.fill();
+  }
+  c.globalAlpha = 1;
+
+  // 5. Molten lakes pooling at the floor — wide and bloomed.
+  for (let i = 0, n = 3 + Math.round(depth * 2); i < n; i++) {
+    const x = rand(0, PW), y = PH - rand(0, PH * 0.1), r = rand(60, 130);
+    c.shadowColor = B[4]; c.shadowBlur = 28;
+    const g = c.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, hexA(B[4], 0.85)); g.addColorStop(0.4, hexA(B[3], 0.5)); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = rand(0.5, 0.8); c.fillStyle = g;
+    c.beginPath(); c.ellipse(x, y, r, r * 0.5, 0, 0, TAU); c.fill();
+  }
+  c.shadowBlur = 0;
+
+  // 6. Lava veins — bloomed branching cracks seeping DOWN through the rock.
   const drawSeg = (x0, y0, x1, y1, w) => {
-    c.shadowColor = B[4]; c.shadowBlur = 8 + depth * 8;
-    c.globalAlpha = 0.55; c.strokeStyle = B[3]; c.lineWidth = w;
+    c.shadowColor = B[4]; c.shadowBlur = 12 + depth * 8;
+    c.globalAlpha = 0.5; c.strokeStyle = B[3]; c.lineWidth = w;
     c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
-    c.shadowBlur = 0; c.globalAlpha = 1; c.strokeStyle = B[4]; c.lineWidth = Math.max(0.7, w * 0.4);
+    c.shadowBlur = 0; c.globalAlpha = 1; c.strokeStyle = B[4]; c.lineWidth = Math.max(0.7, w * 0.38);
     c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
   };
   const stack: any[] = [];
@@ -88,25 +110,22 @@ function genMagmaNebula(c, p, PW, PH, depth) {
   }
   c.shadowBlur = 0;
 
-  // 5. molten pockets where veins gather (a few bright glows, lower)
-  for (let i = 0, n = 3 + Math.round(depth * 2); i < n; i++) {
-    const x = rand(PW * 0.1, PW * 0.9), y = rand(PH * 0.5, PH * 0.95), r = rand(32, 72);
-    const g = c.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, hexA(B[4], 0.8)); g.addColorStop(0.4, hexA(B[3], 0.4)); g.addColorStop(1, 'rgba(0,0,0,0)');
-    c.globalAlpha = rand(0.4, 0.7); c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+  // 7. Ember sparks + mineral glints, denser toward the hot floor.
+  for (let i = 0, n = 70 + Math.round(depth * 50); i < n; i++) {
+    const r0 = Math.random(), y = PH * (1 - r0 * r0), low = 1 - y / PH;
+    c.globalAlpha = rand(0.15, 0.6) * (0.4 + low * 0.6);
+    c.fillStyle = Math.random() < 0.4 ? B[4] : Math.random() < 0.6 ? B[3] : p.star;
+    c.beginPath(); c.arc(Math.random() * PW, y, rand(0.4, 1.3), 0, TAU); c.fill();
   }
 
-  // 6. mineral glints — tiny crystal sparkles caught in the stone
-  for (let i = 0, n = 60 + Math.round(depth * 40); i < n; i++) {
-    c.globalAlpha = rand(0.15, 0.55); c.fillStyle = Math.random() < 0.3 ? B[4] : p.star;
-    c.beginPath(); c.arc(Math.random() * PW, Math.random() * PH, rand(0.4, 1.1), 0, TAU); c.fill();
-  }
-
-  // 7. cavern vignette — darken the edges for enclosed depth
+  // 8. Cavern enclosure — vignette + a darker ceiling overhead.
   c.globalCompositeOperation = 'source-over';
-  const vig = c.createRadialGradient(PW / 2, PH * 0.5, PH * 0.15, PW / 2, PH * 0.5, PH * 0.82);
-  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.6)');
+  const vig = c.createRadialGradient(PW / 2, PH * 0.52, PH * 0.12, PW / 2, PH * 0.52, PH * 0.85);
+  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.66)');
   c.fillStyle = vig; c.fillRect(0, 0, PW, PH);
+  const ceil = c.createLinearGradient(0, 0, 0, PH * 0.25);
+  ceil.addColorStop(0, 'rgba(0,0,0,0.4)'); ceil.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = ceil; c.fillRect(0, 0, PW, PH * 0.25);
   c.globalAlpha = 1;
 }
 

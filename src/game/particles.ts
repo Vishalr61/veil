@@ -35,8 +35,14 @@ export function updateParticles(dt) {
 }
 export function initMotes() {
   G.motes.length = 0;
+  const magma = G.pal && G.pal.style === 'magma';   // the Depths: motes are rising embers
   for (let i = 0; i < 46; i++)
-    G.motes.push({ x: Math.random() * PW, y: Math.random() * PH, vx: rand(-6, 6), vy: rand(-6, 6), r: rand(0.5, 1.6), a: rand(0.05, 0.3) });
+    G.motes.push({
+      x: Math.random() * PW, y: Math.random() * PH,
+      vx: rand(-5, 5), vy: magma ? rand(-26, -10) : rand(-6, 6),
+      r: rand(0.5, magma ? 1.9 : 1.6), a: magma ? rand(0.15, 0.5) : rand(0.05, 0.3),
+      em: magma,
+    });
 }
 export function updateMotes(dt) {
   for (const m of G.motes) {
