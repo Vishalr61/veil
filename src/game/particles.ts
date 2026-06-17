@@ -35,13 +35,17 @@ export function updateParticles(dt) {
 }
 export function initMotes() {
   G.motes.length = 0;
-  const magma = G.pal && G.pal.style === 'magma';   // the Depths: motes are rising embers
+  const style = G.pal && G.pal.style;
+  const magma = style === 'magma';   // the Depths: rising embers
+  const caves = style === 'caves';   // Crystal Caves: slow-drifting crystal sparkle
   for (let i = 0; i < 46; i++)
     G.motes.push({
       x: Math.random() * PW, y: Math.random() * PH,
-      vx: rand(-5, 5), vy: magma ? rand(-26, -10) : rand(-6, 6),
-      r: rand(0.5, magma ? 1.9 : 1.6), a: magma ? rand(0.15, 0.5) : rand(0.05, 0.3),
-      em: magma,
+      vx: caves ? rand(-3, 3) : rand(-5, 5),
+      vy: magma ? rand(-26, -10) : caves ? rand(-3, 3) : rand(-6, 6),
+      r: rand(0.5, magma ? 1.9 : caves ? 1.7 : 1.6),
+      a: magma ? rand(0.15, 0.5) : caves ? rand(0.2, 0.55) : rand(0.05, 0.3),
+      em: magma, cr: caves,
     });
 }
 export function updateMotes(dt) {

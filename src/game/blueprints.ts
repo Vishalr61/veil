@@ -49,6 +49,27 @@ const AUTHORED: Record<number, LevelBlueprint> = {
   5: { title: 'THE FORGE-HEART', motif: 'veins', density: 0.10, target: 0.70,
        caches: 7, rifts: 3, depth: 1.0,
        enemies: { drifter: 2, chaser: 2, cutter: 0, sentinel: 0, sleeper: 0 } },
+
+  // "Crystal Caves" (L6-10) — a crafted climb in the amethyst grotto, harder
+  // than the Depths and introducing the CUTTER as its signature new threat.
+  // Gentle re-entry on floor 1, then the climb resumes.
+  6: { title: 'GEODE HOLLOW', motif: 'pillars', density: 0.06, target: 0.66,
+       caches: 4, rifts: 1, depth: 0.1,
+       enemies: { drifter: 2, chaser: 1, cutter: 0, sentinel: 0, sleeper: 0 } },
+  // The cutter debuts (auto "NEW THREAT" card) — races to slice your line.
+  7: { title: 'FAULT LINE', motif: 'veins', density: 0.08, target: 0.68,
+       caches: 5, rifts: 2, depth: 0.3,
+       enemies: { drifter: 2, chaser: 1, cutter: 1, sentinel: 0, sleeper: 0 } },
+  8: { title: 'THE PRISM', motif: 'pillars', density: 0.10, target: 0.70,
+       caches: 6, rifts: 2, depth: 0.5,
+       enemies: { drifter: 3, chaser: 1, cutter: 1, sentinel: 0, sleeper: 0 } },
+  9: { title: 'SHARD MAZE', motif: 'veins', density: 0.11, target: 0.72,
+       caches: 7, rifts: 3, depth: 0.75,
+       enemies: { drifter: 3, chaser: 2, cutter: 1, sentinel: 0, sleeper: 0 } },
+  // Summit: two chasers + two cutters, max rifts + caches, brightest crystal.
+  10: { title: 'THE GEODE CORE', motif: 'veins', density: 0.12, target: 0.74,
+        caches: 8, rifts: 4, depth: 1.0,
+        enemies: { drifter: 3, chaser: 2, cutter: 2, sentinel: 0, sleeper: 0 } },
 };
 
 // Visual intensity from position within a 5-level band: 0, .25, .5, .75, 1.0.

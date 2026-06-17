@@ -227,6 +227,7 @@ export function drawWorld() {
   ctx.globalCompositeOperation = 'lighter';
   for (const m of G.motes) {
     if (m.em) { ctx.globalAlpha = m.a * (0.55 + 0.45 * Math.sin(G.time * 8 + m.x)); ctx.fillStyle = G.pal.blobs[3]; }
+    else if (m.cr) { ctx.globalAlpha = m.a * (0.35 + 0.65 * Math.abs(Math.sin(G.time * 3 + m.x * 0.5))); ctx.fillStyle = G.pal.blobs[4]; }
     else { ctx.globalAlpha = m.a; ctx.fillStyle = G.pal.star; }
     ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, TAU); ctx.fill();
   }
