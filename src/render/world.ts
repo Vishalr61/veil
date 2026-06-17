@@ -323,10 +323,12 @@ export function drawWorld() {
 
   ctx.restore(); // clip
 
-  // frame + vignette
+  // frame + vignette — gentle and aspect-aware (radius off the LARGER side) so a
+  // wide window doesn't black out the side edges and hide barriers there.
   ctx.save(); roundRectPath(0, 0, PW, PH, 8); ctx.strokeStyle = 'rgba(140,180,255,0.10)'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.restore();
-  const vg = ctx.createRadialGradient(PW / 2, PH / 2, PH * 0.35, PW / 2, PH / 2, PH * 0.85);
-  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.55)');
+  const VR = Math.max(PW, PH);
+  const vg = ctx.createRadialGradient(PW / 2, PH / 2, VR * 0.42, PW / 2, PH / 2, VR * 0.82);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.32)');
   ctx.fillStyle = vg; roundRectPath(0, 0, PW, PH, 8); ctx.fill();
 
   // hint + banner (over board, crisp)

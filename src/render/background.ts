@@ -122,14 +122,16 @@ function genMagmaNebula(c, p, PW, PH, depth) {
     c.beginPath(); c.arc(Math.random() * PW, y, rand(0.4, 1.3), 0, TAU); c.fill();
   }
 
-  // 8. Cavern enclosure — vignette + a darker ceiling overhead.
+  // 8. Cavern enclosure — gentle vignette + ceiling (aspect-aware radius off the
+  //    larger side so wide screens don't black out the edges; softer than before).
   c.globalCompositeOperation = 'source-over';
-  const vig = c.createRadialGradient(PW / 2, PH * 0.52, PH * 0.12, PW / 2, PH * 0.52, PH * 0.85);
-  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.66)');
+  const VR = Math.max(PW, PH);
+  const vig = c.createRadialGradient(PW / 2, PH * 0.52, VR * 0.3, PW / 2, PH * 0.52, VR * 0.85);
+  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.46)');
   c.fillStyle = vig; c.fillRect(0, 0, PW, PH);
-  const ceil = c.createLinearGradient(0, 0, 0, PH * 0.25);
-  ceil.addColorStop(0, 'rgba(0,0,0,0.4)'); ceil.addColorStop(1, 'rgba(0,0,0,0)');
-  c.fillStyle = ceil; c.fillRect(0, 0, PW, PH * 0.25);
+  const ceil = c.createLinearGradient(0, 0, 0, PH * 0.22);
+  ceil.addColorStop(0, 'rgba(0,0,0,0.28)'); ceil.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = ceil; c.fillRect(0, 0, PW, PH * 0.22);
   c.globalAlpha = 1;
 }
 
@@ -262,10 +264,10 @@ function fogSignature(c, pal, style, PW, PH, depth = 0) {
       c.globalAlpha = 1; c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
     }
   } else if (style === 'magma') {                       // ember cracks (denser/hotter deeper)
-    const crackN = 8 + Math.round(depth * 16);
+    const crackN = 12 + Math.round(depth * 16);
     for (let i = 0; i < crackN; i++) {
       let x = rand(0, PW), y = rand(0, PH);
-      c.globalAlpha = 1; c.strokeStyle = hexA(pal.blobs[3], 0.16 + depth * 0.18); c.lineWidth = rand(0.6, 1.6) + depth;
+      c.globalAlpha = 1; c.strokeStyle = hexA(pal.blobs[3], 0.2 + depth * 0.18); c.lineWidth = rand(0.6, 1.6) + depth;
       c.beginPath(); c.moveTo(x, y);
       for (let k = 0; k < 4; k++) { x += rand(-40, 40); y += rand(-40, 40); c.lineTo(x, y); }
       c.stroke();
@@ -310,6 +312,16 @@ export function genFog(pal, PW, PH, depth = 0) {
     c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
   }
   fogSignature(c, pal, style, PW, PH, depth);
+  if (style === 'magma') {   // a faint heartbeat of heat behind the veil, so the dark isn't dead-flat
+    c.save(); c.globalCompositeOperation = 'lighter';
+    for (let i = 0, n = 3 + Math.round(depth * 3); i < n; i++) {
+      const x = rand(PW * 0.15, PW * 0.85), y = rand(PH * 0.5, PH * 1.05), r = rand(120, 240);
+      const rg = c.createRadialGradient(x, y, 0, x, y, r);
+      rg.addColorStop(0, hexA(pal.blobs[2], 0.1 + depth * 0.06)); rg.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+    }
+    c.restore();
+  }
   for (let i = 0; i < 500; i++) {
     c.globalAlpha = rand(0.02, 0.06);
     c.fillStyle = Math.random() > 0.5 ? hexA(d1, 1) : '#000';
