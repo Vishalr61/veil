@@ -14,7 +14,7 @@ import { genObstacles, openInteriorCount } from './sim/terrain';
 import { todayKey, seedFromDateKey, shareText, isConsecutive } from './daily/daily';
 import { shareResult } from './platform/share';
 import { EMPTY, FILLED, OBSTACLE, SS } from './core/constants';
-import { bandForLevel } from './core/bands';
+import { bandForLevel, LEVELS_PER_BAND } from './core/bands';
 import { genNebula, genFog } from './render/background';
 import { canvas, ctx } from './render/surface';
 import { glowText, drawScanlines, roundRectPath } from './render/primitives';
@@ -154,9 +154,9 @@ function initLevel(lv) {
   G.pickups.length = 0; G.popups.length = 0; G.particles.length = 0; G.revealQueue.length = 0;
   G.pickupSpawnT = G.rng.range(5, 8);
   recomputeBorderPath(); recomputePercent(); G.dispPercent = G.percent;
-  const floor = ((lv - 1) % 3) + 1;   // which floor of the current band (descent feel)
+  const floor = ((lv - 1) % LEVELS_PER_BAND) + 1;   // which floor of the current band (climb feel)
   G.banner = { text: bp.title || ('LEVEL ' + lv),
-    sub: G.pal.name.toUpperCase() + '  ·  floor ' + floor + '/3  ·  reveal ' + Math.round(G.target * 100) + '%', t: 2.0 };
+    sub: G.pal.name.toUpperCase() + '  ·  floor ' + floor + '/' + LEVELS_PER_BAND + '  ·  reveal ' + Math.round(G.target * 100) + '%', t: 2.0 };
   // a level that introduces a new enemy always teaches what it does (wins over the title)
   const newType = newEnemyAtLevel(lv);
   if (newType) G.banner = { text: ENEMY_INFO[newType].name, sub: ENEMY_INFO[newType].desc, t: 3.4, enemy: newType };

@@ -37,7 +37,7 @@ export const BANDS: Band[] = [
     star: '#eae6ff', edge: '#9a7aff', edge2: '#d6c8ff', trail: '#f0ecff', player: '#ffffff', accent: '#b89aff' },
 ];
 
-const LEVELS_PER_BAND = 3;
+export const LEVELS_PER_BAND = 5;
 
 export function bandForLevel(level: number): Band {
   const i = Math.floor((level - 1) / LEVELS_PER_BAND);
