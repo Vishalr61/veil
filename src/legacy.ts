@@ -27,6 +27,8 @@ import {
 import { G } from './game/state';
 import { cellIndex, centerPx, cellOfPx } from './core/grid';
 import { drawWorld, tickShootingStars } from './render/world';
+import { veilBurst, spawnPopup, updatePopups, updateParticles, initMotes, updateMotes } from './game/particles';
+import { eCell, ENEMY_INFO, genEnemies, moveEnemy } from './game/enemies';
 import {
   initAudio, setMuted, isMuted, setPadLevel,
   sfxStartDraw, sfxCapture, sfxBold, sfxDeath, sfxLevel, sfxPickup, sfxShield, sfxBlip, sfxBest,
@@ -104,12 +106,6 @@ function recomputePercent() {
   G.percent = f / INTERIOR_TOTAL;
 }
 
-function veilBurst(x: number, y: number, col: string) {
-  for (let i = 0; i < 16; i++) {
-    const ang = Math.random() * TAU, sp = rand(40, 165);
-    G.particles.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: rand(0.4, 0.9), max: 0.9, r: rand(1.2, 3), col });
-  }
-}
 function doCapture() {
   for (const idx of G.trailCells) G.grid[idx] = FILLED;
 
@@ -213,37 +209,6 @@ function processReveal() {
 
 function comboMult() { return Math.min(1 + 0.3 * (G.combo - 1), 6); }
 
-/* ----------------------------- popups / particles ---------------------- */
-function spawnPopup(x, y, text, color, size) {
-  G.popups.push({ x, y, vy: -26, life: 1.1, max: 1.1, text, color, size: size || 14 });
-}
-function updatePopups(dt) {
-  for (let i = G.popups.length - 1; i >= 0; i--) {
-    const p = G.popups[i];
-    p.y += p.vy * dt; p.vy *= 0.92; p.life -= dt;
-    if (p.life <= 0) G.popups.splice(i, 1);
-  }
-}
-function updateParticles(dt) {
-  for (let i = G.particles.length - 1; i >= 0; i--) {
-    const p = G.particles[i];
-    p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.96; p.vy *= 0.96; p.life -= dt;
-    if (p.life <= 0) G.particles.splice(i, 1);
-  }
-}
-function initMotes() {
-  G.motes.length = 0;
-  for (let i = 0; i < 46; i++)
-    G.motes.push({ x: Math.random() * PW, y: Math.random() * PH, vx: rand(-6, 6), vy: rand(-6, 6), r: rand(0.5, 1.6), a: rand(0.05, 0.3) });
-}
-function updateMotes(dt) {
-  for (const m of G.motes) {
-    m.x += m.vx * dt; m.y += m.vy * dt;
-    if (m.x < 0) m.x += PW; else if (m.x > PW) m.x -= PW;
-    if (m.y < 0) m.y += PH; else if (m.y > PH) m.y -= PH;
-  }
-}
-
 /* ----------------------------- power-ups ------------------------------- */
 const PU_TYPES = [
   { type: 'score',  w: 34, col: '#ffe27a', label: 'score' },
@@ -298,104 +263,6 @@ function applyPickup(p) {
   else if (p.type === 'slow') { G.enemySlowT = 5.5; spawnPopup(p.x, p.y, 'SLOW', p.col, 16); }
   else if (p.type === 'shield') { G.shield = true; spawnPopup(p.x, p.y, 'SHIELD', p.col, 16); }
   else if (p.type === 'life') { G.lives++; spawnPopup(p.x, p.y, '+1 LIFE', p.col, 16); }
-}
-
-/* ----------------------------- enemies --------------------------------- */
-function eCell(e) {
-  const cx = clamp(Math.floor(e.x / CELL), 0, COLS - 1);
-  const cy = clamp(Math.floor(e.y / CELL), 0, ROWS - 1);
-  return cy * COLS + cx;
-}
-// Staggered introduction: drifters alone early, then a new type every ~3 levels
-// so each enemy gets room to breathe before the next arrives.
-function enemyCounts(lv) {
-  return {
-    drifter: Math.min(1 + Math.floor(lv / 2), 6),
-    chaser: lv >= 3 ? Math.min(1 + Math.floor((lv - 3) / 3), 2) : 0,
-    cutter: lv >= 7 ? Math.min(1 + Math.floor((lv - 7) / 4), 2) : 0,
-    sentinel: 0,   // disabled — "hunts only when you rest" was too unreadable; revisiting
-    sleeper: 0,    // disabled — one-shot wake was too punishing
-  };
-}
-const ENEMY_INFO = {
-  chaser: { name: 'CHASER', desc: 'hunts you and your trail' },
-  cutter: { name: 'CUTTER', desc: 'races to slice your line' },
-  sentinel: { name: 'SENTINEL', desc: 'attacks while you rest on land' },
-  sleeper: { name: 'VEIL-SLEEPER', desc: 'reveals in the dark wake it' },
-};
-function genEnemies(lv) {
-  const out = [];
-  const n = enemyCounts(lv);
-  const spd = Math.min(115 + 8 * (lv - 1), 205);
-  const sc = centerPx((COLS >> 1));
-  function spawnCell(minGap, needEmpty) {
-    let x = sc.x, y = sc.y, tries = 0, cx = 2, cy = 2;
-    do {
-      cx = 2 + G.rng.int(COLS - 4); cy = 2 + G.rng.int(ROWS - 4);
-      x = (cx + 0.5) * CELL; y = (cy + 0.5) * CELL; tries++;
-    } while ((Math.hypot(x - sc.x, y - sc.y) < CELL * minGap
-      || (needEmpty ? G.grid[cy * COLS + cx] !== EMPTY : G.grid[cy * COLS + cx] === OBSTACLE)) && tries < 60);
-    return { x, y };
-  }
-  function place(type, speed) {
-    const p = spawnCell(7, false), comp = speed * 0.7071;
-    out.push({ x: p.x, y: p.y, vx: (G.rng.next() < 0.5 ? -1 : 1) * comp, vy: (G.rng.next() < 0.5 ? -1 : 1) * comp,
-      r: CELL * 0.42, type, speed, comp, steerT: G.rng.range(0.2, 0.6) });
-  }
-  function placeSleeper(speed) {
-    const p = spawnCell(6, true);
-    out.push({ x: p.x, y: p.y, vx: 0, vy: 0, r: CELL * 0.42, type: 'sleeper', asleep: true, speed, comp: speed * 0.7071, steerT: 0 });
-  }
-  for (let i = 0; i < n.drifter; i++) place('drifter', spd);
-  for (let i = 0; i < n.chaser; i++) place('chaser', spd * 0.74);
-  for (let i = 0; i < n.cutter; i++) place('cutter', spd * 0.8);
-  for (let i = 0; i < n.sentinel; i++) place('sentinel', spd * 0.82);
-  for (let i = 0; i < n.sleeper; i++) placeSleeper(spd * 0.95);
-  return out;
-}
-function moveEnemy(e, dt) {
-  // veil-sleeper: dormant until a capture reveals it or the player draws near
-  if (e.type === 'sleeper' && e.asleep) {
-    const woke = G.grid[eCell(e)] === FILLED || (G.player && Math.hypot(G.player.px.x - e.x, G.player.px.y - e.y) < CELL * 3);
-    if (!woke) return;
-    e.asleep = false; e.steerT = 0;
-    G.flash = G.reduceMotion ? 0.12 : 0.3; G.shakeAmt = G.reduceMotion ? 0 : Math.max(G.shakeAmt, 7);
-    hapticHeavy(); spawnPopup(e.x, e.y, 'WOKE', '#ff5c6e', 16);
-  }
-  // cutter: while you draw, beeline to the BASE of your line (a fixed point) to cut you
-  // off — a predictable straight approach. Otherwise it just drifts like a regular enemy.
-  if (e.type === 'cutter') {
-    e.steerT -= dt;
-    if (e.steerT <= 0 && G.hasTrail && G.trailPoints.length) {
-      e.steerT = 0.5;
-      const t0 = G.trailPoints[0];
-      const dx = t0.x - e.x, dy = t0.y - e.y;
-      e.vx = (dx === 0 ? (e.vx > 0 ? 1 : -1) : Math.sign(dx)) * e.comp;
-      e.vy = (dy === 0 ? (e.vy > 0 ? 1 : -1) : Math.sign(dy)) * e.comp;
-    }
-  }
-  // chasers + awake sleepers always hunt; sentinels hunt only while you rest on safe ground
-  const hunting = e.type === 'chaser' || (e.type === 'sleeper' && !e.asleep)
-    || (e.type === 'sentinel' && G.player && G.grid[cellOfPx(G.player.px)] === FILLED);
-  if (hunting) {
-    e.steerT -= dt;
-    if (e.steerT <= 0) {
-      e.steerT = e.type === 'sentinel' ? 0.5 : 0.4;
-      const dx = G.player.px.x - e.x, dy = G.player.px.y - e.y;
-      e.vx = (dx === 0 ? (e.vx > 0 ? 1 : -1) : Math.sign(dx)) * e.comp;
-      e.vy = (dy === 0 ? (e.vy > 0 ? 1 : -1) : Math.sign(dy)) * e.comp;
-    }
-  }
-  let nx = e.x + e.vx * dt;
-  const cyc = clamp(Math.floor(e.y / CELL), 0, ROWS - 1);
-  const cxn = Math.floor((nx + Math.sign(e.vx) * e.r) / CELL);
-  if (cxn < 0 || cxn >= COLS || G.grid[cyc * COLS + cxn] === FILLED || G.grid[cyc * COLS + cxn] === OBSTACLE) { e.vx = -e.vx; nx = e.x; }
-  e.x = nx;
-  let ny = e.y + e.vy * dt;
-  const cxc = clamp(Math.floor(e.x / CELL), 0, COLS - 1);
-  const cyn = Math.floor((ny + Math.sign(e.vy) * e.r) / CELL);
-  if (cyn < 0 || cyn >= ROWS || G.grid[cyn * COLS + cxc] === FILLED || G.grid[cyn * COLS + cxc] === OBSTACLE) { e.vy = -e.vy; ny = e.y; }
-  e.y = ny;
 }
 
 /* ----------------------------- player ---------------------------------- */
