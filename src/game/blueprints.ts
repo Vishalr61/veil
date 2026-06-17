@@ -89,6 +89,25 @@ const AUTHORED: Record<number, LevelBlueprint> = {
   15: { title: 'THE MAW', motif: 'veins', density: 0.14, target: 0.80,
         caches: 10, rifts: 6, depth: 1.0,
         enemies: { drifter: 4, chaser: 3, cutter: 2, sentinel: 0, sleeper: 0 } },
+
+  // "The Overgrowth" (L16-20) — the bioluminescent fungal cavern. Near the
+  // reveal ceiling now; the climb is mostly about pressure (enemies + rifts).
+  16: { title: 'ROOTWAY', motif: 'pillars', density: 0.08, target: 0.75,
+        caches: 8, rifts: 3, depth: 0.1,
+        enemies: { drifter: 3, chaser: 2, cutter: 1, sentinel: 0, sleeper: 0 } },
+  17: { title: 'SPOREFALL', motif: 'veins', density: 0.10, target: 0.76,
+        caches: 9, rifts: 4, depth: 0.3,
+        enemies: { drifter: 4, chaser: 2, cutter: 1, sentinel: 0, sleeper: 0 } },
+  18: { title: 'THE THICKET', motif: 'veins', density: 0.12, target: 0.78,
+        caches: 9, rifts: 5, depth: 0.5,
+        enemies: { drifter: 4, chaser: 2, cutter: 2, sentinel: 0, sleeper: 0 } },
+  19: { title: 'MYCELIUM DEEP', motif: 'veins', density: 0.13, target: 0.79,
+        caches: 10, rifts: 5, depth: 0.75,
+        enemies: { drifter: 4, chaser: 3, cutter: 2, sentinel: 0, sleeper: 0 } },
+  // Summit: the densest growth, most hunters, brightest spore-light.
+  20: { title: 'THE HEARTWOOD', motif: 'veins', density: 0.14, target: 0.80,
+        caches: 11, rifts: 6, depth: 1.0,
+        enemies: { drifter: 5, chaser: 3, cutter: 2, sentinel: 0, sleeper: 0 } },
 };
 
 // Visual intensity from position within a 5-level band: 0, .25, .5, .75, 1.0.

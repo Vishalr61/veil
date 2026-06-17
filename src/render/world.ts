@@ -224,6 +224,42 @@ function drawAbyssRock(px: number, py: number, x: number, y: number, idx: number
   if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(px + s - 1.5, py, 1.5, s); }
 }
 
+const FLORA_SHADES = ['#0c2414', '#10301c', '#163a22', '#1c442a'];   // mossy green stone, dark -> light
+
+// An Overgrowth obstacle: mossy, root-wrapped stone with glowing flora specks and
+// a leafy crown — organic and overgrown, a fourth distinct material. No per-cell
+// shadowBlur (additive fake-glow only).
+function drawFloraRock(px: number, py: number, x: number, y: number, idx: number) {
+  const s = CELL;
+  const h = ((x * 374761393) ^ (y * 668265263)) >>> 0;
+  const v = h % 100;
+  const m = Math.sin(x * 0.55 + y * 0.32) + Math.sin(y * 0.7 - x * 0.22);
+  ctx.fillStyle = FLORA_SHADES[Math.max(0, Math.min(3, Math.round((m + 2) / 4 * 3)))];
+  ctx.fillRect(px, py, s, s);
+  ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.fillRect(px, py + s * 0.6, s, s * 0.4);
+  ctx.fillStyle = hexA(G.pal.blobs[2], 0.16); ctx.fillRect(px + (h % 6) + 2, py + ((h >> 2) % 6) + 2, 2, 2);   // moss patch
+  ctx.fillStyle = 'rgba(170,220,160,0.1)'; ctx.fillRect(px + ((h >> 3) % 9) + 2, py + ((h >> 6) % 9) + 2, 1.2, 1.2);
+
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';   // glowing flora specks (fake glow, no blur)
+  for (let i = 0, n = 1 + (v % 2); i < n; i++) {
+    const ox = px + 3 + ((h >> (i * 5)) % Math.max(1, s - 6)), oy = py + 3 + ((h >> (i * 5 + 2)) % Math.max(1, s - 6));
+    ctx.globalAlpha = 0.2; ctx.fillStyle = G.pal.blobs[4]; ctx.beginPath(); ctx.arc(ox, oy, 3, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 0.85; ctx.beginPath(); ctx.arc(ox, oy, 1.1, 0, TAU); ctx.fill();
+  }
+  // leafy/moss crown where rock meets open above
+  if (G.grid[idx - COLS] === EMPTY) {
+    ctx.globalAlpha = 0.45; ctx.strokeStyle = G.pal.blobs[3]; ctx.lineWidth = 1;
+    for (let i = 0; i < 4; i++) { const tx = px + (i + 0.5) * s / 4; ctx.beginPath(); ctx.moveTo(tx, py + 2); ctx.lineTo(tx + ((h >> i) % 3) - 1, py - 1.5); ctx.stroke(); }
+  }
+  ctx.restore();
+
+  // soft green rim + grounding shadow
+  if (G.grid[idx - COLS] === EMPTY) { ctx.fillStyle = hexA(G.pal.blobs[3], 0.28); ctx.fillRect(px, py, s, 1); }
+  if (G.grid[idx - 1] === EMPTY) { ctx.fillStyle = hexA(G.pal.blobs[3], 0.2); ctx.fillRect(px, py, 1, s); }
+  if (G.grid[idx + COLS] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(px, py + s - 1.5, s, 1.5); }
+  if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(px + s - 1.5, py, 1.5, s); }
+}
+
 function drawObstacles() {
   const style = G.pal.style;
   ctx.save();
@@ -238,6 +274,8 @@ function drawObstacles() {
         drawCavesRock(px, py, x, y, idx);
       } else if (style === 'ocean') {
         drawAbyssRock(px, py, x, y, idx);
+      } else if (style === 'flora') {
+        drawFloraRock(px, py, x, y, idx);
       } else {
         ctx.fillStyle = G.pal.blobs[1];                      // band-tinted solid mass (ice/coral/rock/asteroid)
         ctx.fillRect(px, py, CELL, CELL);
@@ -278,6 +316,7 @@ export function drawWorld() {
     if (m.em) { ctx.globalAlpha = m.a * (0.55 + 0.45 * Math.sin(G.time * 8 + m.x)); ctx.fillStyle = G.pal.blobs[3]; }
     else if (m.cr) { ctx.globalAlpha = m.a * (0.35 + 0.65 * Math.abs(Math.sin(G.time * 3 + m.x * 0.5))); ctx.fillStyle = G.pal.blobs[4]; }
     else if (m.bu) { ctx.globalAlpha = m.a * 0.8; ctx.fillStyle = G.pal.blobs[4]; }   // rising bubble
+    else if (m.sp) { ctx.globalAlpha = m.a * (0.4 + 0.6 * Math.abs(Math.sin(G.time * 2.5 + m.x * 0.4))); ctx.fillStyle = G.pal.blobs[4]; }   // drifting spore
     else { ctx.globalAlpha = m.a; ctx.fillStyle = G.pal.star; }
     ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, TAU); ctx.fill();
   }

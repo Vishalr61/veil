@@ -332,14 +332,104 @@ function genOceanNebula(c, p, PW, PH, depth) {
   c.globalAlpha = 1;
 }
 
+// A glowing mushroom — bulbous cap on a stem, the Overgrowth's hero motif.
+function drawMushroom(c, x, y, size, B) {
+  c.save();
+  c.strokeStyle = hexA(B[2], 0.5); c.lineWidth = size * 0.16; c.globalAlpha = rand(0.4, 0.7);
+  c.beginPath(); c.moveTo(x, y); c.lineTo(x + rand(-size * 0.15, size * 0.15), y - size * 0.9); c.stroke();   // stem
+  const cy2 = y - size * 0.9, cr = size * rand(0.5, 0.8);
+  const g = c.createRadialGradient(x, cy2, 0, x, cy2, cr);
+  g.addColorStop(0, hexA(B[4], 0.85)); g.addColorStop(0.5, hexA(B[3], 0.55)); g.addColorStop(1, 'rgba(0,0,0,0)');
+  c.globalAlpha = rand(0.6, 0.9); c.fillStyle = g;
+  c.beginPath(); c.ellipse(x, cy2, cr, cr * 0.62, 0, Math.PI, TAU); c.fill();   // dome cap
+  c.globalAlpha = 0.8; c.fillStyle = hexA('#ffffff', 0.5);
+  for (let i = 0; i < 3; i++) { c.beginPath(); c.arc(x + rand(-cr * 0.6, cr * 0.6), cy2 - rand(0, cr * 0.4), 0.9, 0, TAU); c.fill(); }  // cap spots
+  c.restore();
+}
+
+// The Overgrowth — a LIT bioluminescent fungal cavern: mossy green rock with
+// glowing mushrooms, hanging vines, drifting spores, and a hero heart-tree.
+// Distinct motif (flora) + hue (emerald-lime) from lava/crystal/water.
+function genFloraNebula(c, p, PW, PH, depth) {
+  const B = p.blobs;   // [near-black green, dark green, green, emerald, lime]
+
+  // 1. lit mossy grade — brighter than the veil
+  const base = c.createLinearGradient(0, 0, 0, PH);
+  base.addColorStop(0, '#0a2014'); base.addColorStop(0.55, '#0c2818'); base.addColorStop(1, '#123a22');
+  c.fillStyle = base; c.fillRect(0, 0, PW, PH);
+  for (let i = 0; i < 10; i++) {   // mossy mottle
+    const x = rand(0, PW), y = rand(0, PH), r = rand(120, 280);
+    const g = c.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, Math.random() < 0.5 ? hexA(B[2], 0.4) : 'rgba(0,0,0,0.4)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = rand(0.3, 0.6); c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+  }
+  c.globalAlpha = 1; c.globalCompositeOperation = 'lighter';
+
+  // 2. green ambient — lit grotto, brighter than the veil
+  const aw = c.createRadialGradient(PW / 2, PH * 0.5, 0, PW / 2, PH * 0.5, Math.max(PW, PH) * 0.75);
+  aw.addColorStop(0, hexA(B[2], 0.22)); aw.addColorStop(0.5, hexA(B[1], 0.18)); aw.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = aw; c.fillRect(0, 0, PW, PH);
+
+  // 3. hanging vines/roots from the ceiling (drooping curved strands + leaf glints)
+  for (let i = 0, n = 5 + Math.round(depth * 3); i < n; i++) {
+    let vx = rand(0, PW), vy = -10;
+    c.globalAlpha = rand(0.14, 0.3); c.strokeStyle = B[2]; c.lineWidth = rand(1, 2.2);
+    c.beginPath(); c.moveTo(vx, vy);
+    for (let k = 0; k < 7; k++) { vx += Math.sin(k * 0.8 + i) * rand(5, 14); vy += rand(40, 70); c.lineTo(vx, vy); }
+    c.stroke();
+    c.globalAlpha = rand(0.3, 0.6); c.fillStyle = hexA(B[4], 0.6);   // leaf glints
+    c.beginPath(); c.arc(vx, vy, 1.4, 0, TAU); c.fill();
+  }
+
+  // 4. spore clouds — soft glowing green blooms
+  for (let i = 0, n = 5 + Math.round(depth * 4); i < n; i++) {
+    const x = rand(0, PW), y = rand(PH * 0.1, PH * 0.95), r = rand(30, 70);
+    const g = c.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, hexA(B[4], 0.5)); g.addColorStop(0.5, hexA(B[3], 0.26)); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = rand(0.4, 0.7); c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+  }
+
+  // 5. glowing mushrooms — the hero motif, more/larger deeper, rooted near the floor
+  for (let i = 0, n = 6 + Math.round(depth * 6); i < n; i++)
+    drawMushroom(c, rand(PW * 0.06, PW * 0.94), rand(PH * 0.4, PH * 0.98), rand(16, 40), B);
+
+  // 6. HERO landmark — a great heart-tree: a big glow with branching roots
+  const hxc = rand(PW * 0.3, PW * 0.7), hyc = rand(PH * 0.55, PH * 0.85);
+  const hg = c.createRadialGradient(hxc, hyc, 0, hxc, hyc, PH * 0.32);
+  hg.addColorStop(0, hexA(B[4], 0.45)); hg.addColorStop(0.4, hexA(B[3], 0.22)); hg.addColorStop(1, 'rgba(0,0,0,0)');
+  c.globalAlpha = 0.8; c.fillStyle = hg; c.beginPath(); c.arc(hxc, hyc, PH * 0.32, 0, TAU); c.fill();
+  for (let t = 0; t < 6; t++) {
+    let tx = hxc, ty = hyc; c.globalAlpha = rand(0.22, 0.44); c.strokeStyle = B[3]; c.lineWidth = rand(1, 2.4);
+    let a = -Math.PI / 2 + rand(-1, 1);
+    c.beginPath(); c.moveTo(tx, ty);
+    for (let k = 0; k < 5; k++) { a += rand(-0.4, 0.4); const len = rand(20, 40); tx += Math.cos(a) * len; ty += Math.sin(a) * len; c.lineTo(tx, ty); }
+    c.stroke();
+  }
+
+  // 7. drifting spore glints
+  for (let i = 0, n = 90 + Math.round(depth * 50); i < n; i++) {
+    c.globalAlpha = rand(0.2, 0.6); c.fillStyle = Math.random() < 0.45 ? B[4] : p.star;
+    c.beginPath(); c.arc(Math.random() * PW, Math.random() * PH, rand(0.4, 1.4), 0, TAU); c.fill();
+  }
+
+  // 8. gentle, aspect-aware vignette
+  c.globalCompositeOperation = 'source-over';
+  const VR = Math.max(PW, PH);
+  const vig = c.createRadialGradient(PW / 2, PH * 0.5, VR * 0.34, PW / 2, PH * 0.5, VR * 0.9);
+  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.3)');
+  c.fillStyle = vig; c.fillRect(0, 0, PW, PH);
+  c.globalAlpha = 1;
+}
+
 export function genNebula(p, level, PW, PH, depth = 0) {
   level = level || 1;
   const s = createSurface(PW, PH), c = s.ctx;
-  // band style drives the backdrop flavor (magma / caves / ocean / surface / sky / aurora / space)
+  // band style drives the backdrop flavor (magma / caves / ocean / flora / sky / aurora / space)
   const style = p.style || 'space';
   if (style === 'magma') { genMagmaNebula(c, p, PW, PH, depth); return s; }
   if (style === 'caves') { genCrystalNebula(c, p, PW, PH, depth); return s; }
   if (style === 'ocean') { genOceanNebula(c, p, PW, PH, depth); return s; }
+  if (style === 'flora') { genFloraNebula(c, p, PW, PH, depth); return s; }
   c.fillStyle = '#04050d'; c.fillRect(0, 0, PW, PH);
   c.globalCompositeOperation = 'lighter';
   c.fillStyle = '#04050d'; c.fillRect(0, 0, PW, PH);
@@ -531,11 +621,20 @@ function fogSignature(c, pal, style, PW, PH, depth = 0) {
       g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, hexA(pal.blobs[3], 0.1)); g.addColorStop(1, 'rgba(0,0,0,0)');
       c.globalAlpha = 1; c.fillStyle = g; c.fillRect(x - w, 0, w * 2, PH);
     }
-  } else if (style === 'surface') {                     // organic mottling
-    for (let i = 0; i < 30; i++) {
-      c.globalAlpha = rand(0.08, 0.18); c.fillStyle = d2;
+  } else if (style === 'flora') {                       // overgrown veil — roots/vines + organic mottle + spore glints
+    for (let i = 0; i < 30; i++) {                       // organic mossy mottle
+      c.globalAlpha = rand(0.08, 0.18); c.fillStyle = Math.random() < 0.5 ? '#000' : d2;
       c.beginPath(); c.arc(rand(0, PW), rand(0, PH), rand(10, 36), 0, TAU); c.fill();
     }
+    for (let i = 0, n = 12 + Math.round(depth * 8); i < n; i++) {   // dark roots/vines
+      let x = rand(0, PW), y = rand(0, PH); c.globalAlpha = rand(0.1, 0.22); c.strokeStyle = '#000'; c.lineWidth = rand(0.8, 1.8);
+      c.beginPath(); c.moveTo(x, y); for (let k = 0; k < 4; k++) { x += rand(-30, 30); y += rand(10, 44); c.lineTo(x, y); } c.stroke();
+    }
+    for (let i = 0; i < 50; i++) {                       // spore glints
+      c.globalAlpha = rand(0.12, 0.4); c.fillStyle = Math.random() < 0.35 ? hexA(pal.blobs[4], 0.6) : 'rgba(170,210,170,0.4)';
+      c.fillRect(Math.random() * PW, Math.random() * PH, 1.2, 1.2);
+    }
+    c.globalAlpha = 1;
   } else {                                              // space: faint stars in the dark
     for (let i = 0; i < 120; i++) {
       c.globalAlpha = rand(0.05, 0.22); c.fillStyle = pal.star;
@@ -550,8 +649,8 @@ export function genFog(pal, PW, PH, depth = 0) {
   const s = createSurface(PW, PH), c = s.ctx;
   // The Depths veil is COOL basalt (warm ember cracks come from fogSignature);
   // other bands keep their band-tinted near-black.
-  const d0 = style === 'magma' ? '#0a0813' : style === 'caves' ? '#0b0716' : style === 'ocean' ? '#04161c' : pal.blobs[0];
-  const d1 = style === 'magma' ? '#15121f' : style === 'caves' ? '#1a1030' : style === 'ocean' ? '#0a3038' : pal.blobs[1];
+  const d0 = style === 'magma' ? '#0a0813' : style === 'caves' ? '#0b0716' : style === 'ocean' ? '#04161c' : style === 'flora' ? '#06160c' : pal.blobs[0];
+  const d1 = style === 'magma' ? '#15121f' : style === 'caves' ? '#1a1030' : style === 'ocean' ? '#0a3038' : style === 'flora' ? '#0e3018' : pal.blobs[1];
   c.fillStyle = d0; c.fillRect(0, 0, PW, PH);
   const g = c.createLinearGradient(0, 0, 0, PH);
   g.addColorStop(0, hexA(d1, 0.5)); g.addColorStop(1, hexA(d0, 0));   // subtle lift up top
@@ -586,6 +685,15 @@ export function genFog(pal, PW, PH, depth = 0) {
     c.save(); c.globalCompositeOperation = 'lighter';
     for (let i = 0, n = 3 + Math.round(depth * 3); i < n; i++) {
       const x = rand(PW * 0.12, PW * 0.88), y = rand(PH * 0.15, PH * 0.95), r = rand(110, 210);
+      const rg = c.createRadialGradient(x, y, 0, x, y, r);
+      rg.addColorStop(0, hexA(pal.blobs[3], 0.08 + depth * 0.05)); rg.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+    }
+    c.restore();
+  } else if (style === 'flora') {   // a faint spore-glow behind the veil
+    c.save(); c.globalCompositeOperation = 'lighter';
+    for (let i = 0, n = 3 + Math.round(depth * 3); i < n; i++) {
+      const x = rand(PW * 0.12, PW * 0.88), y = rand(PH * 0.2, PH * 0.95), r = rand(100, 200);
       const rg = c.createRadialGradient(x, y, 0, x, y, r);
       rg.addColorStop(0, hexA(pal.blobs[3], 0.08 + depth * 0.05)); rg.addColorStop(1, 'rgba(0,0,0,0)');
       c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
