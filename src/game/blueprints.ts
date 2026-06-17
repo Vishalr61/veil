@@ -129,6 +129,27 @@ const AUTHORED: Record<number, LevelBlueprint> = {
   25: { title: 'DAYBREAK', motif: 'veins', density: 0.14, target: 0.81,
         caches: 12, rifts: 7, depth: 1.0,
         enemies: { drifter: 5, chaser: 4, cutter: 3, sentinel: 0, sleeper: 0 } },
+
+  // "Aurora" (L26-30) — the polar night beneath flowing green-violet curtains.
+  // The reveal targets brush the 0.82 ceiling; the climb is pure pressure as the
+  // hunter pack peaks. Floor 1 is a calm starlit re-entry over the snow.
+  26: { title: 'POLAR NIGHT', motif: 'pillars', density: 0.09, target: 0.78,
+        caches: 11, rifts: 5, depth: 0.1,
+        enemies: { drifter: 4, chaser: 3, cutter: 2, sentinel: 0, sleeper: 0 } },
+  27: { title: 'THE SHIMMER', motif: 'veins', density: 0.11, target: 0.79,
+        caches: 11, rifts: 6, depth: 0.3,
+        enemies: { drifter: 5, chaser: 3, cutter: 2, sentinel: 0, sleeper: 0 } },
+  28: { title: 'FROSTFALL', motif: 'veins', density: 0.12, target: 0.80,
+        caches: 12, rifts: 6, depth: 0.5,
+        enemies: { drifter: 5, chaser: 4, cutter: 2, sentinel: 0, sleeper: 0 } },
+  29: { title: 'GLACIER CROWN', motif: 'veins', density: 0.13, target: 0.81,
+        caches: 12, rifts: 7, depth: 0.75,
+        enemies: { drifter: 5, chaser: 4, cutter: 3, sentinel: 0, sleeper: 0 } },
+  // Summit: the corona blazes overhead — the most crowded board of the run, the
+  // highest reveal target. Clearing it climbs out into Deep Space.
+  30: { title: 'THE CORONA', motif: 'veins', density: 0.14, target: 0.82,
+        caches: 13, rifts: 8, depth: 1.0,
+        enemies: { drifter: 6, chaser: 4, cutter: 3, sentinel: 0, sleeper: 0 } },
 };
 
 // Visual intensity from position within a 5-level band: 0, .25, .5, .75, 1.0.

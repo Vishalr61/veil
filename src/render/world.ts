@@ -292,6 +292,46 @@ function drawSkyCloud(px: number, py: number, x: number, y: number, idx: number)
   if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(8,6,20,0.4)'; ctx.fillRect(px + s - 1.5, py, 1.5, s); }
 }
 
+const ICE_SHADES = ['#173a4e', '#1f4e64', '#2a647e', '#3a7e96'];   // glacial blue ice, dark -> light
+
+// An Aurora obstacle: a block of frosted glacial ice — translucent blue body with
+// internal cracks, a cold inner sheen and a snow-frost cap. A sixth material,
+// distinct from the sharp cut-crystal of the Caves. No per-cell shadowBlur.
+function drawIceRock(px: number, py: number, x: number, y: number, idx: number) {
+  const s = CELL;
+  const h = ((x * 374761393) ^ (y * 668265263)) >>> 0;
+  const v = h % 100;
+  const m = Math.sin(x * 0.5 + y * 0.3) + Math.sin(y * 0.66 - x * 0.2);
+  ctx.fillStyle = ICE_SHADES[Math.max(0, Math.min(3, Math.round((m + 2) / 4 * 3)))];
+  ctx.fillRect(px, py, s, s);
+  ctx.fillStyle = 'rgba(200,235,245,0.12)'; ctx.fillRect(px, py, s * 0.55, s * 0.4);     // frosted upper-left sheen
+  ctx.fillStyle = 'rgba(6,18,30,0.32)'; ctx.fillRect(px, py + s * 0.6, s, s * 0.4);       // cold lower shadow
+
+  ctx.strokeStyle = 'rgba(185,232,246,0.22)'; ctx.lineWidth = 0.8;   // internal ice cracks
+  ctx.beginPath();
+  let cx = px + (h % 6) + 2, cy = py + 3; ctx.moveTo(cx, cy);
+  for (let k = 0; k < 3; k++) { cx += ((h >> (k * 3)) % 7) - 3; cy += 4 + ((h >> (k * 2)) % 4); ctx.lineTo(cx, cy); }
+  ctx.stroke();
+
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';   // cold inner glow (fake glow, no blur)
+  for (let i = 0, n = 1 + (v % 2); i < n; i++) {
+    const ox = px + 3 + ((h >> (i * 5)) % Math.max(1, s - 6)), oy = py + 3 + ((h >> (i * 5 + 2)) % Math.max(1, s - 6));
+    ctx.globalAlpha = 0.1; ctx.fillStyle = G.pal.blobs[3]; ctx.beginPath(); ctx.arc(ox, oy, 2.4, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 0.45; ctx.beginPath(); ctx.arc(ox, oy, 0.9, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+
+  // bright frost cap on the top-open edge; cold rim left; deep shadow underside
+  if (G.grid[idx - COLS] === EMPTY) {
+    ctx.fillStyle = 'rgba(220,245,250,0.5)'; ctx.fillRect(px, py, s, 1.5);
+    ctx.fillStyle = 'rgba(220,245,250,0.3)';
+    for (let i = 0; i < 3; i++) ctx.fillRect(px + (i + 0.5) * s / 3 - 1.5 + ((h >> i) % 2), py - 1, 3, 2);   // frost bumps
+  }
+  if (G.grid[idx - 1] === EMPTY) { ctx.fillStyle = hexA(G.pal.blobs[3], 0.3); ctx.fillRect(px, py, 1.5, s); }
+  if (G.grid[idx + COLS] === EMPTY) { ctx.fillStyle = 'rgba(4,14,24,0.5)'; ctx.fillRect(px, py + s - 1.5, s, 1.5); }
+  if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(4,14,24,0.4)'; ctx.fillRect(px + s - 1.5, py, 1.5, s); }
+}
+
 function drawObstacles() {
   const style = G.pal.style;
   ctx.save();
@@ -310,6 +350,8 @@ function drawObstacles() {
         drawFloraRock(px, py, x, y, idx);
       } else if (style === 'sky') {
         drawSkyCloud(px, py, x, y, idx);
+      } else if (style === 'aurora') {
+        drawIceRock(px, py, x, y, idx);
       } else {
         ctx.fillStyle = G.pal.blobs[1];                      // band-tinted solid mass (ice/coral/rock/asteroid)
         ctx.fillRect(px, py, CELL, CELL);
@@ -352,6 +394,7 @@ export function drawWorld() {
     else if (m.bu) { ctx.globalAlpha = m.a * 0.8; ctx.fillStyle = G.pal.blobs[4]; }   // rising bubble
     else if (m.sp) { ctx.globalAlpha = m.a * (0.4 + 0.6 * Math.abs(Math.sin(G.time * 2.5 + m.x * 0.4))); ctx.fillStyle = G.pal.blobs[4]; }   // drifting spore
     else if (m.wi) { ctx.globalAlpha = m.a * (0.45 + 0.55 * Math.abs(Math.sin(G.time * 1.1 + m.x * 0.2))); ctx.fillStyle = G.pal.blobs[4]; }   // drifting dawn wisp
+    else if (m.sn) { ctx.globalAlpha = m.a; ctx.fillStyle = G.pal.star; }   // falling snow (steady, cool white)
     else { ctx.globalAlpha = m.a; ctx.fillStyle = G.pal.star; }
     ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, TAU); ctx.fill();
   }

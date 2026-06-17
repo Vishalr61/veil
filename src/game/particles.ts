@@ -41,14 +41,15 @@ export function initMotes() {
   const ocean = style === 'ocean';   // the Abyss: rising bubbles
   const flora = style === 'flora';   // the Overgrowth: drifting glowing spores
   const sky = style === 'sky';       // the Expanse: slow-drifting dawn wisps
+  const aurora = style === 'aurora'; // Aurora: gently falling snow
   for (let i = 0; i < 46; i++)
     G.motes.push({
       x: Math.random() * PW, y: Math.random() * PH,
-      vx: caves ? rand(-3, 3) : ocean ? rand(-4, 4) : flora ? rand(-4, 4) : sky ? rand(-12, 12) : rand(-5, 5),
-      vy: magma ? rand(-26, -10) : ocean ? rand(-22, -8) : caves ? rand(-3, 3) : flora ? rand(-5, 5) : sky ? rand(-2, 2) : rand(-6, 6),
-      r: rand(0.5, magma ? 1.9 : caves ? 1.7 : ocean ? 1.8 : flora ? 1.7 : sky ? 1.8 : 1.6),
-      a: magma ? rand(0.15, 0.5) : caves ? rand(0.2, 0.55) : ocean || flora ? rand(0.1, 0.3) : sky ? rand(0.06, 0.22) : rand(0.05, 0.3),
-      em: magma, cr: caves, bu: ocean, sp: flora, wi: sky,
+      vx: caves ? rand(-3, 3) : ocean ? rand(-4, 4) : flora ? rand(-4, 4) : sky ? rand(-12, 12) : aurora ? rand(-7, 7) : rand(-5, 5),
+      vy: magma ? rand(-26, -10) : ocean ? rand(-22, -8) : caves ? rand(-3, 3) : flora ? rand(-5, 5) : sky ? rand(-2, 2) : aurora ? rand(10, 26) : rand(-6, 6),
+      r: rand(0.5, magma ? 1.9 : caves ? 1.7 : ocean ? 1.8 : flora ? 1.7 : sky ? 1.8 : aurora ? 1.7 : 1.6),
+      a: magma ? rand(0.15, 0.5) : caves ? rand(0.2, 0.55) : ocean || flora ? rand(0.1, 0.3) : sky ? rand(0.06, 0.22) : aurora ? rand(0.12, 0.4) : rand(0.05, 0.3),
+      em: magma, cr: caves, bu: ocean, sp: flora, wi: sky, sn: aurora,
     });
 }
 export function updateMotes(dt) {

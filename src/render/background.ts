@@ -488,6 +488,92 @@ function genSkyNebula(c, p, PW, PH, depth) {
   c.globalAlpha = 1;
 }
 
+function genAuroraNebula(c, p, PW, PH, depth) {
+  const B = p.blobs;   // [night blue, dark teal, teal-green, mint, violet]
+
+  // 1. arctic night gradient — lifted vs the veil (so revealed reads lit) down to
+  //    a pale snow horizon
+  const base = c.createLinearGradient(0, 0, 0, PH);
+  base.addColorStop(0, '#0a1430'); base.addColorStop(0.5, '#0e2742'); base.addColorStop(0.82, '#163450'); base.addColorStop(1, '#395a72');
+  c.fillStyle = base; c.fillRect(0, 0, PW, PH);
+
+  c.globalCompositeOperation = 'lighter';
+
+  // 2. AURORA curtains — flowing green/mint/violet ribbons (the hero element)
+  const curtains = 3 + Math.round(depth * 2);
+  for (let i = 0; i < curtains; i++) {
+    const baseX = (i + 0.5) / curtains * PW + rand(-40, 40);
+    const topY = PH * rand(0.04, 0.16), botY = PH * rand(0.55, 0.78);
+    const w = rand(45, 95), amp = rand(22, 58), phase = rand(0, TAU), freq = rand(2, 4);
+    const hue = i % 3 === 0 ? B[4] : B[3];   // mostly mint, occasional violet
+    c.beginPath();
+    const steps = 18;
+    for (let s = 0; s <= steps; s++) {                       // down the left edge
+      const t = s / steps, y = topY + (botY - topY) * t, x = baseX + Math.sin(phase + t * freq * Math.PI) * amp;
+      s === 0 ? c.moveTo(x, y) : c.lineTo(x, y);
+    }
+    for (let s = steps; s >= 0; s--) {                       // up the right edge (curtain widens mid-fall)
+      const t = s / steps, y = topY + (botY - topY) * t, x = baseX + Math.sin(phase + t * freq * Math.PI) * amp + w * (0.45 + 0.55 * Math.sin(t * Math.PI));
+      c.lineTo(x, y);
+    }
+    c.closePath();
+    const g = c.createLinearGradient(0, topY, 0, botY);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(0.22, hexA(B[2], 0.12 + depth * 0.05));    // green foot of the curtain
+    g.addColorStop(0.58, hexA(hue, 0.26 + depth * 0.14));     // bright mid
+    g.addColorStop(1, 'rgba(0,0,0,0)');                       // fades into the dark sky
+    c.globalAlpha = 0.85; c.fillStyle = g; c.fill();
+    // a few bright vertical filaments threading the curtain
+    c.globalAlpha = 0.3 + depth * 0.2; c.strokeStyle = hexA(B[3], 0.5); c.lineWidth = 1;
+    for (let k = 0; k < 4; k++) {
+      const fx = baseX + w * rand(0.1, 0.8);
+      c.beginPath();
+      for (let s = 2; s <= steps - 2; s++) { const t = s / steps, y = topY + (botY - topY) * t, x = fx + Math.sin(phase + t * freq * Math.PI) * amp; s === 2 ? c.moveTo(x, y) : c.lineTo(x, y); }
+      c.stroke();
+    }
+  }
+  c.globalAlpha = 1;
+
+  // 3. soft aurora haze bands smeared across the upper sky
+  for (let i = 0; i < 3; i++) {
+    const y = PH * rand(0.18, 0.5), h = rand(70, 150);
+    const g = c.createLinearGradient(0, y - h / 2, 0, y + h / 2);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, hexA(B[3], 0.05 + depth * 0.04)); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = g; c.fillRect(0, y - h / 2, PW, h);
+  }
+
+  // 4. crisp arctic stars — dense and bright high up, thinning toward the horizon
+  for (let i = 0; i < 160; i++) {
+    const y = Math.pow(Math.random(), 1.4) * PH * 0.85;
+    c.globalAlpha = rand(0.15, 0.7) * (1 - y / PH * 0.5);
+    c.fillStyle = Math.random() < 0.15 ? hexA(B[3], 0.8) : p.star;
+    c.beginPath(); c.arc(rand(0, PW), y, rand(0.3, 1.2), 0, TAU); c.fill();
+  }
+  c.globalAlpha = 1;
+
+  // 5. dark mountain ridge + pale snowfield catching the aurora
+  c.globalCompositeOperation = 'source-over';
+  c.fillStyle = '#091826';
+  c.beginPath(); c.moveTo(0, PH); c.lineTo(0, PH * 0.84);
+  for (let mx = 0; mx < PW;) { mx += rand(28, 64); c.lineTo(mx, PH * rand(0.74, 0.86)); }
+  c.lineTo(PW, PH); c.closePath(); c.fill();
+  const snow = c.createLinearGradient(0, PH * 0.85, 0, PH);
+  snow.addColorStop(0, 'rgba(58,90,114,0)'); snow.addColorStop(1, hexA('#4a6e84', 0.55));
+  c.fillStyle = snow; c.fillRect(0, PH * 0.85, PW, PH * 0.15);
+  c.globalCompositeOperation = 'lighter';                    // green aurora reflection on the snow
+  const refl = c.createLinearGradient(0, PH * 0.87, 0, PH);
+  refl.addColorStop(0, hexA(B[2], 0.12 + depth * 0.06)); refl.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = refl; c.fillRect(0, PH * 0.87, PW, PH * 0.13);
+
+  // 6. gentle vignette
+  c.globalCompositeOperation = 'source-over';
+  const VR = Math.max(PW, PH);
+  const vig = c.createRadialGradient(PW / 2, PH * 0.5, VR * 0.42, PW / 2, PH * 0.5, VR * 0.95);
+  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.3)');
+  c.fillStyle = vig; c.fillRect(0, 0, PW, PH);
+  c.globalAlpha = 1;
+}
+
 export function genNebula(p, level, PW, PH, depth = 0) {
   level = level || 1;
   const s = createSurface(PW, PH), c = s.ctx;
@@ -498,6 +584,7 @@ export function genNebula(p, level, PW, PH, depth = 0) {
   if (style === 'ocean') { genOceanNebula(c, p, PW, PH, depth); return s; }
   if (style === 'flora') { genFloraNebula(c, p, PW, PH, depth); return s; }
   if (style === 'sky') { genSkyNebula(c, p, PW, PH, depth); return s; }
+  if (style === 'aurora') { genAuroraNebula(c, p, PW, PH, depth); return s; }
   c.fillStyle = '#04050d'; c.fillRect(0, 0, PW, PH);
   c.globalCompositeOperation = 'lighter';
   c.fillStyle = '#04050d'; c.fillRect(0, 0, PW, PH);
@@ -693,13 +780,22 @@ function fogSignature(c, pal, style, PW, PH, depth = 0) {
       c.fillRect(Math.random() * PW, Math.random() * PH, 1.2, 1.2);
     }
     c.globalAlpha = 1;
-  } else if (style === 'aurora') {                      // faint vertical shimmer
-    for (let i = 0; i < 8; i++) {
-      const x = rand(0, PW), w = rand(20, 60);
-      const g = c.createLinearGradient(x - w, 0, x + w, 0);
-      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, hexA(pal.blobs[3], 0.1)); g.addColorStop(1, 'rgba(0,0,0,0)');
-      c.globalAlpha = 1; c.fillStyle = g; c.fillRect(x - w, 0, w * 2, PH);
+  } else if (style === 'aurora') {                      // arctic night — stars, dim shimmer ribbons, a snow hint low
+    for (let i = 0; i < 90; i++) {                       // dense night stars (brighter up high)
+      const x = rand(0, PW), y = Math.pow(Math.random(), 1.5) * PH;
+      c.globalAlpha = rand(0.06, 0.45) * (1 - y / PH * 0.5); c.fillStyle = Math.random() < 0.15 ? hexA(pal.blobs[3], 0.7) : pal.star;
+      c.beginPath(); c.arc(x, y, rand(0.3, 1), 0, TAU); c.fill();
     }
+    for (let i = 0, n = 5 + Math.round(depth * 3); i < n; i++) {   // dim shimmer ribbons
+      const x = rand(0, PW), w = rand(24, 64);
+      const g = c.createLinearGradient(x - w, 0, x + w, 0);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, hexA(pal.blobs[3], 0.06 + depth * 0.04)); g.addColorStop(1, 'rgba(0,0,0,0)');
+      c.globalAlpha = 1; c.fillStyle = g; c.fillRect(x - w, 0, w * 2, PH * 0.8);
+    }
+    const snow = c.createLinearGradient(0, PH * 0.88, 0, PH);   // faint snow band at the foot
+    snow.addColorStop(0, 'rgba(40,70,90,0)'); snow.addColorStop(1, 'rgba(40,70,90,0.16)');
+    c.globalAlpha = 1; c.fillStyle = snow; c.fillRect(0, PH * 0.88, PW, PH * 0.12);
+    c.globalAlpha = 1;
   } else if (style === 'flora') {                       // overgrown veil — roots/vines + organic mottle + spore glints
     for (let i = 0; i < 30; i++) {                       // organic mossy mottle
       c.globalAlpha = rand(0.08, 0.18); c.fillStyle = Math.random() < 0.5 ? '#000' : d2;
@@ -784,6 +880,15 @@ export function genFog(pal, PW, PH, depth = 0) {
     const rg = c.createRadialGradient(gx, gy, 0, gx, gy, r);
     rg.addColorStop(0, hexA(pal.blobs[3], 0.1 + depth * 0.08)); rg.addColorStop(0.5, hexA(pal.blobs[2], 0.05 + depth * 0.04)); rg.addColorStop(1, 'rgba(0,0,0,0)');
     c.fillStyle = rg; c.beginPath(); c.arc(gx, gy, r, 0, TAU); c.fill();
+    c.restore();
+  } else if (style === 'aurora') {   // a faint aurora glow drifting behind the night veil
+    c.save(); c.globalCompositeOperation = 'lighter';
+    for (let i = 0, n = 2 + Math.round(depth * 3); i < n; i++) {
+      const x = rand(PW * 0.15, PW * 0.85), y = rand(PH * 0.1, PH * 0.55), r = rand(120, 220);
+      const rg = c.createRadialGradient(x, y, 0, x, y, r);
+      rg.addColorStop(0, hexA(pal.blobs[2], 0.07 + depth * 0.05)); rg.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+    }
     c.restore();
   }
   for (let i = 0; i < 500; i++) {
