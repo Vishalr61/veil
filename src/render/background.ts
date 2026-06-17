@@ -141,12 +141,82 @@ function genMagmaNebula(c, p, PW, PH, depth) {
   c.globalAlpha = 1;
 }
 
+// A cluster of faceted, glowing amethyst shards — the Crystal Caves' hero motif.
+function drawCrystalCluster(c, cx, cy, size, B, depth) {
+  for (let i = 0, shards = 3 + ((Math.random() * 3) | 0); i < shards; i++) {
+    const ang = rand(-0.6, 0.6) + (i / shards - 0.5) * 1.2;
+    const hh = size * rand(0.7, 1.5), w = hh * rand(0.16, 0.28);
+    c.save(); c.translate(cx + rand(-size * 0.5, size * 0.5), cy + rand(-size * 0.4, size * 0.4)); c.rotate(ang);
+    c.shadowColor = B[4]; c.shadowBlur = 8 + depth * 8;
+    const g = c.createLinearGradient(0, -hh / 2, 0, hh / 2);
+    g.addColorStop(0, hexA(B[4], 0.95)); g.addColorStop(0.45, hexA(B[3], 0.7)); g.addColorStop(1, hexA(B[2], 0.3));
+    c.fillStyle = g; c.globalAlpha = rand(0.7, 0.95);
+    c.beginPath(); c.moveTo(0, -hh / 2); c.lineTo(w / 2, -hh * 0.1); c.lineTo(w * 0.35, hh / 2); c.lineTo(-w * 0.35, hh / 2); c.lineTo(-w / 2, -hh * 0.1); c.closePath(); c.fill();
+    c.shadowBlur = 0; c.globalAlpha = rand(0.4, 0.7); c.strokeStyle = 'rgba(255,255,255,0.6)'; c.lineWidth = 0.6; c.stroke();
+    c.restore();
+  }
+}
+
+// Crystal Caves — a LIT amethyst grotto: cool violet rock (clearly brighter than
+// the dark veil) studded with glowing crystal clusters and geodes. Distinct from
+// the Depths (lava) by motif (crystal) and hue (magenta-violet vs orange).
+function genCrystalNebula(c, p, PW, PH, depth) {
+  const B = p.blobs;   // [near-black violet, dark violet, deep purple, amethyst, lilac]
+
+  // 1. lit amethyst rock grade — brighter than the veil (the reveal payoff)
+  const base = c.createLinearGradient(0, 0, 0, PH);
+  base.addColorStop(0, '#120a20'); base.addColorStop(0.55, '#1e1232'); base.addColorStop(1, '#341c52');
+  c.fillStyle = base; c.fillRect(0, 0, PW, PH);
+  // rock value mottle so it's not flat
+  for (let i = 0; i < 10; i++) {
+    const x = rand(0, PW), y = rand(0, PH), r = rand(120, 280);
+    const g = c.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, Math.random() < 0.5 ? hexA('#2a1648', 0.5) : 'rgba(0,0,0,0.45)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = rand(0.3, 0.6); c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+  }
+  c.globalAlpha = 1; c.globalCompositeOperation = 'lighter';
+
+  // 2. violet ambient wash — fills the grotto with light so uncovered clearly reads brighter than the veil
+  const aw = c.createRadialGradient(PW / 2, PH * 0.55, 0, PW / 2, PH * 0.55, Math.max(PW, PH) * 0.72);
+  aw.addColorStop(0, hexA(B[3], 0.2)); aw.addColorStop(0.5, hexA(B[2], 0.17)); aw.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = aw; c.fillRect(0, 0, PW, PH);
+
+  // 3. geodes — large crystal-lined hollows glowing from within
+  for (let i = 0, n = 2 + Math.round(depth * 2); i < n; i++) {
+    const x = rand(PW * 0.1, PW * 0.9), y = rand(PH * 0.22, PH * 0.92), r = rand(60, 120);
+    const g = c.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, hexA(B[4], 0.5)); g.addColorStop(0.5, hexA(B[3], 0.3)); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = rand(0.4, 0.7); c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+  }
+
+  // 4. crystal clusters — the hero element, more/larger deeper
+  for (let i = 0, n = 6 + Math.round(depth * 6); i < n; i++)
+    drawCrystalCluster(c, rand(PW * 0.06, PW * 0.94), rand(PH * 0.15, PH * 0.95), rand(14, 34), B, depth);
+
+  // 5. prism glints — sparkle in the rock
+  for (let i = 0, n = 80 + Math.round(depth * 50); i < n; i++) {
+    c.globalAlpha = rand(0.2, 0.7); c.fillStyle = Math.random() < 0.4 ? B[4] : p.star;
+    c.beginPath(); c.arc(Math.random() * PW, Math.random() * PH, rand(0.4, 1.3), 0, TAU); c.fill();
+  }
+
+  // 6. gentle, aspect-aware vignette
+  c.globalCompositeOperation = 'source-over';
+  const VR = Math.max(PW, PH);
+  const vig = c.createRadialGradient(PW / 2, PH * 0.5, VR * 0.34, PW / 2, PH * 0.5, VR * 0.9);
+  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.3)');
+  c.fillStyle = vig; c.fillRect(0, 0, PW, PH);
+  c.globalAlpha = 1;
+}
+
 export function genNebula(p, level, PW, PH, depth = 0) {
   level = level || 1;
   const s = createSurface(PW, PH), c = s.ctx;
   // band style drives the backdrop flavor (magma / caves / ocean / surface / sky / aurora / space)
   const style = p.style || 'space';
   if (style === 'magma') { genMagmaNebula(c, p, PW, PH, depth); return s; }
+  if (style === 'caves') { genCrystalNebula(c, p, PW, PH, depth); return s; }
+  c.fillStyle = '#04050d'; c.fillRect(0, 0, PW, PH);
+  c.globalCompositeOperation = 'lighter';
   c.fillStyle = '#04050d'; c.fillRect(0, 0, PW, PH);
   c.globalCompositeOperation = 'lighter';
   const big = style === 'magma' || style === 'surface';
@@ -249,14 +319,26 @@ export function genNebula(p, level, PW, PH, depth = 0) {
 // Band-specific texture on the dark veil — the surface the player actually stares at.
 function fogSignature(c, pal, style, PW, PH, depth = 0) {
   const d1 = pal.blobs[1], d2 = pal.blobs[2];
-  if (style === 'caves') {                              // rocky angular shards
-    for (let i = 0; i < 26; i++) {
+  if (style === 'caves') {                              // crystalline rock face — dark shards + faint embedded crystals
+    for (let i = 0; i < 30; i++) {                       // dark angular rock shards
       const x = rand(0, PW), y = rand(0, PH), w = rand(20, 60), h = rand(14, 40);
-      c.globalAlpha = rand(0.12, 0.24); c.fillStyle = d1;
+      c.globalAlpha = rand(0.12, 0.24); c.fillStyle = Math.random() < 0.5 ? '#000' : d1;
       c.save(); c.translate(x, y); c.rotate(rand(-0.4, 0.4));
       c.beginPath(); c.moveTo(-w / 2, h / 2); c.lineTo(0, -h / 2); c.lineTo(w / 2, h / 2); c.closePath(); c.fill();
       c.restore();
     }
+    for (let i = 0, n = 10 + Math.round(depth * 8); i < n; i++) {   // faint embedded crystal outlines (geodes beneath)
+      const x = rand(0, PW), y = rand(0, PH), h = rand(10, 26);
+      c.save(); c.translate(x, y); c.rotate(rand(0, TAU)); c.globalAlpha = rand(0.1, 0.26) + depth * 0.1;
+      c.strokeStyle = hexA(pal.blobs[3], 0.6); c.lineWidth = 1;
+      c.beginPath(); c.moveTo(0, -h / 2); c.lineTo(h * 0.18, 0); c.lineTo(0, h / 2); c.lineTo(-h * 0.18, 0); c.closePath(); c.stroke();
+      c.restore();
+    }
+    for (let i = 0; i < 50; i++) {                       // mineral glints
+      c.globalAlpha = rand(0.12, 0.4); c.fillStyle = Math.random() < 0.3 ? hexA(pal.blobs[4], 0.6) : 'rgba(170,160,200,0.4)';
+      c.fillRect(Math.random() * PW, Math.random() * PH, 1.2, 1.2);
+    }
+    c.globalAlpha = 1;
   } else if (style === 'ocean') {                       // horizontal caustic ripples
     for (let i = 0; i < 28; i++) {
       c.globalAlpha = rand(0.04, 0.1); c.fillStyle = d2;
@@ -333,8 +415,8 @@ export function genFog(pal, PW, PH, depth = 0) {
   const s = createSurface(PW, PH), c = s.ctx;
   // The Depths veil is COOL basalt (warm ember cracks come from fogSignature);
   // other bands keep their band-tinted near-black.
-  const d0 = style === 'magma' ? '#0a0813' : pal.blobs[0];
-  const d1 = style === 'magma' ? '#15121f' : pal.blobs[1];
+  const d0 = style === 'magma' ? '#0a0813' : style === 'caves' ? '#0b0716' : pal.blobs[0];
+  const d1 = style === 'magma' ? '#15121f' : style === 'caves' ? '#1a1030' : pal.blobs[1];
   c.fillStyle = d0; c.fillRect(0, 0, PW, PH);
   const g = c.createLinearGradient(0, 0, 0, PH);
   g.addColorStop(0, hexA(d1, 0.5)); g.addColorStop(1, hexA(d0, 0));   // subtle lift up top
@@ -353,6 +435,15 @@ export function genFog(pal, PW, PH, depth = 0) {
       const x = rand(PW * 0.15, PW * 0.85), y = rand(PH * 0.5, PH * 1.05), r = rand(120, 240);
       const rg = c.createRadialGradient(x, y, 0, x, y, r);
       rg.addColorStop(0, hexA(pal.blobs[2], 0.1 + depth * 0.06)); rg.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+    }
+    c.restore();
+  } else if (style === 'caves') {   // a faint glow of crystal light behind the veil
+    c.save(); c.globalCompositeOperation = 'lighter';
+    for (let i = 0, n = 3 + Math.round(depth * 3); i < n; i++) {
+      const x = rand(PW * 0.12, PW * 0.88), y = rand(PH * 0.2, PH * 0.95), r = rand(110, 220);
+      const rg = c.createRadialGradient(x, y, 0, x, y, r);
+      rg.addColorStop(0, hexA(pal.blobs[3], 0.09 + depth * 0.06)); rg.addColorStop(1, 'rgba(0,0,0,0)');
       c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
     }
     c.restore();

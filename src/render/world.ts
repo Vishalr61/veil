@@ -140,16 +140,57 @@ function drawDepthsRock(px: number, py: number, x: number, y: number, idx: numbe
   if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(px + s - 1, py, 1, s); ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(px + s - 2.5, py, 1.5, s); }
 }
 
+const CAVE_SHADES = ['#241a38', '#2c2042', '#34264c', '#3c2c56'];   // violet basalt, dark -> light
+
+// A Crystal Caves obstacle cell: cool violet stone studded with bright crystal
+// facets — the caves counterpart to drawDepthsRock (same readable raised mass +
+// smooth tone + soft rim, but crystal accents instead of lava).
+function drawCavesRock(px: number, py: number, x: number, y: number, idx: number) {
+  const s = CELL;
+  const h = ((x * 374761393) ^ (y * 668265263)) >>> 0;
+  const v = h % 100;
+  const m = Math.sin(x * 0.55 + y * 0.32) + Math.sin(y * 0.7 - x * 0.22);
+  ctx.fillStyle = CAVE_SHADES[Math.max(0, Math.min(3, Math.round((m + 2) / 4 * 3)))];
+  ctx.fillRect(px, py, s, s);
+  ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(px + (h % 7) + 2, py + ((h >> 2) % 6) + 2, 1.3, 1.3);
+  ctx.fillStyle = 'rgba(210,196,235,0.1)'; ctx.fillRect(px + ((h >> 3) % 9) + 2, py + ((h >> 6) % 9) + 2, 1.1, 1.1);
+
+  if (v < 18) {                       // CRYSTAL VEIN — a bright lilac fissure
+    const y0 = py + 3 + (h % 4), y1 = py + s - 4 - ((h >> 2) % 4);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = hexA(G.pal.blobs[3], 0.55); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(px + 2, y0); ctx.lineTo(px + s - 3, y1); ctx.stroke(); ctx.restore();
+  } else if (v < 32) {                // sheen
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = 'rgba(220,180,255,0.22)'; ctx.lineWidth = 1.1;
+    ctx.beginPath(); ctx.moveTo(px + s * 0.2, py + s * 0.8); ctx.lineTo(px + s * 0.7, py + s * 0.16); ctx.stroke(); ctx.restore();
+  } else if (v < 44) {                // EMBEDDED CRYSTAL — a small glowing amethyst facet
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const ox = px + 5 + (h % Math.max(1, s - 10)), oy = py + 5 + ((h >> 4) % Math.max(1, s - 10));
+    ctx.shadowColor = G.pal.blobs[4]; ctx.shadowBlur = 6; ctx.fillStyle = hexA(G.pal.blobs[4], 0.85);
+    ctx.beginPath(); ctx.moveTo(ox, oy - 3); ctx.lineTo(ox + 2, oy); ctx.lineTo(ox, oy + 3); ctx.lineTo(ox - 2, oy); ctx.closePath(); ctx.fill(); ctx.restore();
+  } else if (v < 52) {                // faint cool mineral tint
+    ctx.fillStyle = 'rgba(150,120,200,0.12)'; ctx.fillRect(px, py, s, s);
+  }
+
+  if (G.grid[idx - COLS] === EMPTY) { ctx.fillStyle = 'rgba(216,200,240,0.4)'; ctx.fillRect(px, py, s, 1); ctx.fillStyle = 'rgba(216,200,240,0.15)'; ctx.fillRect(px, py + 1, s, 1.5); }
+  if (G.grid[idx - 1] === EMPTY) { ctx.fillStyle = 'rgba(216,200,240,0.28)'; ctx.fillRect(px, py, 1, s); ctx.fillStyle = 'rgba(216,200,240,0.1)'; ctx.fillRect(px + 1, py, 1.5, s); }
+  if (G.grid[idx + COLS] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(px, py + s - 1, s, 1); ctx.fillStyle = 'rgba(0,0,0,0.24)'; ctx.fillRect(px, py + s - 2.5, s, 1.5); }
+  if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(px + s - 1, py, 1, s); ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(px + s - 2.5, py, 1.5, s); }
+}
+
 function drawObstacles() {
-  const magma = G.pal.style === 'magma';
+  const style = G.pal.style;
   ctx.save();
   for (let y = 1; y < ROWS - 1; y++) {
     for (let x = 1; x < COLS - 1; x++) {
       const idx = y * COLS + x;
       if (G.grid[idx] !== OBSTACLE) continue;
       const px = x * CELL, py = y * CELL;
-      if (magma) {
+      if (style === 'magma') {
         drawDepthsRock(px, py, x, y, idx);
+      } else if (style === 'caves') {
+        drawCavesRock(px, py, x, y, idx);
       } else {
         ctx.fillStyle = G.pal.blobs[1];                      // band-tinted solid mass (ice/coral/rock/asteroid)
         ctx.fillRect(px, py, CELL, CELL);

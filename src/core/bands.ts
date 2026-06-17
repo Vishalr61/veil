@@ -23,8 +23,8 @@ export interface Band {
 export const BANDS: Band[] = [
   { name: 'the depths', style: 'magma', blobs: ['#0a0202', '#3a0e08', '#8a1e0e', '#ff5a1e', '#ffc24f'],
     star: '#ffd9b0', edge: '#ff7a3a', edge2: '#ffc88f', trail: '#fff0e0', player: '#ffffff', accent: '#ff8a3a' },
-  { name: 'crystal caves', style: 'caves', blobs: ['#06060e', '#161430', '#2e2a6a', '#6a5cff', '#a0e0ff'],
-    star: '#dfeaff', edge: '#7a8cff', edge2: '#c2d6ff', trail: '#eef2ff', player: '#ffffff', accent: '#9a8cff' },
+  { name: 'crystal caves', style: 'caves', blobs: ['#0a0612', '#1c0e34', '#4a1e72', '#a64dff', '#e89dff'],
+    star: '#f3e0ff', edge: '#c060ff', edge2: '#e8b8ff', trail: '#f6ecff', player: '#ffffff', accent: '#d070e8' },
   { name: 'the abyss', style: 'ocean', blobs: ['#02080c', '#063b42', '#0a8d82', '#23e0c8', '#86ffe8'],
     star: '#d8fff8', edge: '#39f0e0', edge2: '#aafff2', trail: '#eafffb', player: '#ffffff', accent: '#5ffbd0' },
   { name: 'the surface', style: 'surface', blobs: ['#06100a', '#143018', '#2e6e2e', '#5ec24f', '#bfff8f'],
