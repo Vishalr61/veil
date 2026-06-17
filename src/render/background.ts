@@ -263,15 +263,44 @@ function fogSignature(c, pal, style, PW, PH, depth = 0) {
       rg.addColorStop(0, hexA(d2, 0.14)); rg.addColorStop(1, 'rgba(0,0,0,0)');
       c.globalAlpha = 1; c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
     }
-  } else if (style === 'magma') {                       // ember cracks (denser/hotter deeper)
-    const crackN = 12 + Math.round(depth * 16);
+  } else if (style === 'magma') {                       // a textured dark BASALT WALL — the unmined rock you stare at
+    // faint layered strata so the veil reads as a stone face, not flat dark
+    for (let i = 0; i < 9; i++) {
+      const yb = (i + rand(0.2, 0.8)) / 9 * PH, hh = rand(10, 26);
+      c.globalAlpha = rand(0.06, 0.13); c.fillStyle = i % 2 ? '#0c0a15' : '#171327';
+      c.beginPath(); c.moveTo(0, yb);
+      for (let k = 1; k <= 6; k++) c.lineTo(k / 6 * PW, yb + rand(-9, 9));
+      for (let k = 6; k >= 0; k--) c.lineTo(k / 6 * PW, yb + hh + rand(-9, 9));
+      c.closePath(); c.fill();
+    }
+    // angular rock facets — surface relief
+    for (let i = 0; i < 22; i++) {
+      const x = rand(0, PW), y = rand(0, PH), sz = rand(20, 52);
+      c.globalAlpha = rand(0.05, 0.12); c.fillStyle = Math.random() < 0.5 ? '#000' : '#1b1630';
+      c.save(); c.translate(x, y); c.rotate(rand(0, TAU));
+      c.beginPath(); c.moveTo(rand(-sz, -sz * 0.3), rand(-sz, -sz * 0.3)); c.lineTo(rand(sz * 0.3, sz), rand(-sz, 0));
+      c.lineTo(rand(0, sz), rand(sz * 0.3, sz)); c.lineTo(rand(-sz, 0), rand(0, sz)); c.closePath(); c.fill(); c.restore();
+    }
+    // dark fractures running through the rock
+    for (let i = 0; i < 14; i++) {
+      let x = rand(0, PW), y = rand(0, PH);
+      c.globalAlpha = rand(0.1, 0.22); c.strokeStyle = '#000'; c.lineWidth = rand(0.6, 1.5);
+      c.beginPath(); c.moveTo(x, y); for (let k = 0; k < 3; k++) { x += rand(-44, 44); y += rand(-44, 44); c.lineTo(x, y); } c.stroke();
+    }
+    // glowing lava ember cracks (more, hotter deeper)
+    const crackN = 14 + Math.round(depth * 16);
     for (let i = 0; i < crackN; i++) {
       let x = rand(0, PW), y = rand(0, PH);
-      c.globalAlpha = 1; c.strokeStyle = hexA(pal.blobs[3], 0.2 + depth * 0.18); c.lineWidth = rand(0.6, 1.6) + depth;
-      c.beginPath(); c.moveTo(x, y);
-      for (let k = 0; k < 4; k++) { x += rand(-40, 40); y += rand(-40, 40); c.lineTo(x, y); }
-      c.stroke();
+      c.globalAlpha = 1; c.strokeStyle = hexA(pal.blobs[3], 0.18 + depth * 0.18); c.lineWidth = rand(0.6, 1.6) + depth;
+      c.beginPath(); c.moveTo(x, y); for (let k = 0; k < 4; k++) { x += rand(-40, 40); y += rand(-40, 40); c.lineTo(x, y); } c.stroke();
     }
+    // mineral flecks — tiny cool/gold glints caught in the rock
+    for (let i = 0; i < 55; i++) {
+      c.globalAlpha = rand(0.1, 0.4);
+      c.fillStyle = Math.random() < 0.3 ? hexA(pal.blobs[4], 0.6) : 'rgba(150,150,180,0.4)';
+      c.fillRect(Math.random() * PW, Math.random() * PH, 1.2, 1.2);
+    }
+    c.globalAlpha = 1;
   } else if (style === 'aurora') {                      // faint vertical shimmer
     for (let i = 0; i < 8; i++) {
       const x = rand(0, PW), w = rand(20, 60);
