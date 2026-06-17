@@ -29,11 +29,12 @@ import { spawnPopup, updatePopups, updateParticles, initMotes, updateMotes } fro
 import { ENEMY_INFO, genEnemies, moveEnemy } from './game/enemies';
 import { blueprintForLevel, newEnemyAtLevel } from './game/blueprints';
 import { recomputeBorderPath, recomputePercent } from './game/capture';
+import { submitScore } from './game/leaderboard';
 import { maybeSpawnPickup, updatePickups } from './game/powerups';
 import { updatePlayer, checkCollisions, respawnAt, clearTrail } from './game/player';
-import { dailyBtnRect, pauseBtnRect } from './render/geometry';
+import { dailyBtnRect, pauseBtnRect, pauseHomeRect, goBtnRects, scoresBtnRect } from './render/geometry';
 import { drawHUD } from './render/hud';
-import { drawMenu, drawLevelClear, drawGameOver, drawPaused, drawAttractWorld } from './render/overlays';
+import { drawMenu, drawLevelClear, drawGameOver, drawPaused, drawAttractWorld, drawScores } from './render/overlays';
 import {
   initAudio, setMuted, isMuted, setPadLevel,
   sfxStartDraw, sfxCapture, sfxBold, sfxDeath, sfxLevel, sfxPickup, sfxShield, sfxBlip, sfxBest,
@@ -116,6 +117,7 @@ function finishDeath() {
     G.state = 'gameover'; G.goTimer = 0;
     clearTrail();
     if (G.score > G.highScore) { G.highScore = G.score; try { localStorage.setItem('veil_highscore', String(G.highScore)); } catch (e) {} sfxBest(); }
+    G.lastRank = submitScore({ score: Math.round(G.score), level: G.level, date: todayKey(new Date()), daily: G.isDaily });
     if (G.isDaily) {
       recordDailyStreak(G.dailyRunKey);
       G.dailyResultText = shareText({ key: G.dailyRunKey, score: G.score, level: G.level, percent: G.percent, streak: G.dailyStreak });
@@ -170,6 +172,7 @@ function initLevel(lv) {
 }
 function startGame(seed?: number) {
   G.score = 0; G.dispScore = 0; G.lives = 3;
+  G.prevHighScore = G.highScore; G.lastRank = 0; G.beatBestThisRun = false;   // snapshot best before the run, for the game-over summary
   G.gameSeed = seed != null ? (seed >>> 0) : (Math.random() * 0xffffffff) >>> 0;
   G.onboarding = !G.onboarded && !G.isDaily; G.firstMoveDone = false;
   initLevel(1);
@@ -209,6 +212,13 @@ function update(dt) {
     if (G.deathFreeze > 0) { G.deathFreeze -= dt; if (G.deathFreeze <= 0) finishDeath(); }
     else {
       updatePlayer(wdt);
+      // the moment this run's live score overtakes your previous best, celebrate
+      // it mid-play — the core "beat your high score" hook.
+      if (!G.beatBestThisRun && G.prevHighScore > 0 && G.score > G.prevHighScore) {
+        G.beatBestThisRun = true;
+        spawnPopup(G.player.px.x, G.player.px.y - 30, 'NEW BEST!', '#ffe27a', 18);
+        G.flash = G.reduceMotion ? 0.15 : 0.4; sfxBest();
+      }
       // capture happens inside updatePlayer; check the win condition once here
       // rather than from capture so flow control stays in one place.
       if (G.percent >= G.target) winLevel();
@@ -283,6 +293,7 @@ function render() {
   ctx.setTransform(SS, 0, 0, SS, 0, 0);
   ctx.fillStyle = '#04050c'; ctx.fillRect(0, 0, CW, CH);
   if (G.state === 'menu') { drawAttractWorld(); drawMenu(); drawScanlines(CW, CH); return; }
+  if (G.state === 'scores') { drawAttractWorld(); drawScores(); drawScanlines(CW, CH); return; }
   drawWorld(); drawHUD();
   if (G.state === 'playing' || G.state === 'paused') drawTouchUI();
   if (G.state === 'levelclear') drawLevelClear();
@@ -338,6 +349,8 @@ function anyKeyAction() {
   else if (G.state === 'levelclear') { nextLevel(); sfxBlip(); }
   else if (G.state === 'paused') G.state = 'playing';
 }
+// Abandon the current run and return to the title (from pause or game-over).
+function goHome() { G.isDaily = false; G.joyActive = false; G.joyDir = null; G.state = 'menu'; sfxBlip(); }
 window.addEventListener('keydown', (e) => {
   initAudio();
   const k = e.key;
@@ -349,6 +362,8 @@ window.addEventListener('keydown', (e) => {
   }
   if (k === 'm' || k === 'M') { setMuted(!isMuted()); return; }
   if (k === 'r' || k === 'R') { toggleReduce(); return; }
+  if ((k === 'q' || k === 'Q') && (G.state === 'paused' || G.state === 'gameover')) { goHome(); return; }
+  if (G.state === 'scores') { goHome(); return; }   // any key leaves the scores view
   if (G.state === 'playing') {
     if (DIRS[k]) { G.buffered = DIRS[k]; e.preventDefault(); return; }
     if (k === 'p' || k === 'P' || k === 'Escape') G.state = 'paused';
@@ -375,34 +390,47 @@ function steerFromVec(dx, dy) {
   return Math.abs(dx) > Math.abs(dy) ? { x: dx > 0 ? 1 : -1, y: 0 } : { x: 0, y: dy > 0 ? 1 : -1 };
 }
 
-canvas.addEventListener('touchstart', (e) => {
-  initAudio();
-  const t = e.changedTouches[0], p = localPt(t);
-  if (G.state === 'playing') {
-    if (inRect(p.x, p.y, pauseBtnRect())) { G.state = 'paused'; e.preventDefault(); return; }
-    G.joyActive = true; joyOX = p.x; joyOY = p.y; joyX = p.x; joyY = p.y; G.joyDir = null;
-  } else if (G.state === 'paused') {
-    G.state = 'playing';
-  } else {
-    if (G.state === 'menu' && inRect(p.x, p.y, dailyBtnRect())) { startDaily(); sfxBlip(); }
-    else anyKeyAction();
-  }
-  e.preventDefault();
-}, { passive: false });
-
-canvas.addEventListener('touchmove', (e) => {
-  if (!G.joyActive || G.state !== 'playing') return;
-  const t = e.changedTouches[0], p = localPt(t);
+function joyStart(p) { G.joyActive = true; joyOX = p.x; joyOY = p.y; joyX = p.x; joyY = p.y; G.joyDir = null; }
+function joyMove(p) {
   joyX = p.x; joyY = p.y;
   const d = steerFromVec(p.x - joyOX, p.y - joyOY);
-  if (d) { G.joyDir = d; G.buffered = d; }  // held dir is re-applied each frame in updatePlayer
-  e.preventDefault();
-}, { passive: false });
+  if (d) { G.joyDir = d; G.buffered = d; }   // held dir is re-applied each frame in updatePlayer
+}
+function joyEnd() { G.joyActive = false; G.joyDir = null; }   // stop steering, keep advancing
 
-// Lift finger -> stop steering, but keep advancing in the last direction.
-canvas.addEventListener('touchend', (e) => { G.joyActive = false; G.joyDir = null; e.preventDefault(); }, { passive: false });
-canvas.addEventListener('touchcancel', () => { G.joyActive = false; G.joyDir = null; });
+// Unified pointer-down for BOTH touch and mouse, so desktop hits the same
+// buttons as a phone. (The old mouse handler ignored position, so the DAILY
+// button and the pause/home buttons did nothing under a mouse.)
+function pointerDown(p) {
+  initAudio();
+  if (G.state === 'playing') {
+    if (inRect(p.x, p.y, pauseBtnRect())) { G.state = 'paused'; return; }
+    joyStart(p); return;
+  }
+  if (G.state === 'paused') {
+    if (inRect(p.x, p.y, pauseHomeRect())) { goHome(); return; }
+    G.state = 'playing'; return;
+  }
+  if (G.state === 'scores') { goHome(); return; }
+  if (G.state === 'gameover') {
+    if (inRect(p.x, p.y, goBtnRects().home)) { goHome(); return; }
+    anyKeyAction(); return;   // anywhere else: retry (or share + menu for the daily)
+  }
+  if (G.state === 'levelclear') { anyKeyAction(); return; }
+  // menu
+  if (inRect(p.x, p.y, dailyBtnRect())) { startDaily(); sfxBlip(); return; }
+  if (inRect(p.x, p.y, scoresBtnRect())) { G.state = 'scores'; sfxBlip(); return; }
+  anyKeyAction();   // PLAY (the play button or anywhere else on the title)
+}
 
-canvas.addEventListener('mousedown', () => { initAudio(); if (G.state !== 'playing' && G.state !== 'paused') anyKeyAction(); });
+canvas.addEventListener('touchstart', (e) => { pointerDown(localPt(e.changedTouches[0])); e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchmove', (e) => { if (G.joyActive && G.state === 'playing') joyMove(localPt(e.changedTouches[0])); e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchend', (e) => { joyEnd(); e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchcancel', () => { joyEnd(); });
+
+// Mouse mirrors touch — including drag-to-steer on desktop (matches "DRAG TO STEER").
+canvas.addEventListener('mousedown', (e) => { pointerDown(localPt(e)); });
+window.addEventListener('mousemove', (e) => { if (G.joyActive && G.state === 'playing') joyMove(localPt(e)); });
+window.addEventListener('mouseup', () => { joyEnd(); });
 
 document.addEventListener('visibilitychange', () => { if (document.hidden && G.state === 'playing') G.state = 'paused'; last = 0; });
