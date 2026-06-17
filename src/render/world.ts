@@ -88,6 +88,54 @@ function drawShootingStars() {
   }
   ctx.restore();
 }
+// A single Depths obstacle cell: raised, textured rock that reads clearly as a
+// solid barrier (lighter than the floor, stony rim — NOT the coastline glow).
+// One of 5 variants chosen deterministically from the cell coords so the wall
+// is a varied rockface, not uniform boxes: basalt / cracked / obsidian / ore /
+// sulfur. The lava character lives INSIDE the rock (crack glow, ore), so the
+// outline stays stony and never competes with the captured-edge coastline.
+function drawDepthsRock(px: number, py: number, x: number, y: number, idx: number) {
+  const s = CELL;
+  const h = ((x * 374761393) ^ (y * 668265263)) >>> 0;
+  const v = h % 100;
+  const obsidian = v >= 18 && v < 32;
+
+  // raised body — clearly lighter than the dark floor so it pops as a mass
+  ctx.fillStyle = obsidian ? '#221d31' : '#36314a';
+  ctx.fillRect(px, py, s, s);
+  ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.fillRect(px, py + s * 0.55, s, s * 0.45);   // volume shade
+  ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(px + (h % 7) + 2, py + (h % 5) + 3, 1.5, 1.5);
+  ctx.fillStyle = 'rgba(185,180,205,0.12)'; ctx.fillRect(px + ((h >> 3) % 9) + 2, py + ((h >> 6) % 9) + 2, 1.5, 1.5);
+
+  if (v < 18) {                       // CRACKED — dark fissure with a molten glow inside
+    const y0 = py + 3 + (h % 4), y1 = py + s - 4 - ((h >> 2) % 4);
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(px + 2, y0); ctx.lineTo(px + s - 3, y1); ctx.stroke();
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = hexA(G.pal.blobs[3], 0.5); ctx.lineWidth = 0.7;
+    ctx.beginPath(); ctx.moveTo(px + 2, y0); ctx.lineTo(px + s - 3, y1); ctx.stroke(); ctx.restore();
+  } else if (obsidian) {              // OBSIDIAN — glassy diagonal sheen
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = 'rgba(170,185,255,0.22)'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(px + s * 0.18, py + s * 0.82); ctx.lineTo(px + s * 0.72, py + s * 0.14); ctx.stroke(); ctx.restore();
+  } else if (v < 44) {                // ORE — a glowing ember/gold speck in the rock
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const ox = px + 4 + (h % Math.max(1, s - 8)), oy = py + 4 + ((h >> 4) % Math.max(1, s - 8));
+    const g = ctx.createRadialGradient(ox, oy, 0, ox, oy, 4);
+    g.addColorStop(0, G.pal.blobs[4]); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(ox, oy, 4, 0, TAU); ctx.fill(); ctx.restore();
+  } else if (v < 52) {                // SULFUR — faint volcanic-mineral tint
+    ctx.fillStyle = 'rgba(190,160,70,0.13)'; ctx.fillRect(px, py, s, s);
+  }                                   // else (~48%) plain basalt
+
+  // raised silhouette vs the floor: lit top/left, shadowed bottom/right — only
+  // on edges facing open space, so a rock mass has a defined stony outline.
+  if (G.grid[idx - COLS] === EMPTY) { ctx.fillStyle = 'rgba(195,190,215,0.4)'; ctx.fillRect(px, py, s, 1.5); }
+  if (G.grid[idx - 1] === EMPTY) { ctx.fillStyle = 'rgba(195,190,215,0.3)'; ctx.fillRect(px, py, 1.5, s); }
+  if (G.grid[idx + COLS] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(px, py + s - 1.5, s, 1.5); }
+  if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(px + s - 1.5, py, 1.5, s); }
+}
+
 function drawObstacles() {
   const magma = G.pal.style === 'magma';
   ctx.save();
@@ -97,21 +145,7 @@ function drawObstacles() {
       if (G.grid[idx] !== OBSTACLE) continue;
       const px = x * CELL, py = y * CELL;
       if (magma) {
-        // COOL basalt body with a glowing warm lava seam only where it meets
-        // open space, so the seams trace the chamber outlines like cracks.
-        ctx.fillStyle = '#1e1a2b';                                    // cool stone (contrasts the lava)
-        ctx.fillRect(px, py, CELL, CELL);
-        ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(px, py + CELL - 2, CELL, 2);
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.strokeStyle = G.pal.blobs[3]; ctx.lineWidth = 1.5;   // lava orange, no blur (cheap)
-        ctx.beginPath();
-        if (G.grid[idx - COLS] === EMPTY) { ctx.moveTo(px + 0.5, py + 0.75); ctx.lineTo(px + CELL - 0.5, py + 0.75); }
-        if (G.grid[idx + COLS] === EMPTY) { ctx.moveTo(px + 0.5, py + CELL - 0.75); ctx.lineTo(px + CELL - 0.5, py + CELL - 0.75); }
-        if (G.grid[idx - 1] === EMPTY) { ctx.moveTo(px + 0.75, py + 0.5); ctx.lineTo(px + 0.75, py + CELL - 0.5); }
-        if (G.grid[idx + 1] === EMPTY) { ctx.moveTo(px + CELL - 0.75, py + 0.5); ctx.lineTo(px + CELL - 0.75, py + CELL - 0.5); }
-        ctx.stroke();
-        ctx.restore();
+        drawDepthsRock(px, py, x, y, idx);
       } else {
         ctx.fillStyle = G.pal.blobs[1];                      // band-tinted solid mass (ice/coral/rock/asteroid)
         ctx.fillRect(px, py, CELL, CELL);
