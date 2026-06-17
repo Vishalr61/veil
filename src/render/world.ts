@@ -162,7 +162,7 @@ function drawCavesRock(px: number, py: number, x: number, y: number, idx: number
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   ctx.strokeStyle = hexA(G.pal.blobs[3], 0.28); ctx.lineWidth = 0.7;
   for (const c of cn) { ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(c[0], c[1]); ctx.stroke(); }
-  if (v < 36) { ctx.shadowColor = G.pal.blobs[4]; ctx.shadowBlur = 5; ctx.fillStyle = hexA(G.pal.blobs[4], 0.75); ctx.beginPath(); ctx.arc(hx, hy, 1.5, 0, TAU); ctx.fill(); }
+  if (v < 36) { ctx.fillStyle = hexA(G.pal.blobs[4], 0.28); ctx.beginPath(); ctx.arc(hx, hy, 3, 0, TAU); ctx.fill(); ctx.fillStyle = hexA(G.pal.blobs[4], 0.85); ctx.beginPath(); ctx.arc(hx, hy, 1.3, 0, TAU); ctx.fill(); }
   ctx.restore();
 
   // 3. sharp bright crystal rim on open-facing edges (defines the cluster); dark
@@ -196,11 +196,13 @@ function drawAbyssRock(px: number, py: number, x: number, y: number, idx: number
   ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.fillRect(px, py + s * 0.6, s, s * 0.4);
   ctx.fillStyle = 'rgba(120,200,205,0.07)'; ctx.fillRect(px, py, s, s * 0.3);
 
-  // bioluminescent polyps — 2-3 consistent glowing dots (the signature coral detail)
-  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.shadowColor = G.pal.blobs[4]; ctx.shadowBlur = 5;
+  // bioluminescent polyps — 2-3 glowing dots (cheap additive halo + core, NO
+  // shadowBlur: per-cell blur every frame tanks performance at obstacle density).
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
   for (let i = 0, polyps = 2 + (v % 2); i < polyps; i++) {
     const ox = px + 3 + ((h >> (i * 5)) % Math.max(1, s - 6)), oy = py + 3 + ((h >> (i * 5 + 2)) % Math.max(1, s - 6));
-    ctx.fillStyle = hexA(G.pal.blobs[4], 0.85); ctx.beginPath(); ctx.arc(ox, oy, 1.3, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 0.22; ctx.fillStyle = G.pal.blobs[4]; ctx.beginPath(); ctx.arc(ox, oy, 3, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 0.9; ctx.beginPath(); ctx.arc(ox, oy, 1.2, 0, TAU); ctx.fill();
   }
   ctx.restore();
 
