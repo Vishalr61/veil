@@ -37,6 +37,16 @@ export const ENEMY_INFO = {
   sentinel: { name: 'SENTINEL', desc: 'attacks while you rest on land' },
   sleeper: { name: 'VEIL-SLEEPER', desc: 'reveals in the dark wake it' },
 };
+// The non-basic enemy first introduced at this level (its spawn count rises
+// from 0), or null. Derived from enemyCounts so the intro card always tracks
+// the real schedule — even if a level is skipped or the schedule changes.
+export function newEnemyAtLevel(lv: number): string | null {
+  const cur = enemyCounts(lv), prev = enemyCounts(lv - 1);
+  for (const t of ['chaser', 'cutter', 'sentinel', 'sleeper']) {
+    if (cur[t] > 0 && prev[t] === 0) return t;
+  }
+  return null;
+}
 export function genEnemies(lv) {
   const out = [];
   const n = enemyCounts(lv);

@@ -26,7 +26,7 @@ import { G } from './game/state';
 import { centerPx } from './core/grid';
 import { drawWorld, tickShootingStars } from './render/world';
 import { spawnPopup, updatePopups, updateParticles, initMotes, updateMotes } from './game/particles';
-import { ENEMY_INFO, genEnemies, moveEnemy } from './game/enemies';
+import { ENEMY_INFO, newEnemyAtLevel, genEnemies, moveEnemy } from './game/enemies';
 import { recomputeBorderPath, recomputePercent } from './game/capture';
 import { maybeSpawnPickup, updatePickups } from './game/powerups';
 import { updatePlayer, checkCollisions, respawnAt, clearTrail } from './game/player';
@@ -71,7 +71,6 @@ try { G.dailyPlayedKey = localStorage.getItem('veil_daily_played') || ''; } catc
 try { G.dailyStreak = parseInt(localStorage.getItem('veil_daily_streak') || '0', 10) || 0; } catch (e) {}
 try { G.dailyStreakDate = localStorage.getItem('veil_daily_streak_date') || ''; } catch (e) {}
 try { G.onboarded = localStorage.getItem('veil_onboarded') === '1'; } catch (e) {}
-try { (localStorage.getItem('veil_seen_enemies') || '').split(',').forEach(s => s && G.seenEnemies.add(s)); } catch (e) {}
 try { G.highScore = parseInt(localStorage.getItem('veil_highscore') || '0', 10) || 0; } catch (e) {}
 
 /* ----------------------------- background art -------------------------- */
@@ -154,15 +153,9 @@ function initLevel(lv) {
   G.pickupSpawnT = G.rng.range(5, 8);
   recomputeBorderPath(); recomputePercent(); G.dispPercent = G.percent;
   G.banner = { text: 'LEVEL ' + lv, sub: G.pal.name.toUpperCase() + '  ·  reveal ' + Math.round(G.target * 100) + '%', t: 2.0 };
-  // first time a non-basic enemy appears, teach what it does (once ever)
-  for (const et of ['chaser', 'cutter']) {
-    if (!G.seenEnemies.has(et) && G.enemies.some((e) => e.type === et)) {
-      G.seenEnemies.add(et);
-      try { localStorage.setItem('veil_seen_enemies', [...G.seenEnemies].join(',')); } catch (e) {}
-      G.banner = { text: ENEMY_INFO[et].name, sub: ENEMY_INFO[et].desc, t: 3.4, enemy: et };
-      break;
-    }
-  }
+  // a level that introduces a new enemy always teaches what it does
+  const newType = newEnemyAtLevel(lv);
+  if (newType) G.banner = { text: ENEMY_INFO[newType].name, sub: ENEMY_INFO[newType].desc, t: 3.4, enemy: newType };
   G.hintActive = (lv === 1);
   G.state = 'playing';
 }

@@ -39,7 +39,6 @@ export const G = {
   onboarded: false,
   onboarding: false,
   firstMoveDone: false,
-  seenEnemies: new Set<string>(),
 
   // progression / scoring
   level: 1,

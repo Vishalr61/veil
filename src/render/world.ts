@@ -264,8 +264,8 @@ export function drawWorld() {
   if (G.banner.t > 0) {
     const a = clamp(G.banner.t * 1.6, 0, 1);   // pop in, fade out over the last ~0.6s
     if (G.banner.enemy) {
-      const ec = G.banner.enemy === 'chaser' ? CHASER_COL : G.banner.enemy === 'sentinel' ? '#ffb14a' : '#ff3a4e';
-      const eg = G.banner.enemy === 'chaser' ? CHASER_GLOW : G.banner.enemy === 'sentinel' ? '#ffd07a' : '#ff6a4a';
+      const ec = G.banner.enemy === 'chaser' ? CHASER_COL : G.banner.enemy === 'cutter' ? '#ffe93b' : G.banner.enemy === 'sentinel' ? '#ffb14a' : '#ff3a4e';
+      const eg = G.banner.enemy === 'chaser' ? CHASER_GLOW : G.banner.enemy === 'cutter' ? '#fff07a' : G.banner.enemy === 'sentinel' ? '#ffd07a' : '#ff6a4a';
       ctx.save(); ctx.globalAlpha = a; drawGlowOrb(PW / 2, PH / 2 - 62, CELL * 0.5, ec, eg, CELL * 2); ctx.restore();
       glowText('NEW THREAT', PW / 2, PH / 2 - 30, 9, eg, { blur: 8, font: 'pixel', spacing: 2, alpha: a * 0.8 });
     }
