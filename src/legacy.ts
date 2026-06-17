@@ -26,7 +26,8 @@ import { G } from './game/state';
 import { centerPx } from './core/grid';
 import { drawWorld, tickShootingStars } from './render/world';
 import { spawnPopup, updatePopups, updateParticles, initMotes, updateMotes } from './game/particles';
-import { ENEMY_INFO, newEnemyAtLevel, genEnemies, moveEnemy } from './game/enemies';
+import { ENEMY_INFO, genEnemies, moveEnemy } from './game/enemies';
+import { blueprintForLevel, newEnemyAtLevel } from './game/blueprints';
 import { recomputeBorderPath, recomputePercent } from './game/capture';
 import { maybeSpawnPickup, updatePickups } from './game/powerups';
 import { updatePlayer, checkCollisions, respawnAt, clearTrail } from './game/player';
@@ -126,25 +127,26 @@ function initLevel(lv) {
   G.level = lv;
   G.rng = new SeededRng(G.gameSeed).fork('lv' + lv); // deterministic per-level simulation stream
   G.pal = bandForLevel(lv);
+  const bp = blueprintForLevel(lv);   // authored design for this level (or procedural fallback)
   G.grid = new Uint8Array(COLS * ROWS);
   for (let y = 0; y < ROWS; y++)
     for (let x = 0; x < COLS; x++)
       G.grid[y * COLS + x] = (x === 0 || y === 0 || x === COLS - 1 || y === ROWS - 1) ? FILLED : EMPTY;
-  const obst = genObstacles(G.rng.fork('terrain'), { cols: COLS, rows: ROWS, level: lv, startIdx: COLS >> 1 });
+  const obst = genObstacles(G.rng.fork('terrain'), { cols: COLS, rows: ROWS, level: lv, startIdx: COLS >> 1, motif: bp.motif, density: bp.density });
   for (let i = 0; i < G.grid.length; i++) if (obst[i]) G.grid[i] = OBSTACLE;
   setInteriorTotal(openInteriorCount(obst, COLS, ROWS));   // target denominator excludes rock
-  G.veilBoard = genVeilBoard(G.rng.fork('veil'), { cols: COLS, rows: ROWS, level: lv, isOpen: (i) => G.grid[i] === EMPTY });
+  G.veilBoard = genVeilBoard(G.rng.fork('veil'), { cols: COLS, rows: ROWS, level: lv, isOpen: (i) => G.grid[i] === EMPTY, caches: bp.caches, rifts: bp.rifts });
 
-  G.nebula = genNebula(G.pal, lv, PW, PH); G.fog = genFog(G.pal, PW, PH); genTwinkles();
+  G.nebula = genNebula(G.pal, lv, PW, PH, bp.depth); G.fog = genFog(G.pal, PW, PH, bp.depth); genTwinkles();
   for (let i = 0; i < G.grid.length; i++) if (G.grid[i] === FILLED || G.grid[i] === OBSTACLE) clearFogCell(i);
 
   const start = (COLS >> 1);
   G.player = { from: start, to: start, t: 0, dir: null, stopped: true, invuln: 1.0, tail: [], px: centerPx(start) };
   G.buffered = null; G.hasTrail = false; G.trailCells = []; G.trailPoints = [];
-  G.enemies = genEnemies(lv);
+  G.enemies = genEnemies(lv, bp.enemies, bp.setpiece === 'vault');
 
   G.baseSpeed = Math.min(11 + 0.6 * (lv - 1), 18);
-  G.target = Math.min(0.66 + 0.02 * (lv - 1), 0.82);
+  G.target = bp.target;
 
   G.combo = 0; G.comboT = 0;
   G.shakeAmt = 0; G.flash = 0; G.zoom = 1; G.deathFreeze = 0; G.timeScale = 1; G.timeScaleTarget = 1;
@@ -152,8 +154,10 @@ function initLevel(lv) {
   G.pickups.length = 0; G.popups.length = 0; G.particles.length = 0; G.revealQueue.length = 0;
   G.pickupSpawnT = G.rng.range(5, 8);
   recomputeBorderPath(); recomputePercent(); G.dispPercent = G.percent;
-  G.banner = { text: 'LEVEL ' + lv, sub: G.pal.name.toUpperCase() + '  ·  reveal ' + Math.round(G.target * 100) + '%', t: 2.0 };
-  // a level that introduces a new enemy always teaches what it does
+  const floor = ((lv - 1) % 3) + 1;   // which floor of the current band (descent feel)
+  G.banner = { text: bp.title || ('LEVEL ' + lv),
+    sub: G.pal.name.toUpperCase() + '  ·  floor ' + floor + '/3  ·  reveal ' + Math.round(G.target * 100) + '%', t: 2.0 };
+  // a level that introduces a new enemy always teaches what it does (wins over the title)
   const newType = newEnemyAtLevel(lv);
   if (newType) G.banner = { text: ENEMY_INFO[newType].name, sub: ENEMY_INFO[newType].desc, t: 3.4, enemy: newType };
   G.hintActive = (lv === 1);

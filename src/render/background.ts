@@ -20,7 +20,7 @@ export function hexA(hex, a) {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
 
-export function genNebula(p, level, PW, PH) {
+export function genNebula(p, level, PW, PH, depth = 0) {
   level = level || 1;
   const s = createSurface(PW, PH), c = s.ctx;
   c.fillStyle = '#04050d'; c.fillRect(0, 0, PW, PH);
@@ -46,10 +46,11 @@ export function genNebula(p, level, PW, PH) {
 
   // signature accent per band
   if (style === 'magma') {
-    for (let i = 0; i < 7; i++) {                       // glowing lava veins rising from below
+    const veinN = 7 + Math.round(depth * 7);            // calm near the surface, turbulent deep
+    for (let i = 0; i < veinN; i++) {                   // glowing lava veins rising from below
       let vx = rand(0, PW), vy = PH + 10;
-      c.globalAlpha = rand(0.3, 0.6); c.strokeStyle = p.blobs[3]; c.lineWidth = rand(1.5, 3.5);
-      c.shadowColor = p.edge; c.shadowBlur = 8; c.beginPath(); c.moveTo(vx, vy);
+      c.globalAlpha = rand(0.3, 0.6) + depth * 0.2; c.strokeStyle = p.blobs[3]; c.lineWidth = rand(1.5, 3.5) + depth * 1.5;
+      c.shadowColor = p.edge; c.shadowBlur = 8 + depth * 8; c.beginPath(); c.moveTo(vx, vy);
       for (let k = 0; k < 6; k++) { vx += rand(-30, 30); vy -= rand(40, 80); c.lineTo(vx, vy); }
       c.stroke();
     }
@@ -135,7 +136,7 @@ export function genNebula(p, level, PW, PH) {
 }
 
 // Band-specific texture on the dark veil — the surface the player actually stares at.
-function fogSignature(c, pal, style, PW, PH) {
+function fogSignature(c, pal, style, PW, PH, depth = 0) {
   const d1 = pal.blobs[1], d2 = pal.blobs[2];
   if (style === 'caves') {                              // rocky angular shards
     for (let i = 0; i < 26; i++) {
@@ -157,10 +158,11 @@ function fogSignature(c, pal, style, PW, PH) {
       rg.addColorStop(0, hexA(d2, 0.14)); rg.addColorStop(1, 'rgba(0,0,0,0)');
       c.globalAlpha = 1; c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
     }
-  } else if (style === 'magma') {                       // ember cracks
-    for (let i = 0; i < 12; i++) {
+  } else if (style === 'magma') {                       // ember cracks (denser/hotter deeper)
+    const crackN = 8 + Math.round(depth * 16);
+    for (let i = 0; i < crackN; i++) {
       let x = rand(0, PW), y = rand(0, PH);
-      c.globalAlpha = 1; c.strokeStyle = hexA(pal.blobs[3], 0.22); c.lineWidth = rand(0.6, 1.6);
+      c.globalAlpha = 1; c.strokeStyle = hexA(pal.blobs[3], 0.16 + depth * 0.18); c.lineWidth = rand(0.6, 1.6) + depth;
       c.beginPath(); c.moveTo(x, y);
       for (let k = 0; k < 4; k++) { x += rand(-40, 40); y += rand(-40, 40); c.lineTo(x, y); }
       c.stroke();
@@ -186,7 +188,7 @@ function fogSignature(c, pal, style, PW, PH) {
   c.globalAlpha = 1;
 }
 
-export function genFog(pal, PW, PH) {
+export function genFog(pal, PW, PH, depth = 0) {
   const style = pal.style || 'space';
   const s = createSurface(PW, PH), c = s.ctx;
   const d0 = pal.blobs[0], d1 = pal.blobs[1];           // band-tinted near-black
@@ -201,7 +203,7 @@ export function genFog(pal, PW, PH) {
     rg.addColorStop(1, 'rgba(0,0,0,0)');
     c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
   }
-  fogSignature(c, pal, style, PW, PH);
+  fogSignature(c, pal, style, PW, PH, depth);
   for (let i = 0; i < 500; i++) {
     c.globalAlpha = rand(0.02, 0.06);
     c.fillStyle = Math.random() > 0.5 ? hexA(d1, 1) : '#000';

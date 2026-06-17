@@ -12,11 +12,17 @@
 
 import { SeededRng } from '../core/rng';
 
+// Layout motif: how rock is shaped. 'blobs' is the original procedural look;
+// 'open' places none; 'pillars'/'veins' are authored shapes for early bands.
+export type ObstacleMotif = 'open' | 'pillars' | 'veins' | 'blobs';
+
 export interface TerrainParams {
   cols: number;
   rows: number;
   level: number;
-  startIdx: number; // player spawn cell (kept clear)
+  startIdx: number;        // player spawn cell (kept clear)
+  motif?: ObstacleMotif;   // default 'blobs' (procedural)
+  density?: number;        // default obstacleBudget(level)
 }
 
 // Fraction of the interior turned to rock. Levels 1 are open; it ramps after.
@@ -28,16 +34,32 @@ export function obstacleBudget(level: number): number {
 /** Returns a Uint8Array(cols*rows): 1 = obstacle, 0 = open. */
 export function genObstacles(rng: SeededRng, p: TerrainParams): Uint8Array {
   const { cols, rows, level, startIdx } = p;
-  const n = cols * rows;
-  const obst = new Uint8Array(n);
-  const target = Math.floor((cols - 2) * (rows - 2) * obstacleBudget(level));
-  if (target <= 0) return obst;
+  const motif = p.motif ?? 'blobs';
+  const density = p.density ?? obstacleBudget(level);
+  const obst = new Uint8Array(cols * rows);
+  const target = Math.floor((cols - 2) * (rows - 2) * density);
+  if (motif === 'open' || target <= 0) return obst;
 
   const sx = startIdx % cols, sy = (startIdx / cols) | 0;
-  const inInterior = (x: number, y: number) => x > 0 && y > 0 && x < cols - 1 && y < rows - 1;
-  const farFromSpawn = (x: number, y: number) => Math.abs(x - sx) + Math.abs(y - sy) >= 4;
+  if (motif === 'pillars') placePillars(rng, obst, cols, rows, target, sx, sy);
+  else if (motif === 'veins') placeVeins(rng, obst, cols, rows, target, sx, sy);
+  else placeBlobs(rng, obst, cols, rows, target, sx, sy);
 
-  // grow a handful of organic rock blobs via short random walks
+  // Same guarantees for every motif: connected, no dead-ends, spawn kept clear.
+  fillIsolatedPockets(obst, cols, rows, startIdx);
+  erodeDeadEnds(obst, cols, rows);          // no cul-de-sacs the player could get boxed into
+  fillIsolatedPockets(obst, cols, rows, startIdx);
+  return obst;
+}
+
+const inInteriorOf = (cols: number, rows: number) =>
+  (x: number, y: number) => x > 0 && y > 0 && x < cols - 1 && y < rows - 1;
+const farFromSpawnOf = (sx: number, sy: number) =>
+  (x: number, y: number) => Math.abs(x - sx) + Math.abs(y - sy) >= 4;
+
+// Organic rock blobs via short random walks — the original procedural look.
+function placeBlobs(rng: SeededRng, obst: Uint8Array, cols: number, rows: number, target: number, sx: number, sy: number): void {
+  const inInterior = inInteriorOf(cols, rows), farFromSpawn = farFromSpawnOf(sx, sy);
   let count = 0, guard = 0;
   while (count < target && guard++ < 600) {
     let cx = 1 + rng.int(cols - 2), cy = 1 + rng.int(rows - 2);
@@ -50,11 +72,38 @@ export function genObstacles(rng: SeededRng, p: TerrainParams): Uint8Array {
       cy = Math.max(1, Math.min(rows - 2, cy + (d === 2 ? 1 : d === 3 ? -1 : 0)));
     }
   }
+}
 
-  fillIsolatedPockets(obst, cols, rows, startIdx);
-  erodeDeadEnds(obst, cols, rows);          // no cul-de-sacs the player could get boxed into
-  fillIsolatedPockets(obst, cols, rows, startIdx);
-  return obst;
+// Scattered compact columns — discrete obstacles that teach routing.
+function placePillars(rng: SeededRng, obst: Uint8Array, cols: number, rows: number, target: number, sx: number, sy: number): void {
+  const inInterior = inInteriorOf(cols, rows), farFromSpawn = farFromSpawnOf(sx, sy);
+  const stamp = [[0, 0], [1, 0], [0, 1], [1, 1]];   // a 2x2 column
+  let count = 0, guard = 0;
+  while (count < target && guard++ < 600) {
+    const cx = 1 + rng.int(cols - 2), cy = 1 + rng.int(rows - 2);
+    if (!farFromSpawn(cx, cy)) continue;
+    for (const [dx, dy] of stamp) {
+      const x = cx + dx, y = cy + dy, i = y * cols + x;
+      if (count < target && inInterior(x, y) && farFromSpawn(x, y) && !obst[i]) { obst[i] = 1; count++; }
+    }
+  }
+}
+
+// Linear lava-crack walls that carve the board into chambers (and a deep vault).
+function placeVeins(rng: SeededRng, obst: Uint8Array, cols: number, rows: number, target: number, sx: number, sy: number): void {
+  const inInterior = inInteriorOf(cols, rows), farFromSpawn = farFromSpawnOf(sx, sy);
+  const dirs = [[1, 0], [0, 1], [1, 1], [1, -1]];   // horizontal, vertical, two diagonals
+  let count = 0, guard = 0;
+  while (count < target && guard++ < 400) {
+    let cx = 1 + rng.int(cols - 2), cy = 1 + rng.int(rows - 2);
+    const [dx, dy] = dirs[rng.int(dirs.length)];
+    const len = 4 + rng.int(8);
+    for (let k = 0; k < len && count < target; k++) {
+      if (inInterior(cx, cy) && farFromSpawn(cx, cy) && !obst[cy * cols + cx]) { obst[cy * cols + cx] = 1; count++; }
+      cx += dx; cy += dy;
+      if (cx <= 0 || cx >= cols - 1 || cy <= 0 || cy >= rows - 1) break;
+    }
+  }
 }
 
 function openNeighbors(obst: Uint8Array, cols: number, rows: number, i: number): number {

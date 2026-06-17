@@ -12,6 +12,7 @@ import { clamp } from '../core/math';
 import { CELL, COLS, ROWS } from '../core/dims';
 import { EMPTY, FILLED, OBSTACLE } from '../core/constants';
 import { centerPx, cellOfPx } from '../core/grid';
+import { exposureField } from '../sim/veil';
 import { spawnPopup } from './particles';
 import { hapticHeavy } from '../platform/haptics';
 
@@ -20,9 +21,12 @@ export function eCell(e) {
   const cy = clamp(Math.floor(e.y / CELL), 0, ROWS - 1);
   return cy * COLS + cx;
 }
+export interface EnemyCounts { drifter: number; chaser: number; cutter: number; sentinel: number; sleeper: number; }
+
 // Staggered introduction: drifters alone early, then a new type every ~3 levels
-// so each enemy gets room to breathe before the next arrives.
-function enemyCounts(lv) {
+// so each enemy gets room to breathe before the next arrives. This is the
+// procedural fallback; authored levels override counts via their blueprint.
+export function enemyCounts(lv): EnemyCounts {
   return {
     drifter: Math.min(1 + Math.floor(lv / 2), 6),
     chaser: lv >= 3 ? Math.min(1 + Math.floor((lv - 3) / 3), 2) : 0,
@@ -35,21 +39,21 @@ export const ENEMY_INFO = {
   chaser: { name: 'CHASER', desc: 'hunts you and your trail' },
   cutter: { name: 'CUTTER', desc: 'races to slice your line' },
   sentinel: { name: 'SENTINEL', desc: 'attacks while you rest on land' },
-  sleeper: { name: 'VEIL-SLEEPER', desc: 'reveals in the dark wake it' },
+  sleeper: { name: 'GUARDIAN', desc: 'sleeps on the vault — breach it and it wakes' },
 };
-// The non-basic enemy first introduced at this level (its spawn count rises
-// from 0), or null. Derived from enemyCounts so the intro card always tracks
-// the real schedule — even if a level is skipped or the schedule changes.
-export function newEnemyAtLevel(lv: number): string | null {
-  const cur = enemyCounts(lv), prev = enemyCounts(lv - 1);
-  for (const t of ['chaser', 'cutter', 'sentinel', 'sleeper']) {
-    if (cur[t] > 0 && prev[t] === 0) return t;
-  }
-  return null;
+// Deterministically pick the k deepest open cells (max distance from any wall/
+// rock) — where the vault and its guardian belong. Ties break by index so the
+// choice is stable across engines (the daily replays it).
+function deepestOpenCells(k: number): number[] {
+  const dist = exposureField(COLS, ROWS, (i) => G.grid[i] === EMPTY);
+  const open: number[] = [];
+  for (let i = 0; i < dist.length; i++) if (G.grid[i] === EMPTY) open.push(i);
+  open.sort((a, b) => (dist[b] - dist[a]) || (a - b));
+  return open.slice(0, k);
 }
-export function genEnemies(lv) {
+export function genEnemies(lv, counts: EnemyCounts = enemyCounts(lv), vault = false) {
   const out = [];
-  const n = enemyCounts(lv);
+  const n = counts;
   const spd = Math.min(115 + 8 * (lv - 1), 205);
   const sc = centerPx((COLS >> 1));
   function spawnCell(minGap, needEmpty) {
@@ -74,7 +78,16 @@ export function genEnemies(lv) {
   for (let i = 0; i < n.chaser; i++) place('chaser', spd * 0.74);
   for (let i = 0; i < n.cutter; i++) place('cutter', spd * 0.8);
   for (let i = 0; i < n.sentinel; i++) place('sentinel', spd * 0.82);
-  for (let i = 0; i < n.sleeper; i++) placeSleeper(spd * 0.95);
+  if (n.sleeper > 0 && vault) {
+    // vault guardians sit on the deepest cells (the prize), and hunt at a
+    // readable, escapable pace once breached — a chosen risk, not an ambush.
+    for (const idx of deepestOpenCells(n.sleeper)) {
+      const c = centerPx(idx);
+      out.push({ x: c.x, y: c.y, vx: 0, vy: 0, r: CELL * 0.42, type: 'sleeper', asleep: true, speed: spd * 0.7, comp: spd * 0.7 * 0.7071, steerT: 0 });
+    }
+  } else {
+    for (let i = 0; i < n.sleeper; i++) placeSleeper(spd * 0.95);
+  }
   return out;
 }
 export function moveEnemy(e, dt) {

@@ -10,7 +10,7 @@ import { G } from '../game/state';
 import { centerPx } from '../core/grid';
 import { CELL, COLS, ROWS, OFF_X, OFF_Y, PW, PH, CW, CH } from '../core/dims';
 import { TAU, clamp, rand } from '../core/math';
-import { OBSTACLE } from '../core/constants';
+import { EMPTY, OBSTACLE } from '../core/constants';
 import { VEIL_CACHE } from '../sim/veil';
 import { hexA } from './background';
 import { roundRectPath, drawGlowOrb, pointAlong, glowText } from './primitives';
@@ -89,15 +89,35 @@ function drawShootingStars() {
   ctx.restore();
 }
 function drawObstacles() {
+  const magma = G.pal.style === 'magma';
   ctx.save();
   for (let y = 1; y < ROWS - 1; y++) {
     for (let x = 1; x < COLS - 1; x++) {
-      if (G.grid[y * COLS + x] !== OBSTACLE) continue;
+      const idx = y * COLS + x;
+      if (G.grid[idx] !== OBSTACLE) continue;
       const px = x * CELL, py = y * CELL;
-      ctx.fillStyle = G.pal.blobs[1];                      // band-tinted solid mass (ice/coral/rock/asteroid)
-      ctx.fillRect(px, py, CELL, CELL);
-      ctx.fillStyle = hexA(G.pal.edge2, 0.16); ctx.fillRect(px, py, CELL, 2);          // themed top light
-      ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(px, py + CELL - 2, CELL, 2);  // bottom shadow
+      if (magma) {
+        // cooled basalt: dark body with a glowing lava seam only where it meets
+        // open space, so the seams trace the chamber outlines like cracks.
+        ctx.fillStyle = G.pal.blobs[1];
+        ctx.fillRect(px, py, CELL, CELL);
+        ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(px, py + CELL - 2, CELL, 2);
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = G.pal.blobs[3]; ctx.lineWidth = 1.5;   // lava orange, no blur (cheap)
+        ctx.beginPath();
+        if (G.grid[idx - COLS] === EMPTY) { ctx.moveTo(px + 0.5, py + 0.75); ctx.lineTo(px + CELL - 0.5, py + 0.75); }
+        if (G.grid[idx + COLS] === EMPTY) { ctx.moveTo(px + 0.5, py + CELL - 0.75); ctx.lineTo(px + CELL - 0.5, py + CELL - 0.75); }
+        if (G.grid[idx - 1] === EMPTY) { ctx.moveTo(px + 0.75, py + 0.5); ctx.lineTo(px + 0.75, py + CELL - 0.5); }
+        if (G.grid[idx + 1] === EMPTY) { ctx.moveTo(px + CELL - 0.75, py + 0.5); ctx.lineTo(px + CELL - 0.75, py + CELL - 0.5); }
+        ctx.stroke();
+        ctx.restore();
+      } else {
+        ctx.fillStyle = G.pal.blobs[1];                      // band-tinted solid mass (ice/coral/rock/asteroid)
+        ctx.fillRect(px, py, CELL, CELL);
+        ctx.fillStyle = hexA(G.pal.edge2, 0.16); ctx.fillRect(px, py, CELL, 2);          // themed top light
+        ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(px, py + CELL - 2, CELL, 2);  // bottom shadow
+      }
     }
   }
   ctx.restore();
