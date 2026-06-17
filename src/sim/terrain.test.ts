@@ -77,4 +77,40 @@ describe('terrain', () => {
     const o = gen(3, 10);
     expect(openInteriorCount(o, COLS, ROWS)).toBe((COLS - 2) * (ROWS - 2) - sum(o));
   });
+
+  // motif layouts must hold the same guarantees as the default blobs.
+  for (const motif of ['pillars', 'veins'] as const) {
+    it(`motif '${motif}' stays connected, dead-end-free, spawn-clear, mostly open`, () => {
+      for (let seed = 1; seed <= 30; seed++) {
+        const o = genObstacles(new SeededRng(seed), { cols: COLS, rows: ROWS, level: 3, startIdx: START, motif, density: 0.08 });
+        expect(o[START]).toBe(0);                                    // spawn clear
+        expect(allOpenReachable(o, COLS, ROWS, START)).toBe(true);   // connected
+        expect(openInteriorCount(o, COLS, ROWS)).toBeGreaterThan((COLS - 2) * (ROWS - 2) * 0.5);  // mostly open
+        for (let y = 1; y < ROWS - 1; y++)
+          for (let x = 1; x < COLS - 1; x++) {
+            const i = y * COLS + x;
+            if (o[i]) continue;
+            let c = 0;
+            if (!o[i + 1]) c++; if (!o[i - 1]) c++; if (!o[i + COLS]) c++; if (!o[i - COLS]) c++;
+            expect(c).toBeGreaterThanOrEqual(2);                     // no dead-ends
+          }
+      }
+    });
+  }
+
+  it("motif 'open' places nothing", () => {
+    const o = genObstacles(new SeededRng(5), { cols: COLS, rows: ROWS, level: 3, startIdx: START, motif: 'open', density: 0.08 });
+    expect(sum(o)).toBe(0);
+  });
+
+  // Determinism guard: deep levels fall back to explicit blobs + obstacleBudget,
+  // which must be byte-identical to the default (no-motif) path the daily replays.
+  it('blobs fallback == default path (deep levels unchanged)', () => {
+    for (const level of [4, 6, 10, 20])
+      for (let seed = 1; seed <= 10; seed++) {
+        const fallback = genObstacles(new SeededRng(seed), { cols: COLS, rows: ROWS, level, startIdx: START, motif: 'blobs', density: obstacleBudget(level) });
+        const def = genObstacles(new SeededRng(seed), { cols: COLS, rows: ROWS, level, startIdx: START });
+        expect(Array.from(fallback)).toEqual(Array.from(def));
+      }
+  });
 });

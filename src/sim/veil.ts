@@ -20,6 +20,8 @@ export interface VeilGenParams {
   rows: number;
   level: number;
   isOpen: (idx: number) => boolean; // a placeable interior cell (open, not border/filled)
+  caches?: number;                  // override count (default veilCacheCount)
+  rifts?: number;                   // override count (default veilHazardCount)
 }
 
 // Caches show from level 1 (pure reward intro); rifts only appear from level 3.
@@ -39,17 +41,18 @@ export function genVeilBoard(rng: SeededRng, p: VeilGenParams): Uint8Array {
   // exposure = distance from the nearest wall/rock. Deep cells need a big, risky
   // cut to enclose, so weighting caches toward them makes boldness out-score nibbling.
   const dist = exposureField(p.cols, p.rows, p.isOpen);
-  placeWeighted(board, open, rng, VEIL_CACHE, veilCacheCount(p.level), (i) => {
+  placeWeighted(board, open, rng, VEIL_CACHE, p.caches ?? veilCacheCount(p.level), (i) => {
     const d = dist[i];
     return d > 0 ? d * d : 0.01;
   });
   // rifts spread roughly evenly across what's left
-  placeWeighted(board, open, rng, VEIL_HAZARD, veilHazardCount(p.level), () => 1);
+  placeWeighted(board, open, rng, VEIL_HAZARD, p.rifts ?? veilHazardCount(p.level), () => 1);
   return board;
 }
 
 // Multi-source BFS: distance from each open cell to the nearest non-open cell.
-function exposureField(cols: number, rows: number, isOpen: (i: number) => boolean): Int32Array {
+// Exported so the vault guardian can be placed on the deepest (most exposed) cell.
+export function exposureField(cols: number, rows: number, isOpen: (i: number) => boolean): Int32Array {
   const n = cols * rows;
   const dist = new Int32Array(n).fill(-1);
   const q: number[] = [];
