@@ -36,7 +36,7 @@ import { dailyBtnRect, pauseBtnRect, pauseHomeRect, goBtnRects, scoresBtnRect } 
 import { drawHUD } from './render/hud';
 import { drawMenu, drawLevelClear, drawGameOver, drawPaused, drawAttractWorld, drawScores } from './render/overlays';
 import {
-  initAudio, setMuted, isMuted, setPadLevel,
+  initAudio, resumeAudio, setMuted, isMuted, setPadLevel,
   sfxStartDraw, sfxCapture, sfxBold, sfxDeath, sfxLevel, sfxPickup, sfxShield, sfxBlip, sfxBest, sfxDailyClear,
   setMusicIntensity, setMusicTheme,
 } from './audio/audio';
@@ -467,4 +467,8 @@ canvas.addEventListener('mousedown', (e) => { pointerDown(localPt(e)); });
 window.addEventListener('mousemove', (e) => { if (G.joyActive && G.state === 'playing') joyMove(localPt(e)); });
 window.addEventListener('mouseup', () => { joyEnd(); });
 
-document.addEventListener('visibilitychange', () => { if (document.hidden && G.state === 'playing') G.state = 'paused'; last = 0; });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { if (G.state === 'playing') G.state = 'paused'; }
+  else resumeAudio();   // browser suspends the context when hidden; revive it on return
+  last = 0;
+});

@@ -105,7 +105,12 @@ function loop() {
   if (!playing) return;
   cur += (intensity - cur) * 0.06;                                  // smooth intensity glide
   const sps = (60 / theme.bpm) / 4;
-  while (nextTime < ctx.currentTime + LOOKAHEAD) {
+  // If we fell behind (backgrounded tab, a hitch, or the context just resumed),
+  // snap forward instead of scheduling a huge backlog all at once — that flood
+  // is what made the audio glitch/"get stuck".
+  if (nextTime < ctx.currentTime) { nextTime = ctx.currentTime + 0.05; step = 0; }
+  let guard = 0;
+  while (nextTime < ctx.currentTime + LOOKAHEAD && guard++ < 64) {
     scheduleStep(step, nextTime);
     nextTime += sps;
     step = (step + 1) % STEPS;

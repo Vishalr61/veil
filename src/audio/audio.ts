@@ -5,14 +5,14 @@
 import { initMusic, startMusic } from './music';
 export { setMusicIntensity, setMusicTheme } from './music';
 
-let ac: any = null, masterGain: any = null, padGain: any = null, musicGain: any = null;
+let ac: any = null, masterGain: any = null, padGain: any = null, musicGain: any = null, sfxGain: any = null;
 let muted = false;
 try { muted = localStorage.getItem('veil_muted') === '1'; } catch (e) {}
 
 export function isMuted() { return muted; }
 
 export function initAudio() {
-  if (ac) return;
+  if (ac) { resumeAudio(); return; }   // already up — just make sure it's running
   try {
     ac = new (window.AudioContext || (window as any).webkitAudioContext)();
     // master glue: a gentle compressor keeps music + SFX from clipping when they stack
@@ -28,11 +28,17 @@ export function initAudio() {
     musicGain = ac.createGain();        // music bus, faded up after start
     musicGain.gain.value = 0.0;
     musicGain.connect(masterGain);
+    sfxGain = ac.createGain();          // SFX sit UNDER the music so they don't clash
+    sfxGain.gain.value = 0.6;
+    sfxGain.connect(masterGain);
     startPad();
     initMusic(ac, musicGain); startMusic();
     musicGain.gain.linearRampToValueAtTime(0.4, ac.currentTime + 1.5);
   } catch (e) { ac = null; }
 }
+// Resume a context the browser suspended (tab switch / mobile) — otherwise the
+// music goes silent and never recovers ("gets stuck").
+export function resumeAudio() { try { if (ac && ac.state === 'suspended') ac.resume(); } catch (e) {} }
 function startPad() {
   if (!ac) return;
   [55, 82.4, 110].forEach((f, i) => {
@@ -56,10 +62,10 @@ function tone(freq: number, dur: number, type?: string, gain?: number, when?: nu
   g.gain.setValueAtTime(0.0001, t0);
   g.gain.exponentialRampToValueAtTime(gain as number, t0 + 0.012);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  o.connect(g); g.connect(masterGain);
+  o.connect(g); g.connect(sfxGain || masterGain);
   o.start(t0); o.stop(t0 + dur + 0.02);
 }
-export function sfxStartDraw() { tone(420, 0.12, 'triangle', 0.10, 0, 540); }
+export function sfxStartDraw() { tone(420, 0.1, 'triangle', 0.06, 0, 540); }   // movement cue — kept subtle under the music
 export function sfxCapture(ch: number) {
   const base = 360 + Math.min(ch, 8) * 40;
   [0, 4, 7, 11].forEach((n, i) => tone(base * Math.pow(2, n / 12), 0.22, 'triangle', 0.10, i * 0.045, base * Math.pow(2, n / 12) * 1.5));
