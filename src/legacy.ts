@@ -32,7 +32,7 @@ import { recomputeBorderPath, recomputePercent } from './game/capture';
 import { submitScore } from './game/leaderboard';
 import { maybeSpawnPickup, updatePickups } from './game/powerups';
 import { updatePlayer, checkCollisions, respawnAt, clearTrail } from './game/player';
-import { dailyBtnRect, pauseBtnRect, pauseHomeRect, goBtnRects, scoresBtnRect } from './render/geometry';
+import { dailyBtnRect, pauseBtnRect, pauseHomeRect, pauseMuteRect, pauseMotionRect, muteBtnRect, goBtnRects, scoresBtnRect } from './render/geometry';
 import { drawHUD } from './render/hud';
 import { drawMenu, drawLevelClear, drawGameOver, drawPaused, drawAttractWorld, drawScores } from './render/overlays';
 import {
@@ -441,9 +441,12 @@ function pointerDown(p) {
   initAudio();
   if (G.state === 'playing') {
     if (inRect(p.x, p.y, pauseBtnRect())) { G.state = 'paused'; return; }
+    if (inRect(p.x, p.y, muteBtnRect())) { setMuted(!isMuted()); sfxBlip(); return; }   // quick mute
     joyStart(p); return;
   }
   if (G.state === 'paused') {
+    if (inRect(p.x, p.y, pauseMuteRect())) { setMuted(!isMuted()); sfxBlip(); return; }
+    if (inRect(p.x, p.y, pauseMotionRect())) { toggleReduce(); return; }
     if (inRect(p.x, p.y, pauseHomeRect())) { goHome(); return; }
     G.state = 'playing'; return;
   }
