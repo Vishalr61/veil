@@ -73,4 +73,14 @@ export function drawHUD() {
   let rx = CW - 120;
   if (G.shield) { drawGlowOrb(rx, cy, 4.5, '#7dffc4', '#7dffc4', 13); rx -= 17; }
   for (let i = 0; i < Math.min(G.lives, 6); i++) drawGlowOrb(rx - i * 15, cy, 4, '#fff', G.pal.player, 11);
+
+  // LEVEL TIME — a bar that depletes along the bottom of the HUD; reddens + pulses when low
+  const tf = clamp(1 - G.levelT / G.levelTimeMax, 0, 1);
+  const tcol = tf > 0.33 ? G.pal.edge : tf > 0.12 ? '#ffb15a' : '#ff5a4a';
+  const tpulse = tf < 0.12 ? 0.5 + 0.5 * Math.sin(G.time * 10) : 1;
+  ctx.save();
+  ctx.globalAlpha = 0.2; ctx.fillStyle = '#ffffff'; ctx.fillRect(0, HUD_H - 3, CW, 2);
+  ctx.globalAlpha = 0.9 * tpulse; ctx.fillStyle = tcol; ctx.shadowColor = tcol; ctx.shadowBlur = 6;
+  ctx.fillRect(0, HUD_H - 3, CW * tf, 2);
+  ctx.restore();
 }

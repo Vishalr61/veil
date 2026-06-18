@@ -140,6 +140,14 @@ function triggerDeath() {
   }
 }
 
+// The level timer ran out — lose a life (Airxonix). Reset the clock for the retry.
+export function timeoutDeath() {
+  if (G.deathFreeze > 0 || G.player.invuln > 0 || G.state !== 'playing') return;
+  spawnPopup(G.player.px.x, G.player.px.y, 'TIME!', '#ff6b7e', 18);
+  G.levelT = 0;
+  triggerDeath();
+}
+
 export function clearTrail() {
   for (const idx of G.trailCells) if (G.grid[idx] === TRAIL) G.grid[idx] = EMPTY;
   G.trailCells = []; G.trailPoints = []; G.hasTrail = false;

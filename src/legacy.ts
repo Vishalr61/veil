@@ -31,7 +31,7 @@ import { blueprintForLevel, newEnemyAtLevel, dailyBlueprint, dailyNewEnemy, DAIL
 import { recomputeBorderPath, recomputePercent } from './game/capture';
 import { submitScore } from './game/leaderboard';
 import { maybeSpawnPickup, updatePickups } from './game/powerups';
-import { updatePlayer, checkCollisions, respawnAt, clearTrail } from './game/player';
+import { updatePlayer, checkCollisions, respawnAt, clearTrail, timeoutDeath } from './game/player';
 import { dailyBtnRect, pauseBtnRect, pauseHomeRect, pauseMuteRect, pauseMotionRect, muteBtnRect, goBtnRects, scoresBtnRect } from './render/geometry';
 import { drawHUD } from './render/hud';
 import { drawMenu, drawLevelClear, drawGameOver, drawPaused, drawAttractWorld, drawScores } from './render/overlays';
@@ -181,7 +181,8 @@ function initLevel(lv) {
   // by enemies / speed / music. Covers campaign, daily, and procedural alike.
   G.target = Math.min(bp.target, 0.74);
 
-  G.combo = 0; G.comboT = 0;
+  G.combo = 0; G.comboT = 0; G.levelT = 0;
+  G.levelTimeMax = Math.max(35, 70 - lv * 1.5);   // level time budget — generous early, tighter later
   G.shakeAmt = 0; G.flash = 0; G.zoom = 1; G.deathFreeze = 0; G.timeScale = 1; G.timeScaleTarget = 1;
   G.enemyFreezeT = 0; G.enemySlowT = 0; G.surgeT = 0; G.shield = false;
   G.pickups.length = 0; G.popups.length = 0; G.particles.length = 0; G.revealQueue.length = 0;
@@ -208,7 +209,9 @@ function startGame(seed?: number) {
 }
 function winLevel() {
   const pctBonus = Math.round(G.percent * 100) * G.level * 6, lifeBonus = G.lives * 350;
-  G.lastBonus = pctBonus + lifeBonus; G.score += G.lastBonus;
+  // speed bonus: reward the time you had left on the clock
+  G.lastTimeBonus = Math.max(0, Math.round((G.levelTimeMax - G.levelT) * (8 + G.level)));
+  G.lastBonus = pctBonus + lifeBonus + G.lastTimeBonus; G.score += G.lastBonus;
   G.state = 'levelclear'; G.lcTimer = 2.9; G.flash = G.reduceMotion ? 0.2 : 0.5;
   sfxLevel();
   for (let i = 0; i < 60; i++)
@@ -253,9 +256,9 @@ function update(dt) {
         spawnPopup(G.player.px.x, G.player.px.y - 30, 'NEW BEST!', '#ffe27a', 18);
         G.flash = G.reduceMotion ? 0.15 : 0.4; sfxBest();
       }
-      // capture happens inside updatePlayer; check the win condition once here
-      // rather than from capture so flow control stays in one place.
-      if (G.percent >= G.target) winLevel();
+      G.levelT += dt;
+      if (G.levelT >= G.levelTimeMax) timeoutDeath();          // ran out of time -> lose a life (Airxonix)
+      else if (G.percent >= G.target) winLevel();              // auto-clear once the target is revealed
       else {
         if (G.enemyFreezeT <= 0) { const edt = wdt * (G.enemySlowT > 0 ? 0.38 : 1); for (const e of G.enemies) moveEnemy(e, edt); }
         maybeSpawnPickup(dt);
