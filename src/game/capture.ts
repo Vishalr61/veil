@@ -93,7 +93,7 @@ export function doCapture() {
       G.zoom = G.reduceMotion ? 1 : 1 + Math.min(0.025, area * 0.0004);
     }
     G.shakeAmt = G.reduceMotion ? 0 : Math.min(10, 2.5 + area * 0.04);
-    sfxCapture(G.combo);
+    sfxCapture(G.combo, area);
     G.hintActive = false;
     if (G.onboarding) {                    // first-ever capture: the "whoa" beat
       G.onboarding = false; G.onboarded = true;

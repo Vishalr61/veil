@@ -172,7 +172,9 @@ function initLevel(lv) {
   G.buffered = null; G.hasTrail = false; G.trailCells = []; G.trailPoints = [];
   G.enemies = genEnemies(lv, bp.enemies);
 
-  G.baseSpeed = Math.min(11 + 0.6 * (lv - 1), 18);
+  // gentler ramp + a lower cap so high levels stay controllable (was 11 + 0.6*lv, cap 18,
+  // which hit max ~L12 and felt twitchy/buggy to steer).
+  G.baseSpeed = Math.min(11 + 0.32 * (lv - 1), 15);
   G.target = bp.target;
 
   G.combo = 0; G.comboT = 0;

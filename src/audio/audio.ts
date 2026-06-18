@@ -66,9 +66,26 @@ function tone(freq: number, dur: number, type?: string, gain?: number, when?: nu
   o.start(t0); o.stop(t0 + dur + 0.02);
 }
 export function sfxStartDraw() { tone(420, 0.1, 'triangle', 0.06, 0, 540); }   // movement cue — kept subtle under the music
-export function sfxCapture(ch: number) {
-  const base = 360 + Math.min(ch, 8) * 40;
-  [0, 4, 7, 11].forEach((n, i) => tone(base * Math.pow(2, n / 12), 0.22, 'triangle', 0.10, i * 0.045, base * Math.pow(2, n / 12) * 1.5));
+// The core "claim" sound: a rising filtered sweep (longer/higher the bigger the
+// area you just took) capped by a bright confirm chord (pitched up by combo).
+export function sfxCapture(combo: number, area: number) {
+  if (!ac || muted) return;
+  const big = Math.min((area || 1) / 130, 1);            // 0..1 how much you claimed
+  const t0 = ac.currentTime, dur = 0.22 + 0.16 * big;
+  const o = ac.createOscillator(), lp = ac.createBiquadFilter(), g = ac.createGain();
+  o.type = 'sawtooth';
+  o.frequency.setValueAtTime(170, t0);
+  o.frequency.exponentialRampToValueAtTime(360 + 520 * big, t0 + dur);
+  lp.type = 'lowpass'; lp.Q.value = 5;
+  lp.frequency.setValueAtTime(320, t0);
+  lp.frequency.exponentialRampToValueAtTime(3200 + 1800 * big, t0 + dur);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(0.12, t0 + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur + 0.04);
+  o.connect(lp); lp.connect(g); g.connect(sfxGain || masterGain);
+  o.start(t0); o.stop(t0 + dur + 0.1);
+  const base = 540 + Math.min(combo, 8) * 46;            // confirm chord, rises with the chain
+  [0, 7, 12].forEach((n, i) => tone(base * Math.pow(2, n / 12), 0.16, 'triangle', 0.06, dur * 0.6 + i * 0.03));
 }
 export function sfxBold() { [0, 7, 12, 19].forEach((n, i) => tone(330 * Math.pow(2, n / 12), 0.3, 'sawtooth', 0.08, i * 0.05)); }
 export function sfxDeath() { tone(220, 0.5, 'sawtooth', 0.18, 0, 50); tone(110, 0.6, 'square', 0.10, 0.02, 40); }
