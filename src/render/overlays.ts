@@ -16,6 +16,7 @@ import { genNebula } from './background';
 import { drawShootingStars } from './world';
 import { BANDS, RIFT_BAND } from '../core/bands';
 import { getScores, justSetEntry } from '../game/leaderboard';
+import { getLifetime } from '../game/stats';
 import { DAILY_FLOORS } from '../game/blueprints';
 
 function dim(a) { ctx.save(); ctx.fillStyle = `rgba(3,5,12,${a})`; ctx.fillRect(0, 0, CW, CH); ctx.restore(); }
@@ -79,6 +80,12 @@ export function drawScores() {
       glowText(fmtScore(e.score), lx + 34, y, 18, isHot ? '#fff' : i === 0 ? '#ffe27a' : '#cfe6ff', { align: 'left', font: 'mono', blur: isHot ? 12 : 6, core: isHot ? '#fff' : undefined, spacing: 1 });
       glowText('L' + e.level + (e.daily ? '  D' : ''), rx, y, 13, isHot ? '#9fd0ff' : '#8fa8d8', { align: 'right', font: 'mono', spacing: 1 });
     });
+  }
+  // lifetime totals — a sense-of-progression footer across all runs on this device
+  const lt = getLifetime();
+  if (lt.runs > 0) {
+    const parts = [lt.runs + ' RUN' + (lt.runs > 1 ? 'S' : ''), lt.caches + ' CACHES', 'CHAIN ' + lt.bestChain + 'x', 'L' + lt.bestLevel];
+    glowText(parts.join('   ·   '), cx, CH * 0.80, 11, '#7f97c8', { blur: 5, font: 'mono', spacing: 1, weight: 700 });
   }
   const blink = 0.5 + 0.5 * Math.sin(G.menuT * 3);
   glowText('TAP TO RETURN', cx, CH * 0.87, 14, '#cfe6ff', { blur: 10, weight: 700, spacing: 2, alpha: blink });

@@ -30,6 +30,7 @@ import { ENEMY_INFO, genEnemies, moveEnemy } from './game/enemies';
 import { blueprintForLevel, newEnemyAtLevel, dailyBlueprint, dailyNewEnemy, DAILY_FLOORS } from './game/blueprints';
 import { recomputeBorderPath, recomputePercent } from './game/capture';
 import { submitScore } from './game/leaderboard';
+import { recordRun } from './game/stats';
 import { maybeSpawnPickup, updatePickups } from './game/powerups';
 import { updatePlayer, checkCollisions, respawnAt, clearTrail, timeoutDeath } from './game/player';
 import { playBtnRect, dailyBtnRect, pauseBtnRect, pauseHomeRect, pauseMuteRect, pauseMotionRect, muteBtnRect, goBtnRects, scoresBtnRect } from './render/geometry';
@@ -123,6 +124,7 @@ function finalizeDaily() {
 function persistHighAndRank() {
   if (G.score > G.highScore) { G.highScore = G.score; try { localStorage.setItem('veil_highscore', String(G.highScore)); } catch (e) {} sfxBest(); }
   G.lastRank = submitScore({ score: Math.round(G.score), level: G.level, date: todayKey(new Date()), daily: G.isDaily });
+  recordRun(G.runCaches, G.maxCombo, G.level);   // fold into lifetime totals (scores-screen footer)
 }
 // Cleared all 10 Rift floors — the win condition for the daily.
 function completeDaily() {
