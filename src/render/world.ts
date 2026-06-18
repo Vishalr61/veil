@@ -504,7 +504,7 @@ function bond(x1, y1, x2, y2, col) {
 // Drifter — a calm little atom: a nucleus with two electrons on a smooth
 // circular orbit (no tumbling, so it reads cleanly while it bounces). Inert.
 function drawDrifterBody(e, o, pulse) {
-  const a = G.reduceMotion ? 0.3 : G.time * 0.8 + e.x * 0.3;
+  const a = G.reduceMotion ? 0.3 : G.time * 0.28 + e.x * 0.3;
   const rad = e.r * 1.05;
   molNode(e.x, e.y, e.r * 0.55 * (pulse || 1), o.col, o.glow);
   for (let i = 0; i < 2; i++) {
@@ -712,19 +712,19 @@ export function drawWorld() {
     }
     ctx.globalAlpha = blink; ctx.globalCompositeOperation = 'source-over';
     const px = G.player.px.x, py = G.player.px.y;
-    // molecular hero, kept simple: a nucleus + a single electron shell.
-    drawGlowOrb(px, py, 3.6, '#eaf2ff', G.pal.player, 13);
+    // molecular hero, kept simple + restrained: a nucleus + a single electron shell.
+    drawGlowOrb(px, py, 3.1, '#dfe8f5', G.pal.player, 7);
     ctx.globalCompositeOperation = 'lighter';
     if (G.shield) {
       ctx.strokeStyle = '#7dffc4'; ctx.globalAlpha = (0.5 + 0.25 * Math.sin(G.time * 6)) * blink;
       ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 17, 0, TAU); ctx.stroke();
     }
     const oR = 13, oMin = 5, tilt = -0.5, spin = G.reduceMotion ? 0.6 : G.time * 2.2;
-    ctx.strokeStyle = G.pal.edge2; ctx.globalAlpha = 0.32 * blink; ctx.lineWidth = 1;
+    ctx.strokeStyle = G.pal.edge2; ctx.globalAlpha = 0.26 * blink; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.ellipse(px, py, oR, oMin, tilt, 0, TAU); ctx.stroke();
     const ox = Math.cos(spin) * oR, oy = Math.sin(spin) * oMin;
     const ex = px + ox * Math.cos(tilt) - oy * Math.sin(tilt), ey = py + ox * Math.sin(tilt) + oy * Math.cos(tilt);
-    ctx.globalAlpha = 0.9 * blink; drawGlowOrb(ex, ey, 1.6, '#dcefff', G.pal.edge2, 6);
+    ctx.globalAlpha = 0.85 * blink; drawGlowOrb(ex, ey, 1.3, '#cfe0f0', G.pal.edge2, 4);
     ctx.restore();
   }
 
