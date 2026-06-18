@@ -48,6 +48,7 @@ export const G = {
   prevHighScore: 0,   // best at the START of this run (for the game-over "+X over best")
   lastRank: 0,        // leaderboard rank of the just-finished run (0 = off the table)
   beatBestThisRun: false,   // fired the one-time "NEW BEST!" pop when the live score passed it
+  maxCombo: 0, runCaches: 0,   // run summary stats for the game-over recap
   lives: 3,
   combo: 0, comboT: 0,
   percent: 0, dispPercent: 0,
@@ -55,7 +56,7 @@ export const G = {
   baseSpeed: 9.5,
   time: 0, menuT: 0,
   lcTimer: 0, goTimer: 0,
-  lastBonus: 0, lastTimeBonus: 0,
+  lastBonus: 0, lastTimeBonus: 0, lastOverBonus: 0,
   levelT: 0,           // seconds spent on the current level
   levelTimeMax: 60,    // level time budget — run out and you lose a life (Airxonix-style)
 
@@ -81,6 +82,7 @@ export const G = {
   deathFreeze: 0, hitstop: 0, drawSoundLock: 0,
   enemyFreezeT: 0, enemySlowT: 0,     // power-up effects on enemies
   surgeT: 0,                          // daily SURGE: 2x score while active
+  scanT: 0,                           // SCAN: reveal the veil's hidden caches/rifts board-wide
   shield: false,
   pickupSpawnT: 6,
   shootingStars: [] as any[], shootTimer: 4,

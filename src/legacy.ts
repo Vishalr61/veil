@@ -30,6 +30,7 @@ import { ENEMY_INFO, genEnemies, moveEnemy } from './game/enemies';
 import { blueprintForLevel, newEnemyAtLevel, dailyBlueprint, dailyNewEnemy, DAILY_FLOORS } from './game/blueprints';
 import { recomputeBorderPath, recomputePercent } from './game/capture';
 import { submitScore } from './game/leaderboard';
+import { recordRun } from './game/stats';
 import { maybeSpawnPickup, updatePickups } from './game/powerups';
 import { updatePlayer, checkCollisions, respawnAt, clearTrail, timeoutDeath } from './game/player';
 import { playBtnRect, dailyBtnRect, pauseBtnRect, pauseHomeRect, pauseMuteRect, pauseMotionRect, muteBtnRect, goBtnRects, scoresBtnRect } from './render/geometry';
@@ -123,6 +124,7 @@ function finalizeDaily() {
 function persistHighAndRank() {
   if (G.score > G.highScore) { G.highScore = G.score; try { localStorage.setItem('veil_highscore', String(G.highScore)); } catch (e) {} sfxBest(); }
   G.lastRank = submitScore({ score: Math.round(G.score), level: G.level, date: todayKey(new Date()), daily: G.isDaily });
+  recordRun(G.runCaches, G.maxCombo, G.level);   // fold into lifetime totals (scores-screen footer)
 }
 // Cleared all 10 Rift floors — the win condition for the daily.
 function completeDaily() {
@@ -186,7 +188,7 @@ function initLevel(lv) {
   G.combo = 0; G.comboT = 0; G.levelT = 0;
   G.levelTimeMax = Math.max(35, 70 - lv * 1.5);   // level time budget — generous early, tighter later
   G.shakeAmt = 0; G.flash = 0; G.zoom = 1; G.deathFreeze = 0; G.hitstop = 0; G.timeScale = 1; G.timeScaleTarget = 1;
-  G.enemyFreezeT = 0; G.enemySlowT = 0; G.surgeT = 0; G.shield = false;
+  G.enemyFreezeT = 0; G.enemySlowT = 0; G.surgeT = 0; G.scanT = 0; G.shield = false;
   G.pickups.length = 0; G.popups.length = 0; G.particles.length = 0; G.revealQueue.length = 0;
   G.pickupSpawnT = G.rng.range(5, 8);
   recomputeBorderPath(); recomputePercent(); G.dispPercent = G.percent;
@@ -206,6 +208,7 @@ function initLevel(lv) {
 function startGame(seed?: number) {
   G.score = 0; G.dispScore = 0; G.lives = 3;
   G.prevHighScore = G.highScore; G.lastRank = 0; G.beatBestThisRun = false; G.dailyWon = false;   // snapshot best before the run, for the game-over summary
+  G.maxCombo = 0; G.runCaches = 0;   // reset run-summary stats
   G.gameSeed = seed != null ? (seed >>> 0) : (Math.random() * 0xffffffff) >>> 0;
   G.onboarding = !G.onboarded && !G.isDaily; G.firstMoveDone = false;
   initLevel(1);
@@ -214,7 +217,10 @@ function winLevel() {
   const pctBonus = Math.round(G.percent * 100) * G.level * 6, lifeBonus = G.lives * 350;
   // speed bonus: reward the time you had left on the clock
   G.lastTimeBonus = Math.max(0, Math.round((G.levelTimeMax - G.levelT) * (8 + G.level)));
-  G.lastBonus = pctBonus + lifeBonus + G.lastTimeBonus; G.score += G.lastBonus;
+  // bold clear: reward overshooting the target in one daring sweep (Qix/Xonix risk-reward)
+  const over = Math.max(0, G.percent - G.target);
+  G.lastOverBonus = over > 0.08 ? Math.round(over * 100 * (12 + G.level * 4)) : 0;
+  G.lastBonus = pctBonus + lifeBonus + G.lastTimeBonus + G.lastOverBonus; G.score += G.lastBonus;
   G.state = 'levelclear'; G.lcTimer = 2.9; G.flash = G.reduceMotion ? 0.2 : 0.5;
   sfxLevel();
   for (let i = 0; i < 60; i++)
@@ -251,6 +257,7 @@ function update(dt) {
     if (G.enemyFreezeT > 0) G.enemyFreezeT -= dt;
     if (G.enemySlowT > 0) G.enemySlowT -= dt;
     if (G.surgeT > 0) G.surgeT -= dt;
+    if (G.scanT > 0) G.scanT -= dt;
     if (G.deathFreeze > 0) { G.deathFreeze -= dt; if (G.deathFreeze <= 0) finishDeath(); }
     else {
       updatePlayer(wdt);

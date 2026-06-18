@@ -16,6 +16,7 @@ import { genNebula } from './background';
 import { drawShootingStars } from './world';
 import { BANDS, RIFT_BAND } from '../core/bands';
 import { getScores, justSetEntry } from '../game/leaderboard';
+import { getLifetime } from '../game/stats';
 import { DAILY_FLOORS } from '../game/blueprints';
 
 function dim(a) { ctx.save(); ctx.fillStyle = `rgba(3,5,12,${a})`; ctx.fillRect(0, 0, CW, CH); ctx.restore(); }
@@ -80,6 +81,12 @@ export function drawScores() {
       glowText('L' + e.level + (e.daily ? '  D' : ''), rx, y, 13, isHot ? '#9fd0ff' : '#8fa8d8', { align: 'right', font: 'mono', spacing: 1 });
     });
   }
+  // lifetime totals — a sense-of-progression footer across all runs on this device
+  const lt = getLifetime();
+  if (lt.runs > 0) {
+    const parts = [lt.runs + ' RUN' + (lt.runs > 1 ? 'S' : ''), lt.caches + ' CACHES', 'CHAIN ' + lt.bestChain + 'x', 'L' + lt.bestLevel];
+    glowText(parts.join('   ·   '), cx, CH * 0.80, 11, '#7f97c8', { blur: 5, font: 'mono', spacing: 1, weight: 700 });
+  }
   const blink = 0.5 + 0.5 * Math.sin(G.menuT * 3);
   glowText('TAP TO RETURN', cx, CH * 0.87, 14, '#cfe6ff', { blur: 10, weight: 700, spacing: 2, alpha: blink });
 }
@@ -90,7 +97,10 @@ export function drawLevelClear() {
   glowText(G.isDaily ? 'FLOOR CLEARED' : 'VEIL CLEARED', cx, cyc - 36, 44 * pop, G.pal.edge2, { blur: 26, font: 'mono', spacing: 2, core: '#fff', alpha: t });
   glowText((G.isDaily ? 'FLOOR ' : 'LEVEL ') + G.level + '  ·  ' + Math.round(G.percent * 100) + '% revealed', cx, cyc + 8, 16, '#cfe6ff', { blur: 8, weight: 600, spacing: 1, alpha: t });
   glowText('+ ' + G.lastBonus + '  bonus', cx, cyc + 40, 18, G.pal.accent, { blur: 12, weight: 800, alpha: t });
-  if (G.lastTimeBonus > 0) glowText('SPEED +' + G.lastTimeBonus, cx, cyc + 62, 11, '#ffce5c', { blur: 8, weight: 700, spacing: 1, font: 'mono', alpha: t });
+  const bonusBits = [];
+  if (G.lastTimeBonus > 0) bonusBits.push('SPEED +' + G.lastTimeBonus);
+  if (G.lastOverBonus > 0) bonusBits.push('BOLD CLEAR +' + G.lastOverBonus);
+  if (bonusBits.length) glowText(bonusBits.join('    '), cx, cyc + 62, 11, '#ffce5c', { blur: 8, weight: 700, spacing: 1, font: 'mono', alpha: t });
   const next = lastFloor ? 'clearing the rift...' : 'next: ' + (G.isDaily ? 'floor ' : 'level ') + (G.level + 1);
   glowText(next, cx, cyc + 84, 12, '#7f97c8', { blur: 0, spacing: 2, alpha: t * (0.6 + 0.4 * Math.sin(G.menuT * 4)) });
 }
@@ -115,6 +125,13 @@ export function drawGameOver() {
   let sub = G.dailyWon ? 'all ' + G.level + ' rift floors cleared' : G.isDaily ? 'reached floor ' + G.level : 'reached level ' + G.level;
   if (G.lastRank > 0) sub = '#' + G.lastRank + ' on this device    ' + sub;
   glowText(sub, cx, cyc + 40, 12, '#8fa8d8', { font: 'mono', spacing: 1, alpha: t });
+  // run recap (the score-chase beat): best chain + caches uncovered this run
+  if (!G.isDaily && (G.maxCombo > 1 || G.runCaches > 0)) {
+    const bits = [];
+    if (G.maxCombo > 1) bits.push('BEST CHAIN ' + G.maxCombo + 'x');
+    if (G.runCaches > 0) bits.push(G.runCaches + ' CACHE' + (G.runCaches > 1 ? 'S' : ''));
+    glowText(bits.join('   ·   '), cx, cyc + 62, 11, '#9fd0ff', { font: 'mono', spacing: 1, weight: 700, alpha: t });
+  }
   if (G.isDaily) glowText('DAILY ' + G.dailyRunKey + (G.dailyStreak > 1 ? '    ' + G.dailyStreak + ' STREAK' : ''), cx, cyc + 62, 11, '#9fd0ff', { font: 'mono', spacing: 1, weight: 700, alpha: t });
 
   const b = goBtnRects();

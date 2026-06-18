@@ -72,6 +72,7 @@ export function doCapture() {
   const area = captured.length;
   if (area > 0) {
     if (G.comboT > 0) G.combo++; else G.combo = 1;
+    if (G.combo > G.maxCombo) G.maxCombo = G.combo;   // run-summary: best chain
     G.comboT = COMBO_WINDOW;
     const mult = comboMult() * (G.surgeT > 0 ? 2 : 1);   // SURGE booster doubles capture gains
     // anti-nibble: value per cell rises with cut size
@@ -119,7 +120,7 @@ export function doCapture() {
     const c = centerPx(idx);
     if (v === VEIL_CACHE) {
       const bonus = 250 + G.level * 60;
-      G.score += bonus;
+      G.score += bonus; G.runCaches++;   // run-summary: caches uncovered
       spawnPopup(c.x, c.y, '✦ +' + bonus, '#ffe27a', 15);
       veilBurst(c.x, c.y, '#ffe27a');
       hapticMedium();
