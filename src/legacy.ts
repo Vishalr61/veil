@@ -38,6 +38,7 @@ import { drawMenu, drawLevelClear, drawGameOver, drawPaused, drawAttractWorld, d
 import {
   initAudio, setMuted, isMuted, setPadLevel,
   sfxStartDraw, sfxCapture, sfxBold, sfxDeath, sfxLevel, sfxPickup, sfxShield, sfxBlip, sfxBest, sfxDailyClear,
+  setMusicIntensity, setMusicTheme,
 } from './audio/audio';
 
 
@@ -188,6 +189,7 @@ function initLevel(lv) {
   const newType = G.isDaily ? dailyNewEnemy(lv) : newEnemyAtLevel(lv);
   if (newType) G.banner = { text: ENEMY_INFO[newType].name, sub: ENEMY_INFO[newType].desc, t: 3.4, enemy: newType };
   G.hintActive = (lv === 1 && !G.isDaily);
+  setMusicTheme(G.isDaily ? 'rift' : G.pal.style);   // soundtrack key/tempo follows the zone
   G.state = 'playing';
 }
 function startGame(seed?: number) {
@@ -264,6 +266,13 @@ function update(dt) {
   } else if (G.state === 'gameover') {
     G.goTimer += dt;
   }
+  // soundtrack intensity: calm on menus, full while playing and building toward target
+  const mi = G.state === 'playing' ? 0.58 + 0.34 * Math.min(1, G.percent / G.target)
+    : G.state === 'levelclear' ? 0.82
+    : G.state === 'gameover' ? 0.12
+    : G.state === 'paused' ? 0.18
+    : 0.32;   // menu / scores
+  setMusicIntensity(mi);
 }
 
 

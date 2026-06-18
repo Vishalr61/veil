@@ -2,7 +2,10 @@
    Audio — Web Audio API. Synthesized SFX + an ambient pad. Owns mute state.
    ========================================================================= */
 
-let ac: any = null, masterGain: any = null, padGain: any = null;
+import { initMusic, startMusic } from './music';
+export { setMusicIntensity, setMusicTheme } from './music';
+
+let ac: any = null, masterGain: any = null, padGain: any = null, musicGain: any = null;
 let muted = false;
 try { muted = localStorage.getItem('veil_muted') === '1'; } catch (e) {}
 
@@ -12,13 +15,22 @@ export function initAudio() {
   if (ac) return;
   try {
     ac = new (window.AudioContext || (window as any).webkitAudioContext)();
+    // master glue: a gentle compressor keeps music + SFX from clipping when they stack
+    const comp = ac.createDynamicsCompressor();
+    comp.threshold.value = -16; comp.knee.value = 22; comp.ratio.value = 3; comp.attack.value = 0.003; comp.release.value = 0.25;
+    comp.connect(ac.destination);
     masterGain = ac.createGain();
     masterGain.gain.value = muted ? 0 : 0.9;
-    masterGain.connect(ac.destination);
+    masterGain.connect(comp);
     padGain = ac.createGain();
     padGain.gain.value = 0.0;
     padGain.connect(masterGain);
+    musicGain = ac.createGain();        // music bus, faded up after start
+    musicGain.gain.value = 0.0;
+    musicGain.connect(masterGain);
     startPad();
+    initMusic(ac, musicGain); startMusic();
+    musicGain.gain.linearRampToValueAtTime(0.4, ac.currentTime + 1.5);
   } catch (e) { ac = null; }
 }
 function startPad() {
