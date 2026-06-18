@@ -77,8 +77,8 @@ export const G = {
 
   // presentation / fx (never affects the daily-deterministic sim)
   shakeAmt: 0, flash: 0, zoom: 1,
-  timeScale: 1, timeScaleTarget: 1,   // global slow-mo (death cinematic only)
-  deathFreeze: 0, drawSoundLock: 0,
+  timeScale: 1, timeScaleTarget: 1,   // global slow-mo (death cinematic + capture hitstop)
+  deathFreeze: 0, hitstop: 0, drawSoundLock: 0,
   enemyFreezeT: 0, enemySlowT: 0,     // power-up effects on enemies
   surgeT: 0,                          // daily SURGE: 2x score while active
   shield: false,

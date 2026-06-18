@@ -13,10 +13,10 @@ import { ROWS, COLS, CELL, INTERIOR_TOTAL } from '../core/dims';
 import { EMPTY, FILLED, COMBO_WINDOW } from '../core/constants';
 import { cellIndex, centerPx } from '../core/grid';
 import { eCell } from './enemies';
-import { spawnPopup, veilBurst } from './particles';
+import { spawnPopup, veilBurst, captureBurst } from './particles';
 import { VEIL_CACHE, VEIL_HAZARD } from '../sim/veil';
 import { sfxBold, sfxCapture } from '../audio/audio';
-import { hapticMedium, hapticHeavy } from '../platform/haptics';
+import { hapticLight, hapticMedium, hapticHeavy } from '../platform/haptics';
 
 export function comboMult() { return Math.min(1 + 0.3 * (G.combo - 1), 6); }
 
@@ -87,13 +87,22 @@ export function doCapture() {
       sfxBold(); hapticHeavy();
       G.flash = G.reduceMotion ? 0.2 : 0.55;
       G.zoom = G.reduceMotion ? 1 : 1 + Math.min(0.05, area * 0.0006);
+      G.hitstop = G.reduceMotion ? 0 : 0.12;                   // a satisfying slow-mo "savor" beat
     } else {
-      hapticMedium();
+      if (area < 14) hapticLight(); else hapticMedium();       // tactile tier by cut size
       G.flash = G.reduceMotion ? 0.08 : Math.min(0.35, 0.1 + area * 0.003);
       G.zoom = G.reduceMotion ? 1 : 1 + Math.min(0.025, area * 0.0004);
+      G.hitstop = (G.reduceMotion || area < 18) ? 0 : 0.06;    // no pause on quick nibbles (stay responsive)
     }
     G.shakeAmt = G.reduceMotion ? 0 : Math.min(10, 2.5 + area * 0.04);
+    captureBurst(origin.x, origin.y, G.pal.edge2, area, G.reduceMotion);
     sfxCapture(G.combo, area);
+    // chain milestones — a louder, celebratory beat as the combo climbs
+    if (G.combo === 4 || G.combo === 7 || G.combo === 11 || (G.combo > 11 && (G.combo - 11) % 5 === 0)) {
+      spawnPopup(origin.x, origin.y - 46, G.combo + 'x CHAIN!', '#fff0a0', 19);
+      if (!G.reduceMotion) G.flash = Math.max(G.flash, 0.45);
+      hapticHeavy();
+    }
     G.hintActive = false;
     if (G.onboarding) {                    // first-ever capture: the "whoa" beat
       G.onboarding = false; G.onboarded = true;
