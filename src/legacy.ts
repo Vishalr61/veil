@@ -136,7 +136,7 @@ function completeDaily() {
   G.flash = G.reduceMotion ? 0.2 : 0.6; sfxDailyClear();
 }
 function finishDeath() {
-  G.deathFreeze = 0; G.timeScaleTarget = 1;
+  G.deathFreeze = 0; G.hitstop = 0; G.timeScaleTarget = 1;
   if (G.lives <= 0) {
     G.state = 'gameover'; G.goTimer = 0;
     clearTrail();
@@ -185,7 +185,7 @@ function initLevel(lv) {
 
   G.combo = 0; G.comboT = 0; G.levelT = 0;
   G.levelTimeMax = Math.max(35, 70 - lv * 1.5);   // level time budget — generous early, tighter later
-  G.shakeAmt = 0; G.flash = 0; G.zoom = 1; G.deathFreeze = 0; G.timeScale = 1; G.timeScaleTarget = 1;
+  G.shakeAmt = 0; G.flash = 0; G.zoom = 1; G.deathFreeze = 0; G.hitstop = 0; G.timeScale = 1; G.timeScaleTarget = 1;
   G.enemyFreezeT = 0; G.enemySlowT = 0; G.surgeT = 0; G.shield = false;
   G.pickups.length = 0; G.popups.length = 0; G.particles.length = 0; G.revealQueue.length = 0;
   G.pickupSpawnT = G.rng.range(5, 8);
@@ -228,7 +228,9 @@ function nextLevel() {
 
 /* ----------------------------- update ---------------------------------- */
 function update(dt) {
-  if (G.reduceMotion) G.timeScale = 1; else G.timeScale += (G.timeScaleTarget - G.timeScale) * Math.min(1, dt * 8);
+  if (G.reduceMotion) G.timeScale = 1;
+  else if (G.hitstop > 0) { G.hitstop -= dt; G.timeScale = 0.16; }   // capture slow-mo: world crawls, fx play on
+  else G.timeScale += (G.timeScaleTarget - G.timeScale) * Math.min(1, dt * 8);
   const wdt = dt * G.timeScale;
   G.time += dt; G.menuT += dt;
   if (G.drawSoundLock > 0) G.drawSoundLock -= dt;

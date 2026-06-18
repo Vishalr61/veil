@@ -16,6 +16,18 @@ export function veilBurst(x: number, y: number, col: string) {
   }
 }
 
+// A celebratory spark spray from the point a capture closes, count + power
+// scaled to the area claimed. Rendered additively (no shadowBlur), so it's
+// cheap. `calm` (reduce-motion) keeps it small and gentle.
+export function captureBurst(x: number, y: number, col: string, area: number, calm?: boolean) {
+  const n = Math.min(calm ? 12 : 44, (calm ? 4 : 9) + Math.floor(area * (calm ? 0.08 : 0.26)));
+  const power = (calm ? 0.6 : 1) * (1 + Math.min(1.5, area * 0.006));
+  for (let i = 0; i < n; i++) {
+    const ang = Math.random() * TAU, sp = rand(50, 230) * power;
+    G.particles.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: rand(0.35, 0.9), max: 0.9, r: rand(1, 3.2), col });
+  }
+}
+
 export function spawnPopup(x, y, text, color, size) {
   G.popups.push({ x, y, vy: -26, life: 1.1, max: 1.1, text, color, size: size || 14 });
 }
