@@ -7,10 +7,11 @@
 
 import { CW, CH, safeTop } from '../core/dims';
 
-export function menuBtnW() { return Math.min(264, CW - 56); }
-export function playBtnRect() { const w = menuBtnW(); return { x: CW / 2 - w / 2, y: CH / 2 + 16, w, h: 50 }; }
-export function dailyBtnRect() { const w = menuBtnW(); return { x: CW / 2 - w / 2, y: CH / 2 + 78, w, h: 50 }; }
-export function scoresBtnRect() { const w = menuBtnW(); return { x: CW / 2 - w / 2, y: CH / 2 + 140, w, h: 44 }; }
+export function menuBtnW() { return Math.min(300, CW - 48); }
+// PLAY is the dominant primary; DAILY + SCORES share a row beneath it.
+export function playBtnRect() { const w = menuBtnW(); return { x: CW / 2 - w / 2, y: CH * 0.58, w, h: 58 }; }
+export function dailyBtnRect() { const w = menuBtnW(), hw = (w - 14) / 2; return { x: CW / 2 - w / 2, y: CH * 0.58 + 74, w: hw, h: 50 }; }
+export function scoresBtnRect() { const w = menuBtnW(), hw = (w - 14) / 2; return { x: CW / 2 - w / 2 + hw + 14, y: CH * 0.58 + 74, w: hw, h: 50 }; }
 export function pauseBtnRect() { return { x: CW - 56, y: safeTop + 8, w: 46, h: 46 }; }
 
 // pause overlay — a single QUIT-TO-HOME button below the resume hints

@@ -17,7 +17,7 @@ import { EMPTY, FILLED, OBSTACLE, SS } from './core/constants';
 import { bandForLevel, LEVELS_PER_BAND } from './core/bands';
 import { genNebula, genFog } from './render/background';
 import { canvas, ctx } from './render/surface';
-import { glowText, drawScanlines, roundRectPath } from './render/primitives';
+import { glowText, drawScanlines, drawVignette, roundRectPath } from './render/primitives';
 import {
   COLS, ROWS, CELL, PW, PH, MARGIN, HUD_H, CW, CH, OFF_X, OFF_Y, INTERIOR_TOTAL,
   safeTop, safeBottom, computeLayout, applyCanvasSize, setInteriorTotal,
@@ -292,8 +292,8 @@ function drawTouchUI() {
 function render() {
   ctx.setTransform(SS, 0, 0, SS, 0, 0);
   ctx.fillStyle = '#04050c'; ctx.fillRect(0, 0, CW, CH);
-  if (G.state === 'menu') { drawAttractWorld(); drawMenu(); drawScanlines(CW, CH); return; }
-  if (G.state === 'scores') { drawAttractWorld(); drawScores(); drawScanlines(CW, CH); return; }
+  if (G.state === 'menu') { drawAttractWorld(); drawMenu(); drawVignette(CW, CH, 0.5); return; }
+  if (G.state === 'scores') { drawAttractWorld(); drawScores(); drawVignette(CW, CH, 0.5); return; }
   drawWorld(); drawHUD();
   if (G.state === 'playing' || G.state === 'paused') drawTouchUI();
   if (G.state === 'levelclear') drawLevelClear();
