@@ -723,15 +723,20 @@ export function drawWorld() {
       ctx.beginPath(); ctx.arc(t.x, t.y, 2 + i * 0.25, 0, TAU); ctx.fill();
     }
     ctx.globalAlpha = blink; ctx.globalCompositeOperation = 'source-over';
-    drawGlowOrb(G.player.px.x, G.player.px.y, 5.5, '#ffffff', G.pal.player, 22);
+    const px = G.player.px.x, py = G.player.px.y;
+    // molecular hero, kept simple: a nucleus + a single electron shell.
+    drawGlowOrb(px, py, 3.6, '#eaf2ff', G.pal.player, 13);
     ctx.globalCompositeOperation = 'lighter';
-    // shield ring
     if (G.shield) {
-      ctx.strokeStyle = '#7dffc4'; ctx.globalAlpha = (0.6 + 0.3 * Math.sin(G.time * 6)) * blink;
-      ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(G.player.px.x, G.player.px.y, 12, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = '#7dffc4'; ctx.globalAlpha = (0.5 + 0.25 * Math.sin(G.time * 6)) * blink;
+      ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 17, 0, TAU); ctx.stroke();
     }
-    ctx.strokeStyle = G.pal.accent; ctx.globalAlpha = (0.4 + 0.3 * Math.sin(G.time * 8)) * blink;
-    ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(G.player.px.x, G.player.px.y, 9 + Math.sin(G.time * 8) * 1.5, 0, TAU); ctx.stroke();
+    const oR = 13, oMin = 5, tilt = -0.5, spin = G.reduceMotion ? 0.6 : G.time * 2.2;
+    ctx.strokeStyle = G.pal.edge2; ctx.globalAlpha = 0.32 * blink; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.ellipse(px, py, oR, oMin, tilt, 0, TAU); ctx.stroke();
+    const ox = Math.cos(spin) * oR, oy = Math.sin(spin) * oMin;
+    const ex = px + ox * Math.cos(tilt) - oy * Math.sin(tilt), ey = py + ox * Math.sin(tilt) + oy * Math.cos(tilt);
+    ctx.globalAlpha = 0.9 * blink; drawGlowOrb(ex, ey, 1.6, '#dcefff', G.pal.edge2, 6);
     ctx.restore();
   }
 
