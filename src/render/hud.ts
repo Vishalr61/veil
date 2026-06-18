@@ -74,13 +74,16 @@ export function drawHUD() {
   if (G.shield) { drawGlowOrb(rx, cy, 4.5, '#7dffc4', '#7dffc4', 13); rx -= 17; }
   for (let i = 0; i < Math.min(G.lives, 6); i++) drawGlowOrb(rx - i * 15, cy, 4, '#fff', G.pal.player, 11);
 
-  // LEVEL TIME — a bar that depletes along the bottom of the HUD; reddens + pulses when low
+  // LEVEL TIME — a m:ss countdown (left of the %) + a bright depleting bar along the HUD's base
   const tf = clamp(1 - G.levelT / G.levelTimeMax, 0, 1);
-  const tcol = tf > 0.33 ? G.pal.edge : tf > 0.12 ? '#ffb15a' : '#ff5a4a';
-  const tpulse = tf < 0.12 ? 0.5 + 0.5 * Math.sin(G.time * 10) : 1;
+  const rem = Math.max(0, Math.ceil(G.levelTimeMax - G.levelT)), low = tf < 0.2;
+  const tcol = tf > 0.4 ? G.pal.edge2 : tf > 0.2 ? '#ffce5c' : '#ff5a4a';
+  const tpulse = low ? 0.6 + 0.4 * Math.sin(G.time * 9) : 1;
+  const mmss = (rem >= 60 ? Math.floor(rem / 60) + ':' + String(rem % 60).padStart(2, '0') : '0:' + String(rem).padStart(2, '0'));
+  glowText(mmss, CW / 2 - 52, cy - 9, 15, tcol, { align: 'right', font: 'mono', blur: low ? 10 : 5, weight: 800, spacing: 1, alpha: tpulse });
   ctx.save();
-  ctx.globalAlpha = 0.2; ctx.fillStyle = '#ffffff'; ctx.fillRect(0, HUD_H - 3, CW, 2);
-  ctx.globalAlpha = 0.9 * tpulse; ctx.fillStyle = tcol; ctx.shadowColor = tcol; ctx.shadowBlur = 6;
-  ctx.fillRect(0, HUD_H - 3, CW * tf, 2);
+  ctx.globalAlpha = 0.16; ctx.fillStyle = '#ffffff'; ctx.fillRect(0, HUD_H - 4, CW, 3);
+  ctx.globalAlpha = tpulse; ctx.fillStyle = tcol; ctx.shadowColor = tcol; ctx.shadowBlur = 8;
+  ctx.fillRect(0, HUD_H - 4, CW * tf, 3);
   ctx.restore();
 }

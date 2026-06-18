@@ -11,8 +11,22 @@ import '@fontsource/space-grotesk/500.css';
 import '@fontsource/space-grotesk/700.css';
 import '@fontsource/space-mono/400.css';
 import '@fontsource/space-mono/700.css';
+import { initAudio } from './audio/audio';
 import './legacy';
 
-// Reveal the game once it's drawing; the HTML splash covers the font-load flash.
-setTimeout(() => document.getElementById('splash')?.classList.add('hide'), 900);
-setTimeout(() => document.getElementById('splash')?.remove(), 1600);
+// Tap-to-begin gate: browsers block audio until a user gesture, so the splash
+// stays until the first interaction — which starts the music and drops you on
+// the menu with it already playing. The gesture is consumed here (game doesn't
+// start), so you land on the title, not mid-game.
+function enter(e: Event) {
+  e.stopImmediatePropagation();
+  initAudio();
+  const s = document.getElementById('splash');
+  if (s) { s.classList.add('hide'); setTimeout(() => s.remove(), 700); }
+  window.removeEventListener('pointerdown', enter, true);
+  window.removeEventListener('keydown', enter, true);
+  window.removeEventListener('touchstart', enter, true);
+}
+window.addEventListener('pointerdown', enter, true);
+window.addEventListener('keydown', enter, true);
+window.addEventListener('touchstart', enter, true);

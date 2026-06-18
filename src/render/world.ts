@@ -550,15 +550,15 @@ function drawSentinelBody(e, o) {
 function drawQixBody(e, o) {
   const r = e.r, t = G.reduceMotion ? 0 : G.time;
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  const g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, r * 2.3);
+  const g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, r * 1.7);
   g.addColorStop(0, o.glow); g.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.globalAlpha = 0.45 + 0.1 * Math.sin(t * 2); ctx.fillStyle = g;
-  ctx.beginPath(); ctx.arc(e.x, e.y, r * 2.3, 0, TAU); ctx.fill();
+  ctx.globalAlpha = 0.24 + 0.05 * Math.sin(t * 2); ctx.fillStyle = g;     // restrained halo
+  ctx.beginPath(); ctx.arc(e.x, e.y, r * 1.7, 0, TAU); ctx.fill();
   ctx.restore();
-  molNode(e.x, e.y, r * 0.5, o.col, o.glow);
-  for (let i = 0; i < 6; i++) {
-    const a = t * (0.6 + i * 0.13) + i * 1.05, rr = r * (0.85 + 0.22 * Math.sin(t * 0.7 + i));
-    molNode(e.x + Math.cos(a) * rr, e.y + Math.sin(a) * rr * 0.82, r * 0.16, i % 2 ? '#5cf0ff' : '#ff5ce0', o.glow);
+  molNode(e.x, e.y, r * 0.46, o.col, o.glow);
+  for (let i = 0; i < 4; i++) {                                           // fewer, calmer electrons
+    const a = t * (0.5 + i * 0.12) + i * 1.57, rr = r * (0.9 + 0.14 * Math.sin(t * 0.6 + i));
+    molNode(e.x + Math.cos(a) * rr, e.y + Math.sin(a) * rr * 0.82, r * 0.12, i % 2 ? '#7fd0ff' : '#d09cff', o.glow);
   }
 }
 // Wraith — an unstable isotope: a faint trembling nucleus; it solidifies and

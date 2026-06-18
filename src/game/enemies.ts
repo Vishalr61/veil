@@ -77,7 +77,7 @@ export function genEnemies(lv, counts: EnemyCounts = enemyCounts(lv)) {
   for (let i = 0; i < n.sentinel; i++) place('sentinel', spd * 0.82);
   for (let i = 0; i < (n.wraith || 0); i++) place('wraith', spd * 0.7);
   for (let i = 0; i < (n.qix || 0); i++) {
-    const p = spawnCell(9, false), s = spd * 0.45, r = CELL * 1.7;   // a big, slow roamer
+    const p = spawnCell(9, false), s = spd * 0.45, r = CELL * 1.15;   // a slow roamer (moderate size)
     out.push({ x: p.x, y: p.y, vx: (G.rng.next() < 0.5 ? -1 : 1) * s * 0.7071, vy: (G.rng.next() < 0.5 ? -1 : 1) * s * 0.7071,
       r, baseR: r, type: 'qix', speed: s, comp: s * 0.7071, steerT: G.rng.range(0.8, 1.4) });
   }
