@@ -268,12 +268,16 @@ function update(dt) {
   } else if (G.state === 'gameover') {
     G.goTimer += dt;
   }
-  // soundtrack intensity: calm on menus, full while playing and building toward target
-  const mi = G.state === 'playing' ? 0.58 + 0.34 * Math.min(1, G.percent / G.target)
-    : G.state === 'levelclear' ? 0.82
-    : G.state === 'gameover' ? 0.12
-    : G.state === 'paused' ? 0.18
-    : 0.32;   // menu / scores
+  // soundtrack intensity is LEVEL-based: hold the early groove (the "initial
+  // beat") consistently, and layer in energy as the levels climb — rather than
+  // ramping within a level toward the target, which got busy too fast.
+  let mi = 0.32;   // menu / scores
+  if (G.state === 'playing') {
+    const perLevel = G.isDaily ? 0.042 : 0.013;        // daily is only 10 floors, so ramp faster
+    mi = Math.min(0.42 + (G.level - 1) * perLevel, 0.82);
+  } else if (G.state === 'levelclear') mi = 0.8;        // brief celebratory peak
+  else if (G.state === 'gameover') mi = 0.12;
+  else if (G.state === 'paused') mi = 0.18;
   setMusicIntensity(mi);
 }
 
