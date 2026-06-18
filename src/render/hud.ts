@@ -46,6 +46,7 @@ export function drawHUD() {
   // power-up status (center-left, under hint of bar)
   if (G.enemyFreezeT > 0) glowText('FREEZE ' + G.enemyFreezeT.toFixed(1), CW / 2 - 150, cy, 11, '#8fe6ff', { align: 'right', blur: 6, weight: 800, spacing: 1 });
   if (G.enemySlowT > 0) glowText('SLOW ' + G.enemySlowT.toFixed(1), CW / 2 + 150, cy, 11, '#9fb8ff', { align: 'left', blur: 6, weight: 800, spacing: 1 });
+  if (G.surgeT > 0) glowText('2x ' + G.surgeT.toFixed(1), CW / 2 + 150, cy - 16, 11, '#ffce5c', { align: 'left', blur: 6, weight: 800, spacing: 1 });
 
   // CENTER — progress toward the reveal target: big % over a rounded glowing bar
   const barW = Math.min(240, CW * 0.4), barH = 7, bx = CW / 2 - barW / 2, by = cy + 5;
@@ -76,5 +77,5 @@ export function drawHUD() {
 
   for (let i = 0; i < Math.min(G.lives, 6); i++) drawGlowOrb(rx - i * 16, cy, 4, '#fff', G.pal.player, 11);
   rx -= Math.min(G.lives, 6) * 16 + 8;
-  glowText('LVL ' + G.level, rx, cy, 19, G.pal.edge2, { align: 'right', blur: 8, font: 'mono', spacing: 1 });
+  glowText((G.isDaily ? 'FLR ' : 'LVL ') + G.level, rx, cy, 19, G.pal.edge2, { align: 'right', blur: 8, font: 'mono', spacing: 1 });
 }

@@ -14,7 +14,7 @@ import { genObstacles, openInteriorCount } from './sim/terrain';
 import { todayKey, seedFromDateKey, shareText, isConsecutive } from './daily/daily';
 import { shareResult } from './platform/share';
 import { EMPTY, FILLED, OBSTACLE, SS } from './core/constants';
-import { bandForLevel, LEVELS_PER_BAND } from './core/bands';
+import { bandForLevel, LEVELS_PER_BAND, RIFT_BAND } from './core/bands';
 import { genNebula, genFog } from './render/background';
 import { canvas, ctx } from './render/surface';
 import { glowText, drawScanlines, drawVignette, roundRectPath } from './render/primitives';
@@ -27,7 +27,7 @@ import { centerPx } from './core/grid';
 import { drawWorld, tickShootingStars } from './render/world';
 import { spawnPopup, updatePopups, updateParticles, initMotes, updateMotes } from './game/particles';
 import { ENEMY_INFO, genEnemies, moveEnemy } from './game/enemies';
-import { blueprintForLevel, newEnemyAtLevel } from './game/blueprints';
+import { blueprintForLevel, newEnemyAtLevel, dailyBlueprint, dailyNewEnemy, DAILY_FLOORS } from './game/blueprints';
 import { recomputeBorderPath, recomputePercent } from './game/capture';
 import { submitScore } from './game/leaderboard';
 import { maybeSpawnPickup, updatePickups } from './game/powerups';
@@ -111,19 +111,36 @@ function processReveal() {
 /* ----------------------------- death finalize -------------------------- */
 // Runs after the death freeze: respawn, or end the run (game over + persist
 // high score / daily streak). Kept here with flow since it ends the session.
+// Persist daily streak / best / played-today + build the share text. Shared by
+// the death path and the all-floors-cleared completion path.
+function finalizeDaily() {
+  recordDailyStreak(G.dailyRunKey);
+  G.dailyResultText = shareText({ key: G.dailyRunKey, score: G.score, level: G.level, percent: G.percent, streak: G.dailyStreak });
+  if (G.score > G.dailyBest) { G.dailyBest = G.score; try { localStorage.setItem('veil_daily_best', String(G.dailyBest)); } catch (e) {} }
+  G.dailyPlayedKey = G.dailyRunKey; try { localStorage.setItem('veil_daily_played', G.dailyPlayedKey); } catch (e) {}
+}
+function persistHighAndRank() {
+  if (G.score > G.highScore) { G.highScore = G.score; try { localStorage.setItem('veil_highscore', String(G.highScore)); } catch (e) {} sfxBest(); }
+  G.lastRank = submitScore({ score: Math.round(G.score), level: G.level, date: todayKey(new Date()), daily: G.isDaily });
+}
+// Cleared all 10 Rift floors — the win condition for the daily.
+function completeDaily() {
+  G.dailyWon = true;
+  const clearBonus = 2500 + G.lives * 500;
+  G.lastBonus = clearBonus; G.score += clearBonus;
+  persistHighAndRank();
+  finalizeDaily();
+  clearTrail();
+  G.state = 'gameover'; G.goTimer = 0;
+  G.flash = G.reduceMotion ? 0.2 : 0.6; sfxLevel();
+}
 function finishDeath() {
   G.deathFreeze = 0; G.timeScaleTarget = 1;
   if (G.lives <= 0) {
     G.state = 'gameover'; G.goTimer = 0;
     clearTrail();
-    if (G.score > G.highScore) { G.highScore = G.score; try { localStorage.setItem('veil_highscore', String(G.highScore)); } catch (e) {} sfxBest(); }
-    G.lastRank = submitScore({ score: Math.round(G.score), level: G.level, date: todayKey(new Date()), daily: G.isDaily });
-    if (G.isDaily) {
-      recordDailyStreak(G.dailyRunKey);
-      G.dailyResultText = shareText({ key: G.dailyRunKey, score: G.score, level: G.level, percent: G.percent, streak: G.dailyStreak });
-      if (G.score > G.dailyBest) { G.dailyBest = G.score; try { localStorage.setItem('veil_daily_best', String(G.dailyBest)); } catch (e) {} }
-      G.dailyPlayedKey = G.dailyRunKey; try { localStorage.setItem('veil_daily_played', G.dailyPlayedKey); } catch (e) {}
-    }
+    persistHighAndRank();
+    if (G.isDaily) finalizeDaily();
     return;
   }
   respawnAt(); G.player.invuln = 1.7;
@@ -133,8 +150,10 @@ function finishDeath() {
 function initLevel(lv) {
   G.level = lv;
   G.rng = new SeededRng(G.gameSeed).fork('lv' + lv); // deterministic per-level simulation stream
-  G.pal = bandForLevel(lv);
-  const bp = blueprintForLevel(lv);   // authored design for this level (or procedural fallback)
+  // The daily is its own zone (The Rift) with a dedicated 10-floor blueprint set;
+  // the campaign uses the band + authored/procedural blueprint for the level.
+  G.pal = G.isDaily ? RIFT_BAND : bandForLevel(lv);
+  const bp = G.isDaily ? dailyBlueprint(lv) : blueprintForLevel(lv);
   G.grid = new Uint8Array(COLS * ROWS);
   for (let y = 0; y < ROWS; y++)
     for (let x = 0; x < COLS; x++)
@@ -157,22 +176,23 @@ function initLevel(lv) {
 
   G.combo = 0; G.comboT = 0;
   G.shakeAmt = 0; G.flash = 0; G.zoom = 1; G.deathFreeze = 0; G.timeScale = 1; G.timeScaleTarget = 1;
-  G.enemyFreezeT = 0; G.enemySlowT = 0; G.shield = false;
+  G.enemyFreezeT = 0; G.enemySlowT = 0; G.surgeT = 0; G.shield = false;
   G.pickups.length = 0; G.popups.length = 0; G.particles.length = 0; G.revealQueue.length = 0;
   G.pickupSpawnT = G.rng.range(5, 8);
   recomputeBorderPath(); recomputePercent(); G.dispPercent = G.percent;
-  const floor = ((lv - 1) % LEVELS_PER_BAND) + 1;   // which floor of the current band (climb feel)
-  G.banner = { text: bp.title || ('LEVEL ' + lv),
-    sub: G.pal.name.toUpperCase() + '  ·  floor ' + floor + '/' + LEVELS_PER_BAND + '  ·  reveal ' + Math.round(G.target * 100) + '%', t: 2.0 };
+  const floors = G.isDaily ? DAILY_FLOORS : LEVELS_PER_BAND;
+  const floor = G.isDaily ? lv : ((lv - 1) % LEVELS_PER_BAND) + 1;   // which floor of the band / daily run
+  G.banner = { text: bp.title || ((G.isDaily ? 'FLOOR ' : 'LEVEL ') + lv),
+    sub: G.pal.name.toUpperCase() + '  ·  floor ' + floor + '/' + floors + '  ·  reveal ' + Math.round(G.target * 100) + '%', t: 2.0 };
   // a level that introduces a new enemy always teaches what it does (wins over the title)
-  const newType = newEnemyAtLevel(lv);
+  const newType = G.isDaily ? dailyNewEnemy(lv) : newEnemyAtLevel(lv);
   if (newType) G.banner = { text: ENEMY_INFO[newType].name, sub: ENEMY_INFO[newType].desc, t: 3.4, enemy: newType };
-  G.hintActive = (lv === 1);
+  G.hintActive = (lv === 1 && !G.isDaily);
   G.state = 'playing';
 }
 function startGame(seed?: number) {
   G.score = 0; G.dispScore = 0; G.lives = 3;
-  G.prevHighScore = G.highScore; G.lastRank = 0; G.beatBestThisRun = false;   // snapshot best before the run, for the game-over summary
+  G.prevHighScore = G.highScore; G.lastRank = 0; G.beatBestThisRun = false; G.dailyWon = false;   // snapshot best before the run, for the game-over summary
   G.gameSeed = seed != null ? (seed >>> 0) : (Math.random() * 0xffffffff) >>> 0;
   G.onboarding = !G.onboarded && !G.isDaily; G.firstMoveDone = false;
   initLevel(1);
@@ -185,7 +205,11 @@ function winLevel() {
   for (let i = 0; i < 60; i++)
     G.particles.push({ x: rand(0, PW), y: rand(PH * 0.4, PH), vx: rand(-20, 20), vy: rand(-120, -40), life: rand(1, 2), max: 2, r: rand(1.5, 3), col: G.pal.edge });
 }
-function nextLevel() { if (G.level % 3 === 0) G.lives++; initLevel(G.level + 1); }
+function nextLevel() {
+  if (G.isDaily) { if (G.level >= DAILY_FLOORS) { completeDaily(); return; } initLevel(G.level + 1); return; }
+  if (G.level % 3 === 0) G.lives++;
+  initLevel(G.level + 1);
+}
 
 /* ----------------------------- update ---------------------------------- */
 function update(dt) {
@@ -209,6 +233,7 @@ function update(dt) {
   if (G.state === 'playing') {
     if (G.enemyFreezeT > 0) G.enemyFreezeT -= dt;
     if (G.enemySlowT > 0) G.enemySlowT -= dt;
+    if (G.surgeT > 0) G.surgeT -= dt;
     if (G.deathFreeze > 0) { G.deathFreeze -= dt; if (G.deathFreeze <= 0) finishDeath(); }
     else {
       updatePlayer(wdt);

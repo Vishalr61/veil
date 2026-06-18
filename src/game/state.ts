@@ -28,6 +28,7 @@ export const G = {
 
   // daily challenge
   isDaily: false,
+  dailyWon: false,   // cleared all 10 Rift floors (vs died) — drives the completion card
   dailyRunKey: '',
   dailyResultText: '',
   dailyBest: 0,
@@ -76,6 +77,7 @@ export const G = {
   timeScale: 1, timeScaleTarget: 1,   // global slow-mo (death cinematic only)
   deathFreeze: 0, drawSoundLock: 0,
   enemyFreezeT: 0, enemySlowT: 0,     // power-up effects on enemies
+  surgeT: 0,                          // daily SURGE: 2x score while active
   shield: false,
   pickupSpawnT: 6,
   shootingStars: [] as any[], shootTimer: 4,

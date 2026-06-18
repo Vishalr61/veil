@@ -206,3 +206,47 @@ export function newEnemyAtLevel(lv: number): string | null {
   }
   return null;
 }
+
+/* ============================ THE DAILY CHALLENGE ========================= */
+// A self-contained 10-floor gauntlet in The Rift (its own zone), distinct from
+// the campaign. Same difficulty curve every day; the date seeds the actual
+// boards + enemy placement, so it's the same challenge for everyone that day.
+// The Rift roster adds the SENTINEL (floor 4) and the WRAITH (floor 6).
+export const DAILY_FLOORS = 10;
+const DAILY: Record<number, LevelBlueprint> = {
+  1:  { title: 'BREACH',        motif: 'pillars', density: 0.05, target: 0.66, caches: 4,  rifts: 1, depth: 0.18,
+        enemies: { drifter: 2, chaser: 0, cutter: 0, sentinel: 0, sleeper: 0, wraith: 0 } },
+  2:  { title: 'FRACTURE',      motif: 'veins',   density: 0.08, target: 0.68, caches: 5,  rifts: 2, depth: 0.30,
+        enemies: { drifter: 2, chaser: 1, cutter: 0, sentinel: 0, sleeper: 0, wraith: 0 } },
+  3:  { title: 'SPLINTER',      motif: 'veins',   density: 0.10, target: 0.70, caches: 5,  rifts: 2, depth: 0.40,
+        enemies: { drifter: 2, chaser: 1, cutter: 1, sentinel: 0, sleeper: 0, wraith: 0 } },
+  // The Sentinel wakes — it strikes whenever you rest on safe ground.
+  4:  { title: 'THE WATCH',     motif: 'veins',   density: 0.10, target: 0.72, caches: 6,  rifts: 2, depth: 0.40,
+        enemies: { drifter: 3, chaser: 1, cutter: 1, sentinel: 1, sleeper: 0, wraith: 0 } },
+  5:  { title: 'UNRAVEL',       motif: 'veins',   density: 0.11, target: 0.74, caches: 7,  rifts: 3, depth: 0.52,
+        enemies: { drifter: 3, chaser: 2, cutter: 1, sentinel: 1, sleeper: 0, wraith: 0 } },
+  // The Wraith appears — it blinks through the rift straight at you.
+  6:  { title: 'PHANTOMS',      motif: 'veins',   density: 0.12, target: 0.76, caches: 7,  rifts: 3, depth: 0.62,
+        enemies: { drifter: 3, chaser: 2, cutter: 1, sentinel: 1, sleeper: 0, wraith: 1 } },
+  7:  { title: 'COLLAPSE',      motif: 'veins',   density: 0.12, target: 0.78, caches: 8,  rifts: 4, depth: 0.72,
+        enemies: { drifter: 3, chaser: 2, cutter: 2, sentinel: 1, sleeper: 0, wraith: 1 } },
+  8:  { title: 'DISSOLUTION',   motif: 'veins',   density: 0.13, target: 0.79, caches: 8,  rifts: 5, depth: 0.84,
+        enemies: { drifter: 4, chaser: 2, cutter: 2, sentinel: 1, sleeper: 0, wraith: 2 } },
+  9:  { title: 'THE MAELSTROM', motif: 'veins',   density: 0.13, target: 0.80, caches: 9,  rifts: 5, depth: 0.93,
+        enemies: { drifter: 4, chaser: 3, cutter: 2, sentinel: 2, sleeper: 0, wraith: 2 } },
+  // The core of the rift — the most crowded board, highest target. Clear it to win the day.
+  10: { title: 'THE CORE',      motif: 'veins',   density: 0.14, target: 0.82, caches: 10, rifts: 6, depth: 1.00,
+        enemies: { drifter: 4, chaser: 3, cutter: 2, sentinel: 2, sleeper: 0, wraith: 2 } },
+};
+export function dailyBlueprint(floor: number): LevelBlueprint {
+  return DAILY[Math.max(1, Math.min(DAILY_FLOORS, floor))];
+}
+// The new threat introduced at this daily floor (drives the "NEW THREAT" card).
+export function dailyNewEnemy(floor: number): string | null {
+  const cur = dailyBlueprint(floor).enemies as any;
+  const prev = floor > 1 ? dailyBlueprint(floor - 1).enemies as any : {};
+  for (const t of ['chaser', 'cutter', 'sentinel', 'wraith']) {
+    if (cur[t] > 0 && !(prev[t] > 0)) return t;
+  }
+  return null;
+}
