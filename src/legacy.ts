@@ -175,7 +175,11 @@ function initLevel(lv) {
   // gentler ramp + a lower cap so high levels stay controllable (was 11 + 0.6*lv, cap 18,
   // which hit max ~L12 and felt twitchy/buggy to steer).
   G.baseSpeed = Math.min(11 + 0.32 * (lv - 1), 15);
-  G.target = bp.target;
+  // cap the reveal target ~74%: the last ~15-20% of a board was a slow, grindy
+  // chip-away against the most crowded enemies. Early levels (<0.74) are
+  // unchanged; the curve now climbs to 0.74 and holds, with difficulty carried
+  // by enemies / speed / music. Covers campaign, daily, and procedural alike.
+  G.target = Math.min(bp.target, 0.74);
 
   G.combo = 0; G.comboT = 0;
   G.shakeAmt = 0; G.flash = 0; G.zoom = 1; G.deathFreeze = 0; G.timeScale = 1; G.timeScaleTarget = 1;
@@ -185,8 +189,9 @@ function initLevel(lv) {
   recomputeBorderPath(); recomputePercent(); G.dispPercent = G.percent;
   const floors = G.isDaily ? DAILY_FLOORS : LEVELS_PER_BAND;
   const floor = G.isDaily ? lv : ((lv - 1) % LEVELS_PER_BAND) + 1;   // which floor of the band / daily run
-  G.banner = { text: bp.title || ((G.isDaily ? 'FLOOR ' : 'LEVEL ') + lv),
-    sub: G.pal.name.toUpperCase() + '  ·  floor ' + floor + '/' + floors + '  ·  reveal ' + Math.round(G.target * 100) + '%', t: 2.0 };
+  // just the zone name (no per-level titles) — keep the banner simple
+  G.banner = { text: G.pal.name.toUpperCase(),
+    sub: 'floor ' + floor + '/' + floors + '  ·  reveal ' + Math.round(G.target * 100) + '%', t: 2.0 };
   // a level that introduces a new enemy always teaches what it does (wins over the title)
   const newType = G.isDaily ? dailyNewEnemy(lv) : newEnemyAtLevel(lv);
   if (newType) G.banner = { text: ENEMY_INFO[newType].name, sub: ENEMY_INFO[newType].desc, t: 3.4, enemy: newType };

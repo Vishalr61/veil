@@ -8,7 +8,7 @@
 
 let ctx: any = null, bus: any = null, noise: AudioBuffer | null = null;
 let playing = false, timer: any = 0;
-let nextTime = 0, step = 0;
+let nextTime = 0, step = 0, bar = 0;
 let intensity = 0, cur = 0;
 
 const LOOKAHEAD = 0.12;   // schedule this far ahead (s)
@@ -44,7 +44,7 @@ export function initMusic(audioCtx: any, musicBus: any) {
 }
 export function startMusic() {
   if (!ctx || !bus || playing) return;
-  playing = true; step = 0; nextTime = ctx.currentTime + 0.1; loop();
+  playing = true; step = 0; bar = 0; nextTime = ctx.currentTime + 0.1; loop();
 }
 export function stopMusic() { playing = false; if (timer) { clearTimeout(timer); timer = 0; } }
 export function setMusicIntensity(v: number) { intensity = v < 0 ? 0 : v > 1 ? 1 : v; }
@@ -87,17 +87,25 @@ function arp(freq: number, t: number, dur: number, g0: number) {
   o.connect(g); g.connect(bus); o.start(t); o.stop(t + dur + 0.02);
 }
 
-function scheduleStep(s: number, t: number) {
+function scheduleStep(s: number, b: number, t: number) {
   const i = cur, sps = (60 / theme.bpm) / 4;
+  // a snare-roll fill across the back of every 4th bar (only once there's a
+  // backbeat, so calm early levels stay clean); it turns the loop over.
+  const fill = i > 0.5 && (b % 4) === 3 && s >= 12;
   if (i > 0.12 && s % 4 === 0) kick(t, 0.9);                         // four-on-the-floor
-  if (i > 0.5 && (s === 4 || s === 12)) snare(t, 0.32);              // backbeat
-  if (i > 0.4 && s % 4 === 2) hat(t, 0.22 * i);                      // offbeat hats
-  if (i > 0.72 && s % 2 === 1) hat(t, 0.12 * i);                     // 16th hats at high energy
+  if (fill) {
+    snare(t, (0.16 + (s - 12) * 0.05) * Math.min(i, 1));            // rising roll into the turnaround
+  } else {
+    if (i > 0.5 && (s === 4 || s === 12)) snare(t, 0.32);            // backbeat
+    if (i > 0.4 && s % 4 === 2) hat(t, 0.22 * i);                    // offbeat hats
+    if (i > 0.72 && s % 2 === 1) hat(t, 0.12 * i);                   // 16th hats at high energy
+  }
   const bo = BASS[s];
   if (i > 0.22 && bo >= 0) bass(theme.root * Math.pow(2, bo / 12), t, sps * 1.7, 0.34);
-  if (i > 0.55 && s % 2 === 0) {                                     // arp hook (two octaves up)
+  if (i > 0.55 && s % 2 === 0 && !fill) {                            // arp hook
     const sc = theme.scale, n = sc[(s / 2) % sc.length];
-    arp(theme.root * 4 * Math.pow(2, n / 12), t, sps * 0.9, 0.12 * i);
+    const oct = ((b >> 2) % 2) === 1 ? 8 : 4;                        // lift an octave for the B section (every 4 bars)
+    arp(theme.root * oct * Math.pow(2, n / 12), t, sps * 0.9, 0.12 * i);
   }
 }
 
@@ -111,9 +119,9 @@ function loop() {
   if (nextTime < ctx.currentTime) { nextTime = ctx.currentTime + 0.05; step = 0; }
   let guard = 0;
   while (nextTime < ctx.currentTime + LOOKAHEAD && guard++ < 64) {
-    scheduleStep(step, nextTime);
+    scheduleStep(step, bar, nextTime);
     nextTime += sps;
-    step = (step + 1) % STEPS;
+    step++; if (step >= STEPS) { step = 0; bar = (bar + 1) % 64; }   // bar drives fills + section lifts
   }
   timer = setTimeout(loop, TICK);
 }
