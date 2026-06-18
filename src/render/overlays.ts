@@ -9,10 +9,11 @@ import { G } from '../game/state';
 import { CW, CH, OFF_X, OFF_Y, PW, PH } from '../core/dims';
 import { TAU, clamp } from '../core/math';
 import { glowText, retroTitle, retroButton, fmtScore } from './primitives';
-import { playBtnRect, dailyBtnRect } from './geometry';
+import { playBtnRect, dailyBtnRect, scoresBtnRect, pauseHomeRect, goBtnRects } from './geometry';
 import { todayKey, isConsecutive } from '../daily/daily';
 import { genNebula } from './background';
 import { BANDS } from '../core/bands';
+import { getScores, justSetEntry } from '../game/leaderboard';
 
 function dim(a) { ctx.save(); ctx.fillStyle = `rgba(3,5,12,${a})`; ctx.fillRect(0, 0, CW, CH); ctx.restore(); }
 export function drawMenu() {
@@ -27,10 +28,31 @@ export function drawMenu() {
   retroButton(playBtnRect(), 'PLAY', '#39ff14');
   const tk = todayKey(new Date()), done = G.dailyPlayedKey === tk;
   retroButton(dailyBtnRect(), done ? 'DAILY ✓' : 'DAILY', '#ff2d95');
+  retroButton(scoresBtnRect(), 'SCORES', '#5cc8ff');
 
-  glowText('DRAG TO STEER', cx, cyc + 158, 18, '#9fd8ff', { blur: 4, font: 'mono', spacing: 1 });
   const liveStreak = (G.dailyStreakDate === tk || isConsecutive(G.dailyStreakDate, tk)) ? G.dailyStreak : 0;
-  if (liveStreak > 1) glowText('STREAK ' + liveStreak, cx, cyc + 184, 18, '#ffb15a', { blur: 4, font: 'mono', spacing: 1 });
+  if (liveStreak > 1) glowText('STREAK ' + liveStreak, cx, cyc + 200, 16, '#ffb15a', { blur: 4, font: 'mono', spacing: 1 });
+}
+export function drawScores() {
+  dim(0.74);
+  const cx = CW / 2;
+  glowText('HIGH SCORES', cx, CH * 0.15, 26, '#ffe93b', { blur: 10, font: 'mono', spacing: 2, core: '#fff' });
+  const list = getScores(), hot = justSetEntry();
+  if (!list.length) {
+    glowText('NO RUNS YET', cx, CH / 2 - 10, 16, '#9fb6e8', { blur: 6, font: 'mono', spacing: 2 });
+    glowText('play a round to set a score', cx, CH / 2 + 18, 12, '#6f86b8', { blur: 0, font: 'mono', spacing: 1 });
+  } else {
+    const top = CH * 0.27, rowH = Math.min(38, (CH * 0.46) / list.length), lx = cx - 132, rx = cx + 132;
+    list.forEach((e, i) => {
+      const y = top + i * rowH, isHot = e === hot;
+      const rankCol = isHot ? '#fff' : i === 0 ? '#ffe27a' : '#7f97c8';
+      glowText(String(i + 1).padStart(2, '0'), lx, y, 16, rankCol, { align: 'left', font: 'mono', blur: isHot ? 10 : 0, spacing: 1 });
+      glowText(fmtScore(e.score), lx + 34, y, 18, isHot ? '#fff' : i === 0 ? '#ffe27a' : '#cfe6ff', { align: 'left', font: 'mono', blur: isHot ? 12 : 6, core: isHot ? '#fff' : undefined, spacing: 1 });
+      glowText('L' + e.level + (e.daily ? '  D' : ''), rx, y, 13, isHot ? '#9fd0ff' : '#8fa8d8', { align: 'right', font: 'mono', spacing: 1 });
+    });
+  }
+  const blink = 0.5 + 0.5 * Math.sin(G.menuT * 3);
+  glowText('TAP TO RETURN', cx, CH * 0.87, 14, '#cfe6ff', { blur: 10, weight: 700, spacing: 2, alpha: blink });
 }
 export function drawLevelClear() {
   dim(0.45);
@@ -41,27 +63,39 @@ export function drawLevelClear() {
   glowText('next: level ' + (G.level + 1), cx, cyc + 78, 12, '#7f97c8', { blur: 0, spacing: 2, alpha: t * (0.6 + 0.4 * Math.sin(G.menuT * 4)) });
 }
 export function drawGameOver() {
-  dim(0.6);
+  dim(0.66);
   const cx = CW / 2, cyc = CH / 2, t = clamp(G.goTimer * 1.6, 0, 1);
-  glowText('THE DARK WINS', cx, cyc - 40, 46, '#ff6b7e', { blur: 26, font: 'mono', spacing: 2, core: '#fff', alpha: t });
-  glowText('SCORE  ' + fmtScore(G.score), cx, cyc + 6, 22, '#dff1ff', { blur: 12, weight: 700, spacing: 2, alpha: t });
+  glowText('THE DARK WINS', cx, cyc - 98, 38, '#ff6b7e', { blur: 26, font: 'mono', spacing: 2, core: '#fff', alpha: t });
+  glowText('SCORE', cx, cyc - 56, 11, '#7f97c8', { font: 'mono', spacing: 3, alpha: t });
+  glowText(fmtScore(G.score), cx, cyc - 26, 30, '#dff1ff', { blur: 14, font: 'mono', weight: 700, spacing: 1, core: '#fff', alpha: t });
+
+  // the score-chase beat: NEW BEST, or how far you fell short of your best
   const isBest = G.score >= G.highScore && G.score > 0;
-  glowText((isBest ? 'NEW BEST!  ' : 'BEST  ') + fmtScore(G.highScore), cx, cyc + 38, 14, isBest ? '#ffe27a' : G.pal.edge, { blur: 8, weight: 700, spacing: 1, alpha: t });
-  const blink = 0.5 + 0.5 * Math.sin(G.menuT * 3);
-  if (G.isDaily) {
-    glowText('DAILY  ' + G.dailyRunKey + (G.dailyStreak > 1 ? '   🔥 ' + G.dailyStreak : ''), cx, cyc + 60, 12, '#9fd0ff', { blur: 6, spacing: 2, weight: 700, alpha: t });
-    glowText('TAP TO SHARE RESULT', cx, cyc + 96, 15, '#cfe6ff', { blur: 10, weight: 700, spacing: 2, alpha: t * blink });
+  if (isBest) {
+    const over = G.score - G.prevHighScore;
+    glowText('NEW BEST!' + (over > 0 && G.prevHighScore > 0 ? '  +' + over : ''), cx, cyc + 10, 18, '#ffe27a', { blur: 12, font: 'mono', weight: 800, spacing: 2, alpha: t * (0.7 + 0.3 * Math.sin(G.menuT * 6)) });
   } else {
-    glowText('reached level ' + G.level, cx, cyc + 60, 12, '#7f97c8', { blur: 0, spacing: 1, alpha: t });
-    glowText('PRESS ANY KEY TO RETRY', cx, cyc + 96, 15, '#cfe6ff', { blur: 10, weight: 700, spacing: 2, alpha: t * blink });
+    const gap = Math.max(0, G.highScore - G.score);
+    glowText('BEST ' + fmtScore(G.highScore) + (gap > 0 ? '   ' + gap + ' TO BEAT' : ''), cx, cyc + 10, 13, G.pal ? G.pal.edge : '#9ad', { blur: 8, font: 'mono', weight: 700, spacing: 1, alpha: t });
   }
+
+  // local rank + reached level (+ daily tag)
+  let sub = 'reached level ' + G.level;
+  if (G.lastRank > 0) sub = '#' + G.lastRank + ' on this device    ' + sub;
+  glowText(sub, cx, cyc + 40, 12, '#8fa8d8', { font: 'mono', spacing: 1, alpha: t });
+  if (G.isDaily) glowText('DAILY ' + G.dailyRunKey + (G.dailyStreak > 1 ? '    ' + G.dailyStreak + ' STREAK' : ''), cx, cyc + 62, 11, '#9fd0ff', { font: 'mono', spacing: 1, weight: 700, alpha: t });
+
+  const b = goBtnRects();
+  retroButton(b.primary, G.isDaily ? 'SHARE' : 'RETRY', G.isDaily ? '#ff2d95' : '#39ff14');
+  retroButton(b.home, 'HOME', '#5cc8ff');
 }
 export function drawPaused() {
   dim(0.55);
   const cx = CW / 2, cyc = CH / 2;
-  glowText('PAUSED', cx, cyc - 10, 30, '#cfe6ff', { blur: 18, font: 'pixel', spacing: 2, core: '#fff' });
+  glowText('PAUSED', cx, cyc - 26, 30, '#cfe6ff', { blur: 18, font: 'pixel', spacing: 2, core: '#fff' });
   const blink = 0.5 + 0.5 * Math.sin(G.menuT * 3);
-  glowText('P / ESC resume      M mute      R reduce motion', cx, cyc + 36, 13, '#9fb6e8', { blur: 8, weight: 700, spacing: 1, alpha: blink });
+  glowText('P / ESC resume     M mute     R reduce motion', cx, cyc + 14, 12, '#9fb6e8', { blur: 8, weight: 700, spacing: 1, alpha: blink });
+  retroButton(pauseHomeRect(), 'QUIT TO HOME', '#ff6b7e');
 }
 
 export function drawAttractWorld() {
