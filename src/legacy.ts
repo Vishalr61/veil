@@ -186,7 +186,7 @@ function initLevel(lv) {
   G.combo = 0; G.comboT = 0; G.levelT = 0;
   G.levelTimeMax = Math.max(35, 70 - lv * 1.5);   // level time budget — generous early, tighter later
   G.shakeAmt = 0; G.flash = 0; G.zoom = 1; G.deathFreeze = 0; G.hitstop = 0; G.timeScale = 1; G.timeScaleTarget = 1;
-  G.enemyFreezeT = 0; G.enemySlowT = 0; G.surgeT = 0; G.shield = false;
+  G.enemyFreezeT = 0; G.enemySlowT = 0; G.surgeT = 0; G.scanT = 0; G.shield = false;
   G.pickups.length = 0; G.popups.length = 0; G.particles.length = 0; G.revealQueue.length = 0;
   G.pickupSpawnT = G.rng.range(5, 8);
   recomputeBorderPath(); recomputePercent(); G.dispPercent = G.percent;
@@ -251,6 +251,7 @@ function update(dt) {
     if (G.enemyFreezeT > 0) G.enemyFreezeT -= dt;
     if (G.enemySlowT > 0) G.enemySlowT -= dt;
     if (G.surgeT > 0) G.surgeT -= dt;
+    if (G.scanT > 0) G.scanT -= dt;
     if (G.deathFreeze > 0) { G.deathFreeze -= dt; if (G.deathFreeze <= 0) finishDeath(); }
     else {
       updatePlayer(wdt);

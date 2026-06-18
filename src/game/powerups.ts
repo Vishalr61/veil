@@ -19,6 +19,9 @@ const PU_TYPES = [
   { type: 'slow',   w: 20, col: '#9fb8ff', label: 'slow' },
   { type: 'shield', w: 16, col: '#7dffc4', label: 'shield' },
   { type: 'life',   w: 8,  col: '#ff8fb0', label: 'life' },
+  // on-theme additions: SCAN exposes the veil's hidden content; TIME buys clock
+  { type: 'scan',   w: 16, col: '#b9a6ff', label: 'scan' },
+  { type: 'time',   w: 14, col: '#7dffd0', label: 'time' },
   // daily-only (The Rift): a panic clear + a score surge
   { type: 'bomb',   w: 18, col: '#ff7a4a', label: 'bomb',  daily: true },
   { type: 'surge',  w: 16, col: '#ffce5c', label: 'surge', daily: true },
@@ -79,4 +82,6 @@ function applyPickup(p) {
     spawnPopup(p.x, p.y, 'BOMB', p.col, 18); sfxBomb();
   }
   else if (p.type === 'surge') { G.surgeT = 8; spawnPopup(p.x, p.y, 'SURGE  2x', p.col, 16); sfxSurge(); }
+  else if (p.type === 'scan') { G.scanT = 6.5; spawnPopup(p.x, p.y, 'SCAN', p.col, 16); }   // light the veil up
+  else if (p.type === 'time') { G.levelT = Math.max(0, G.levelT - 9); spawnPopup(p.x, p.y, 'TIME +9', p.col, 16); }
 }

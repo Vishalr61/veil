@@ -58,6 +58,7 @@ export function drawHUD() {
   if (G.enemyFreezeT > 0) fx.push('FREEZE ' + Math.ceil(G.enemyFreezeT));
   if (G.enemySlowT > 0) fx.push('SLOW ' + Math.ceil(G.enemySlowT));
   if (G.surgeT > 0) fx.push('2x ' + Math.ceil(G.surgeT));
+  if (G.scanT > 0) fx.push('SCAN ' + Math.ceil(G.scanT));
   if (fx.length) glowText(fx.join('   '), CW / 2, by + barH + 19, 9.5, '#bfe0ff', { blur: 6, weight: 800, font: 'mono', spacing: 1 });
 
   // RIGHT — lives, then a tappable mute glyph (the pause button is drawn by drawTouchUI)
