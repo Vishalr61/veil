@@ -215,7 +215,10 @@ function winLevel() {
   const pctBonus = Math.round(G.percent * 100) * G.level * 6, lifeBonus = G.lives * 350;
   // speed bonus: reward the time you had left on the clock
   G.lastTimeBonus = Math.max(0, Math.round((G.levelTimeMax - G.levelT) * (8 + G.level)));
-  G.lastBonus = pctBonus + lifeBonus + G.lastTimeBonus; G.score += G.lastBonus;
+  // bold clear: reward overshooting the target in one daring sweep (Qix/Xonix risk-reward)
+  const over = Math.max(0, G.percent - G.target);
+  G.lastOverBonus = over > 0.08 ? Math.round(over * 100 * (12 + G.level * 4)) : 0;
+  G.lastBonus = pctBonus + lifeBonus + G.lastTimeBonus + G.lastOverBonus; G.score += G.lastBonus;
   G.state = 'levelclear'; G.lcTimer = 2.9; G.flash = G.reduceMotion ? 0.2 : 0.5;
   sfxLevel();
   for (let i = 0; i < 60; i++)

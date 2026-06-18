@@ -56,7 +56,7 @@ export const G = {
   baseSpeed: 9.5,
   time: 0, menuT: 0,
   lcTimer: 0, goTimer: 0,
-  lastBonus: 0, lastTimeBonus: 0,
+  lastBonus: 0, lastTimeBonus: 0, lastOverBonus: 0,
   levelT: 0,           // seconds spent on the current level
   levelTimeMax: 60,    // level time budget — run out and you lose a life (Airxonix-style)
 
