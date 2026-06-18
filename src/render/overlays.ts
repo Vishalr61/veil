@@ -8,7 +8,7 @@ import { ctx } from './surface';
 import { G } from '../game/state';
 import { CW, CH, OFF_X, OFF_Y, PW, PH } from '../core/dims';
 import { TAU, clamp } from '../core/math';
-import { glowText, retroTitle, retroButton, fmtScore } from './primitives';
+import { glowText, luminousTitle, luminousButton, fmtScore } from './primitives';
 import { playBtnRect, dailyBtnRect, scoresBtnRect, pauseHomeRect, goBtnRects } from './geometry';
 import { todayKey, isConsecutive } from '../daily/daily';
 import { genNebula } from './background';
@@ -17,21 +17,33 @@ import { getScores, justSetEntry } from '../game/leaderboard';
 
 function dim(a) { ctx.save(); ctx.fillStyle = `rgba(3,5,12,${a})`; ctx.fillRect(0, 0, CW, CH); ctx.restore(); }
 export function drawMenu() {
-  dim(0.6);
-  const cx = CW / 2, cyc = CH / 2, bob = Math.sin(G.menuT * 1.4) * 3;
-  glowText('HI ' + fmtScore(G.highScore), cx, CH * 0.15, 22, '#ffe93b', { blur: 8, font: 'mono', spacing: 1 });
-  retroTitle('VEIL', cx, cyc - 92 + bob, 50, { blur: 22, glow: '#00f0ff', spacing: 2 });
-  glowText('DRAW LIGHT INTO THE DARK', cx, cyc - 52 + bob, 21, '#00f0ff', { blur: 8, font: 'mono', spacing: 2 });
-  const blink = 0.45 + 0.55 * Math.sin(G.menuT * 4);
-  glowText('PRESS START', cx, cyc - 8, 11, '#ffffff', { blur: 10, font: 'pixel', alpha: blink });
+  dim(0.5);
+  const cx = CW / 2, bob = Math.sin(G.menuT * 1.2) * 2;
 
-  retroButton(playBtnRect(), 'PLAY', '#39ff14');
+  // top stat
+  glowText('HI ' + fmtScore(G.highScore), cx, CH * 0.12, 17, '#9fe8ff', { blur: 8, font: 'mono', spacing: 2 });
+
+  // hero wordmark with a breathing bloom, set in the upper third
+  const titleY = CH * 0.32 + bob;
+  const pulse = 30 + 8 * Math.sin(G.menuT * 1.6);
+  luminousTitle('VEIL', cx, titleY, 68, { blur: pulse, glow: '#6fd8ff', spacing: 18 });
+
+  // a thin luminous rule under the mark
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const lw = 66, ly = titleY + 48;
+  const lg = ctx.createLinearGradient(cx - lw, 0, cx + lw, 0);
+  lg.addColorStop(0, 'rgba(111,216,255,0)'); lg.addColorStop(0.5, 'rgba(160,232,255,0.85)'); lg.addColorStop(1, 'rgba(111,216,255,0)');
+  ctx.fillStyle = lg; ctx.fillRect(cx - lw, ly, lw * 2, 2); ctx.restore();
+  glowText('draw light into the dark', cx, ly + 22, 14, '#bfeaff', { blur: 6, weight: 500, spacing: 3 });
+
+  // primary CTA + secondary row
+  luminousButton(playBtnRect(), 'PLAY', '#5cf0b0', { primary: true });
   const tk = todayKey(new Date()), done = G.dailyPlayedKey === tk;
-  retroButton(dailyBtnRect(), done ? 'DAILY ✓' : 'DAILY', '#ff2d95');
-  retroButton(scoresBtnRect(), 'SCORES', '#5cc8ff');
+  luminousButton(dailyBtnRect(), done ? 'DAILY ✓' : 'DAILY', '#ff7ad0');
+  luminousButton(scoresBtnRect(), 'SCORES', '#7fc8ff');
 
   const liveStreak = (G.dailyStreakDate === tk || isConsecutive(G.dailyStreakDate, tk)) ? G.dailyStreak : 0;
-  if (liveStreak > 1) glowText('STREAK ' + liveStreak, cx, cyc + 200, 16, '#ffb15a', { blur: 4, font: 'mono', spacing: 1 });
+  if (liveStreak > 1) glowText('streak ' + liveStreak, cx, CH * 0.88, 14, '#ffd29a', { blur: 4, font: 'mono', spacing: 1 });
 }
 export function drawScores() {
   dim(0.74);
@@ -86,16 +98,16 @@ export function drawGameOver() {
   if (G.isDaily) glowText('DAILY ' + G.dailyRunKey + (G.dailyStreak > 1 ? '    ' + G.dailyStreak + ' STREAK' : ''), cx, cyc + 62, 11, '#9fd0ff', { font: 'mono', spacing: 1, weight: 700, alpha: t });
 
   const b = goBtnRects();
-  retroButton(b.primary, G.isDaily ? 'SHARE' : 'RETRY', G.isDaily ? '#ff2d95' : '#39ff14');
-  retroButton(b.home, 'HOME', '#5cc8ff');
+  luminousButton(b.primary, G.isDaily ? 'SHARE' : 'RETRY', G.isDaily ? '#ff7ad0' : '#5cf0b0', { primary: true });
+  luminousButton(b.home, 'HOME', '#7fc8ff');
 }
 export function drawPaused() {
   dim(0.55);
   const cx = CW / 2, cyc = CH / 2;
   glowText('PAUSED', cx, cyc - 26, 30, '#cfe6ff', { blur: 18, font: 'pixel', spacing: 2, core: '#fff' });
   const blink = 0.5 + 0.5 * Math.sin(G.menuT * 3);
-  glowText('P / ESC resume     M mute     R reduce motion', cx, cyc + 14, 12, '#9fb6e8', { blur: 8, weight: 700, spacing: 1, alpha: blink });
-  retroButton(pauseHomeRect(), 'QUIT TO HOME', '#ff6b7e');
+  glowText('P / ESC resume     M mute     R reduce motion', cx, cyc + 14, 12, '#9fb6e8', { blur: 8, weight: 600, spacing: 1, alpha: blink });
+  luminousButton(pauseHomeRect(), 'QUIT TO HOME', '#ff8a9a');
 }
 
 export function drawAttractWorld() {
