@@ -214,11 +214,11 @@ export function newEnemyAtLevel(lv: number): string | null {
 // The Rift roster adds the SENTINEL (floor 4) and the WRAITH (floor 6).
 export const DAILY_FLOORS = 10;
 const DAILY: Record<number, LevelBlueprint> = {
-  1:  { title: 'BREACH',        motif: 'open',    density: 0.00, target: 0.66, caches: 4,  rifts: 0, depth: 0.00,
+  1:  { title: 'BREACH',        motif: 'pillars', density: 0.05, target: 0.66, caches: 4,  rifts: 1, depth: 0.18,
         enemies: { drifter: 2, chaser: 0, cutter: 0, sentinel: 0, sleeper: 0, wraith: 0 } },
-  2:  { title: 'FRACTURE',      motif: 'pillars', density: 0.06, target: 0.68, caches: 5,  rifts: 1, depth: 0.12,
+  2:  { title: 'FRACTURE',      motif: 'veins',   density: 0.08, target: 0.68, caches: 5,  rifts: 2, depth: 0.30,
         enemies: { drifter: 2, chaser: 1, cutter: 0, sentinel: 0, sleeper: 0, wraith: 0 } },
-  3:  { title: 'SPLINTER',      motif: 'veins',   density: 0.08, target: 0.70, caches: 5,  rifts: 2, depth: 0.25,
+  3:  { title: 'SPLINTER',      motif: 'veins',   density: 0.10, target: 0.70, caches: 5,  rifts: 2, depth: 0.40,
         enemies: { drifter: 2, chaser: 1, cutter: 1, sentinel: 0, sleeper: 0, wraith: 0 } },
   // The Sentinel wakes — it strikes whenever you rest on safe ground.
   4:  { title: 'THE WATCH',     motif: 'veins',   density: 0.10, target: 0.72, caches: 6,  rifts: 2, depth: 0.40,

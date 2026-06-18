@@ -951,15 +951,34 @@ function fogSignature(c, pal, style, PW, PH, depth = 0) {
       c.fillRect(Math.random() * PW, Math.random() * PH, 1.2, 1.2);
     }
     c.globalAlpha = 1;
-  } else if (style === 'rift') {                        // the rift veil — void + prism flecks + dim fractures
-    for (let i = 0; i < 90; i++) {
+  } else if (style === 'rift') {                        // fractured void — shard silhouettes, a crack web, a seam hint, prism dust
+    const sx = PW * 0.5;                                 // a faint vertical seam bleeding through the covered field
+    const halo = c.createLinearGradient(sx - 40, 0, sx + 40, 0);
+    halo.addColorStop(0, 'rgba(0,0,0,0)'); halo.addColorStop(0.5, hexA(pal.blobs[3], 0.06)); halo.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = 1; c.fillStyle = halo; c.fillRect(sx - 40, 0, 80, PH);
+    for (let i = 0, n = 11 + Math.round(depth * 6); i < n; i++) {   // branching fracture web
+      let x = rand(0, PW), y = rand(0, PH); const col = i % 2 ? '#5cf0ff' : '#ff5ce0';
+      c.globalAlpha = rand(0.05, 0.14); c.strokeStyle = col; c.lineWidth = rand(0.5, 1.3);
+      c.beginPath(); c.moveTo(x, y); for (let k = 0; k < 4; k++) { x += rand(-55, 55); y += rand(-55, 55); c.lineTo(x, y); } c.stroke();
+      c.globalAlpha = rand(0.04, 0.1); c.beginPath(); c.moveTo(x, y); c.lineTo(x + rand(-30, 30), y + rand(-30, 30)); c.stroke();
+    }
+    for (let i = 0, n = 15 + Math.round(depth * 8); i < n; i++) {   // floating shard silhouettes with chromatic edges
+      const x = rand(0, PW), y = rand(0, PH), s = rand(7, 22);
+      c.save(); c.translate(x, y); c.rotate(rand(0, TAU));
+      c.globalAlpha = rand(0.1, 0.22); c.fillStyle = '#000';
+      c.beginPath(); c.moveTo(0, -s); c.lineTo(s * 0.55, s * 0.5); c.lineTo(-s * 0.45, s * 0.5); c.closePath(); c.fill();
+      c.globalAlpha = rand(0.12, 0.28); c.lineWidth = 0.8;
+      c.strokeStyle = '#5cf0ff'; c.beginPath(); c.moveTo(0, -s); c.lineTo(s * 0.55, s * 0.5); c.stroke();
+      c.strokeStyle = '#ff5ce0'; c.beginPath(); c.moveTo(0, -s); c.lineTo(-s * 0.45, s * 0.5); c.stroke();
+      c.restore();
+    }
+    for (let i = 0; i < 110; i++) {                      // prism dust
       c.globalAlpha = rand(0.05, 0.3); c.fillStyle = Math.random() < 0.2 ? '#5cf0ff' : Math.random() < 0.4 ? '#ff5ce0' : pal.star;
       c.beginPath(); c.arc(Math.random() * PW, Math.random() * PH, rand(0.3, 1.1), 0, TAU); c.fill();
     }
-    for (let i = 0, n = 4 + Math.round(depth * 3); i < n; i++) {
-      let x = rand(0, PW), y = rand(0, PH); c.globalAlpha = rand(0.06, 0.16);
-      c.strokeStyle = i % 2 ? '#5cf0ff' : '#ff5ce0'; c.lineWidth = rand(0.5, 1.2);
-      c.beginPath(); c.moveTo(x, y); for (let k = 0; k < 3; k++) { x += rand(-60, 60); y += rand(-60, 60); c.lineTo(x, y); } c.stroke();
+    for (let i = 0, n = 2 + Math.round(depth * 2); i < n; i++) {   // faint glitch bands
+      const y = rand(0, PH), h = rand(2, 5);
+      c.globalAlpha = rand(0.04, 0.09); c.fillStyle = Math.random() < 0.5 ? '#5cf0ff' : '#ff5ce0'; c.fillRect(0, y, PW, h);
     }
     c.globalAlpha = 1;
   } else {                                              // space: dim starfield + faint dust lanes in the void
