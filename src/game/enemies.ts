@@ -25,7 +25,7 @@ export function eCell(e) {
   const cy = clamp(Math.floor(e.y / CELL), 0, ROWS - 1);
   return cy * COLS + cx;
 }
-export interface EnemyCounts { drifter: number; chaser: number; cutter: number; sentinel: number; sleeper: number; wraith?: number; }
+export interface EnemyCounts { drifter: number; chaser: number; cutter: number; sentinel: number; sleeper: number; wraith?: number; qix?: number; }
 
 // Staggered introduction: drifters alone early, then a new type every ~3 levels
 // so each enemy gets room to breathe before the next arrives. This is the
@@ -45,6 +45,7 @@ export const ENEMY_INFO = {
   sentinel: { name: 'SENTINEL', desc: 'attacks while you rest on land' },
   sleeper: { name: 'VEIL-SLEEPER', desc: 'reveals in the dark — wake it' },
   wraith: { name: 'WRAITH', desc: 'blinks through the rift toward you' },
+  qix: { name: 'THE QIX', desc: 'a vast roamer — claim the board to shrink it' },
 };
 export function genEnemies(lv, counts: EnemyCounts = enemyCounts(lv)) {
   const out = [];
@@ -75,6 +76,11 @@ export function genEnemies(lv, counts: EnemyCounts = enemyCounts(lv)) {
   for (let i = 0; i < n.cutter; i++) place('cutter', spd * 0.8);
   for (let i = 0; i < n.sentinel; i++) place('sentinel', spd * 0.82);
   for (let i = 0; i < (n.wraith || 0); i++) place('wraith', spd * 0.7);
+  for (let i = 0; i < (n.qix || 0); i++) {
+    const p = spawnCell(9, false), s = spd * 0.45, r = CELL * 1.7;   // a big, slow roamer
+    out.push({ x: p.x, y: p.y, vx: (G.rng.next() < 0.5 ? -1 : 1) * s * 0.7071, vy: (G.rng.next() < 0.5 ? -1 : 1) * s * 0.7071,
+      r, baseR: r, type: 'qix', speed: s, comp: s * 0.7071, steerT: G.rng.range(0.8, 1.4) });
+  }
   for (let i = 0; i < n.sleeper; i++) placeSleeper(spd * 0.95);
   return out;
 }
@@ -106,6 +112,19 @@ export function moveEnemy(e, dt) {
     e.blinkT -= dt;
     if (e.blinkT <= 0) e.charging = 0.7;
     return;   // holds still between blinks (no drift)
+  }
+  // qix (boss): a vast, slow roamer. It shrinks as you claim the board, and
+  // lazily drifts toward you on a timer; otherwise it just bounces. Falls
+  // through to the generic movement below.
+  if (e.type === 'qix') {
+    e.r = e.baseR * (1 - 0.4 * G.percent);
+    e.steerT -= dt;
+    if (e.steerT <= 0 && G.player) {
+      e.steerT = 1.2;
+      const dx = G.player.px.x - e.x, dy = G.player.px.y - e.y, d = Math.hypot(dx, dy) || 1;
+      e.vx = e.vx * 0.6 + (dx / d) * e.comp * 0.4;
+      e.vy = e.vy * 0.6 + (dy / d) * e.comp * 0.4;
+    }
   }
   // cutter: while you draw, beeline to the BASE of your line (a fixed point) to cut you
   // off — a predictable straight approach. Otherwise it just drifts like a regular enemy.

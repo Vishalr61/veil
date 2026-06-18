@@ -170,7 +170,9 @@ function initLevel(lv) {
   const start = (COLS >> 1);
   G.player = { from: start, to: start, t: 0, dir: null, stopped: true, invuln: 1.0, tail: [], px: centerPx(start) };
   G.buffered = null; G.hasTrail = false; G.trailCells = []; G.trailPoints = [];
-  G.enemies = genEnemies(lv, bp.enemies);
+  // zone summits (every 5th floor, or the daily's last floor) get THE QIX boss
+  const summit = G.isDaily ? lv >= DAILY_FLOORS : lv % LEVELS_PER_BAND === 0;
+  G.enemies = genEnemies(lv, summit ? { ...bp.enemies, qix: 1 } : bp.enemies);
 
   // gentler ramp + a lower cap so high levels stay controllable (was 11 + 0.6*lv, cap 18,
   // which hit max ~L12 and felt twitchy/buggy to steer).
@@ -196,6 +198,7 @@ function initLevel(lv) {
   // a level that introduces a new enemy always teaches what it does (wins over the title)
   const newType = G.isDaily ? dailyNewEnemy(lv) : newEnemyAtLevel(lv);
   if (newType) G.banner = { text: ENEMY_INFO[newType].name, sub: ENEMY_INFO[newType].desc, t: 3.4, enemy: newType };
+  if (summit) G.banner = { text: ENEMY_INFO.qix.name, sub: ENEMY_INFO.qix.desc, t: 3.2, enemy: 'qix' };   // boss floor
   G.hintActive = (lv === 1 && !G.isDaily);
   setMusicTheme(G.isDaily ? 'rift' : G.pal.style);   // soundtrack key/tempo follows the zone
   G.state = 'playing';
