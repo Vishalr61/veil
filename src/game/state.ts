@@ -73,7 +73,7 @@ export const G = {
   // background art
   nebula: null as any, fog: null as any, pal: bandForLevel(1),
   borderPath: null as any,
-  menuNebula: null as any,
+  menuNebula: null as any, menuPal: null as any, menuStars: [] as any[],
 
   // presentation / fx (never affects the daily-deterministic sim)
   shakeAmt: 0, flash: 0, zoom: 1,
