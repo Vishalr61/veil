@@ -32,7 +32,7 @@ import { recomputeBorderPath, recomputePercent } from './game/capture';
 import { submitScore } from './game/leaderboard';
 import { maybeSpawnPickup, updatePickups } from './game/powerups';
 import { updatePlayer, checkCollisions, respawnAt, clearTrail, timeoutDeath } from './game/player';
-import { dailyBtnRect, pauseBtnRect, pauseHomeRect, pauseMuteRect, pauseMotionRect, muteBtnRect, goBtnRects, scoresBtnRect } from './render/geometry';
+import { playBtnRect, dailyBtnRect, pauseBtnRect, pauseHomeRect, pauseMuteRect, pauseMotionRect, muteBtnRect, goBtnRects, scoresBtnRect } from './render/geometry';
 import { drawHUD } from './render/hud';
 import { drawMenu, drawLevelClear, drawGameOver, drawPaused, drawAttractWorld, drawScores } from './render/overlays';
 import {
@@ -422,6 +422,9 @@ window.addEventListener('keydown', (e) => {
   }
   if (G.state === 'paused') { if (k === 'p' || k === 'P' || k === 'Escape') G.state = 'playing'; return; }
   if (k === 'Escape') return;
+  // On the title, don't let a stray key launch a run — only Enter/Space = PLAY.
+  // (Result screens below still continue on any key, which is expected there.)
+  if (G.state === 'menu') { if (k === 'Enter' || k === ' ') { anyKeyAction(); e.preventDefault(); } return; }
   anyKeyAction(); e.preventDefault();
 }, { passive: false });
 
@@ -471,10 +474,11 @@ function pointerDown(p) {
     anyKeyAction(); return;   // anywhere else: retry (or share + menu for the daily)
   }
   if (G.state === 'levelclear') { anyKeyAction(); return; }
-  // menu
+  // menu — start a run ONLY from the PLAY button; clicking empty space does
+  // nothing (no more "click anywhere on the title to play").
   if (inRect(p.x, p.y, dailyBtnRect())) { startDaily(); sfxBlip(); return; }
   if (inRect(p.x, p.y, scoresBtnRect())) { G.state = 'scores'; sfxBlip(); return; }
-  anyKeyAction();   // PLAY (the play button or anywhere else on the title)
+  if (inRect(p.x, p.y, playBtnRect())) anyKeyAction();   // PLAY
 }
 
 canvas.addEventListener('touchstart', (e) => { pointerDown(localPt(e.changedTouches[0])); e.preventDefault(); }, { passive: false });
