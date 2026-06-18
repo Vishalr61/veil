@@ -48,6 +48,7 @@ export const G = {
   prevHighScore: 0,   // best at the START of this run (for the game-over "+X over best")
   lastRank: 0,        // leaderboard rank of the just-finished run (0 = off the table)
   beatBestThisRun: false,   // fired the one-time "NEW BEST!" pop when the live score passed it
+  maxCombo: 0, runCaches: 0,   // run summary stats for the game-over recap
   lives: 3,
   combo: 0, comboT: 0,
   percent: 0, dispPercent: 0,

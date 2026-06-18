@@ -206,6 +206,7 @@ function initLevel(lv) {
 function startGame(seed?: number) {
   G.score = 0; G.dispScore = 0; G.lives = 3;
   G.prevHighScore = G.highScore; G.lastRank = 0; G.beatBestThisRun = false; G.dailyWon = false;   // snapshot best before the run, for the game-over summary
+  G.maxCombo = 0; G.runCaches = 0;   // reset run-summary stats
   G.gameSeed = seed != null ? (seed >>> 0) : (Math.random() * 0xffffffff) >>> 0;
   G.onboarding = !G.onboarded && !G.isDaily; G.firstMoveDone = false;
   initLevel(1);

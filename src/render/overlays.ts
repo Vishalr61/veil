@@ -115,6 +115,13 @@ export function drawGameOver() {
   let sub = G.dailyWon ? 'all ' + G.level + ' rift floors cleared' : G.isDaily ? 'reached floor ' + G.level : 'reached level ' + G.level;
   if (G.lastRank > 0) sub = '#' + G.lastRank + ' on this device    ' + sub;
   glowText(sub, cx, cyc + 40, 12, '#8fa8d8', { font: 'mono', spacing: 1, alpha: t });
+  // run recap (the score-chase beat): best chain + caches uncovered this run
+  if (!G.isDaily && (G.maxCombo > 1 || G.runCaches > 0)) {
+    const bits = [];
+    if (G.maxCombo > 1) bits.push('BEST CHAIN ' + G.maxCombo + 'x');
+    if (G.runCaches > 0) bits.push(G.runCaches + ' CACHE' + (G.runCaches > 1 ? 'S' : ''));
+    glowText(bits.join('   ·   '), cx, cyc + 62, 11, '#9fd0ff', { font: 'mono', spacing: 1, weight: 700, alpha: t });
+  }
   if (G.isDaily) glowText('DAILY ' + G.dailyRunKey + (G.dailyStreak > 1 ? '    ' + G.dailyStreak + ' STREAK' : ''), cx, cyc + 62, 11, '#9fd0ff', { font: 'mono', spacing: 1, weight: 700, alpha: t });
 
   const b = goBtnRects();
