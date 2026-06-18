@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 340" width="960" height="340" role="img" aria-label="VEIL — draw light into the dark">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#070b18"/>
+      <stop offset="0.55" stop-color="#0a0f22"/>
+      <stop offset="1" stop-color="#05070f"/>
+    </linearGradient>
+    <radialGradient id="bloom" cx="0.5" cy="0.42" r="0.65">
+      <stop offset="0" stop-color="#123" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#05070f" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ink" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.5" stop-color="#e3f4ff"/>
+      <stop offset="1" stop-color="#74c8ff"/>
+    </linearGradient>
+    <linearGradient id="rule" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#6fd8ff" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#a8ecff" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#6fd8ff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-80%" width="180%" height="260%">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+  </defs>
+
+  <rect width="960" height="340" rx="22" fill="url(#sky)"/>
+  <rect width="960" height="340" rx="22" fill="url(#bloom)"/>
+
+  <!-- a scatter of faint stars -->
+  <g fill="#cfe6ff">
+    <circle cx="90" cy="64" r="1.8" opacity="0.8"/>
+    <circle cx="190" cy="110" r="1.1" opacity="0.5"/>
+    <circle cx="300" cy="56" r="1.4" opacity="0.7"/>
+    <circle cx="690" cy="70" r="1.2" opacity="0.6"/>
+    <circle cx="800" cy="120" r="1.7" opacity="0.8"/>
+    <circle cx="880" cy="60" r="1.1" opacity="0.5"/>
+    <circle cx="140" cy="250" r="1.3" opacity="0.6"/>
+    <circle cx="850" cy="262" r="1.5" opacity="0.7"/>
+    <circle cx="620" cy="290" r="1.0" opacity="0.45"/>
+    <circle cx="360" cy="300" r="1.2" opacity="0.5"/>
+  </g>
+
+  <!-- wordmark: soft cyan bloom underlay, then crisp light-gradient fill -->
+  <g font-family="'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif" font-weight="800" font-size="156" letter-spacing="24" text-anchor="middle">
+    <text x="492" y="178" fill="#6fd8ff" opacity="0.6" filter="url(#glow)">VEIL</text>
+    <text x="492" y="178" fill="url(#ink)">VEIL</text>
+  </g>
+
+  <!-- luminous rule + tagline -->
+  <rect x="372" y="212" width="216" height="3" rx="1.5" fill="url(#rule)"/>
+  <text x="480" y="258" text-anchor="middle" font-family="'Segoe UI', system-ui, Arial, sans-serif" font-size="23" font-weight="500" letter-spacing="9" fill="#c2eaff" opacity="0.92">DRAW&#160;&#160;LIGHT&#160;&#160;INTO&#160;&#160;THE&#160;&#160;DARK</text>
+</svg>

@@ -1,15 +1,6 @@
 <div align="center">
 
-```
-██╗   ██╗ ███████╗ ██╗ ██╗
-██║   ██║ ██╔════╝ ██║ ██║
-██║   ██║ █████╗   ██║ ██║
-╚██╗ ██╔╝ ██╔══╝   ██║ ██║
- ╚████╔╝  ███████╗ ██║ ███████╗
-  ╚═══╝   ╚══════╝ ╚═╝ ╚══════╝
-```
-
-### draw light into the dark
+<img src="assets/banner.svg" alt="VEIL — draw light into the dark" width="660">
 
 A neon territory-capture arcade game. Carve loops through a living veil, reveal the cosmos hiding beneath it, and outrun the things that hunt you in the dark.
 
