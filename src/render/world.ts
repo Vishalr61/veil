@@ -484,98 +484,86 @@ function drawObstacles() {
   }
   ctx.restore();
 }
-/* ----- enemy designs: a distinct silhouette per type that telegraphs its job ---- */
-function glowHalo(x, y, r, col) {
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-  g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+/* --- enemy designs: simple molecules, dim glow + gentle motion --- */
+// A restrained molecular node: a solid core with a small, faint glow (much
+// dimmer than drawGlowOrb so the enemies don't blow out).
+function molNode(x, y, r, core, glow) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.3;
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r * 2.2);
+  g.addColorStop(0, glow); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 2.2, 0, TAU); ctx.fill();
+  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+  ctx.fillStyle = core; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
   ctx.restore();
 }
-// Drifter — an inert bouncing orb with a slow orbiting ring (it ignores you).
+function bond(x1, y1, x2, y2, col) {
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.25;
+  ctx.strokeStyle = col; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.restore();
+}
+// Drifter — a calm little atom: a nucleus with two electrons on a smooth
+// circular orbit (no tumbling, so it reads cleanly while it bounces). Inert.
 function drawDrifterBody(e, o, pulse) {
-  glowHalo(e.x, e.y, e.r * 3, o.glow);
-  ctx.save(); ctx.fillStyle = o.col; ctx.globalAlpha = 0.92;
-  ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 0.8 * pulse, 0, TAU); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.globalAlpha = 0.45; ctx.beginPath(); ctx.arc(e.x - e.r * 0.22, e.y - e.r * 0.22, e.r * 0.26, 0, TAU); ctx.fill();
-  ctx.restore();
-  const a = G.reduceMotion ? 0.7 : G.time * 1.6 + e.x;
-  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.5;
-  ctx.strokeStyle = o.glow; ctx.lineWidth = 1.2;
-  ctx.beginPath(); ctx.ellipse(e.x, e.y, e.r * 1.6, e.r * 0.55, a, 0, TAU); ctx.stroke(); ctx.restore();
-}
-// Chaser — an arrowhead that rotates to point straight at you (it hunts).
-function drawChaserBody(e, o) {
-  let ang = 0; if (G.player && G.player.px) ang = Math.atan2(G.player.px.y - e.y, G.player.px.x - e.x);
-  glowHalo(e.x, e.y, e.r * 3.2, o.glow);
-  ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(ang);
-  ctx.fillStyle = o.col;
-  ctx.beginPath(); ctx.moveTo(e.r * 1.4, 0); ctx.lineTo(-e.r * 0.85, e.r); ctx.lineTo(-e.r * 0.35, 0); ctx.lineTo(-e.r * 0.85, -e.r); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#220006'; ctx.beginPath(); ctx.arc(e.r * 0.12, 0, e.r * 0.4, 0, TAU); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.globalAlpha = 0.95; ctx.beginPath(); ctx.arc(e.r * 0.3, 0, e.r * 0.2, 0, TAU); ctx.fill();
-  ctx.restore();
-}
-// Cutter — a spinning sawblade (it races in to slice your line).
-function drawCutterBody(e, o) {
-  glowHalo(e.x, e.y, e.r * 3, o.glow);
-  const a = G.reduceMotion ? 0 : G.time * 6;
-  ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(a);
-  ctx.fillStyle = o.col; ctx.beginPath();
-  const teeth = 8;
-  for (let i = 0; i <= teeth; i++) {
-    const a0 = i / teeth * TAU, a1 = (i + 0.5) / teeth * TAU;
-    ctx.lineTo(Math.cos(a0) * e.r * 1.3, Math.sin(a0) * e.r * 1.3);
-    ctx.lineTo(Math.cos(a1) * e.r * 0.82, Math.sin(a1) * e.r * 0.82);
+  const a = G.reduceMotion ? 0.3 : G.time * 0.8 + e.x * 0.3;
+  const rad = e.r * 1.05;
+  molNode(e.x, e.y, e.r * 0.55 * (pulse || 1), o.col, o.glow);
+  for (let i = 0; i < 2; i++) {
+    const ang = a + i * Math.PI;
+    molNode(e.x + Math.cos(ang) * rad, e.y + Math.sin(ang) * rad, e.r * 0.26, '#dfeaf5', o.glow);
   }
-  ctx.closePath(); ctx.fill(); ctx.restore();
-  ctx.save(); ctx.fillStyle = '#1a1408'; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 0.42, 0, TAU); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.globalAlpha = 0.85; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 0.15, 0, TAU); ctx.fill(); ctx.restore();
 }
-// Sentinel — a guardian shell whose eye is CLOSED while dormant and OPENS to
-// glare at you the moment you rest on safe land (which is when it strikes).
+// Chaser — a polar molecule whose lobe points where it's hunting (at you).
+function drawChaserBody(e, o) {
+  let ux = 1, uy = 0;
+  if (G.player && G.player.px) { const dx = G.player.px.x - e.x, dy = G.player.px.y - e.y, d = Math.hypot(dx, dy) || 1; ux = dx / d; uy = dy / d; }
+  const lx = e.x + ux * e.r * 1.15, ly = e.y + uy * e.r * 1.15;
+  bond(e.x, e.y, lx, ly, o.glow);
+  molNode(e.x, e.y, e.r * 0.6, o.col, o.glow);
+  molNode(lx, ly, e.r * 0.42, '#dfeaf5', o.glow);
+}
+// Cutter — a 3-atom ring that turns slowly (the ring is the blade).
+function drawCutterBody(e, o) {
+  const a = G.reduceMotion ? 0 : G.time * 1.3;
+  const pts = [];
+  for (let i = 0; i < 3; i++) { const ang = a + i * TAU / 3; pts.push({ x: e.x + Math.cos(ang) * e.r * 1.2, y: e.y + Math.sin(ang) * e.r * 1.2 }); }
+  for (let i = 0; i < 3; i++) bond(pts[i].x, pts[i].y, pts[(i + 1) % 3].x, pts[(i + 1) % 3].y, o.glow);
+  molNode(e.x, e.y, e.r * 0.32, '#dfeaf5', o.glow);
+  for (const q of pts) molNode(q.x, q.y, e.r * 0.4, o.col, o.glow);
+}
+// Sentinel — a caged atom: shell tight + dim while dormant, FLARES open (an
+// electron snapping toward you) the moment you rest on safe land.
 function drawSentinelBody(e, o) {
   const pc = G.player && G.player.px ? (Math.floor(G.player.px.y / CELL) * COLS + Math.floor(G.player.px.x / CELL)) : -1;
   const armed = pc >= 0 && G.grid[pc] === FILLED;
-  glowHalo(e.x, e.y, e.r * (armed ? 3.4 : 2.5), o.glow);
-  ctx.save(); ctx.translate(e.x, e.y);
-  ctx.fillStyle = o.col;
-  ctx.beginPath(); ctx.moveTo(0, -e.r * 1.35); ctx.lineTo(e.r * 1.15, 0); ctx.lineTo(0, e.r * 1.35); ctx.lineTo(-e.r * 1.15, 0); ctx.closePath(); ctx.fill();
+  molNode(e.x, e.y, e.r * 0.55, o.col, o.glow);
+  const rr = armed ? e.r * 1.55 : e.r * 0.95;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  ctx.strokeStyle = o.glow; ctx.globalAlpha = armed ? 0.5 : 0.22; ctx.lineWidth = armed ? 1.5 : 1;
+  ctx.beginPath(); ctx.arc(e.x, e.y, rr, 0, TAU); ctx.stroke(); ctx.restore();
   if (armed) {
-    let ex = 0, ey = 0; if (G.player) { const dx = G.player.px.x - e.x, dy = G.player.px.y - e.y, d = Math.hypot(dx, dy) || 1; ex = dx / d; ey = dy / d; }
-    ctx.fillStyle = '#2a0a02'; ctx.beginPath(); ctx.ellipse(0, 0, e.r * 0.78, e.r * 0.5, 0, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex * e.r * 0.34, ey * e.r * 0.22, e.r * 0.3, 0, TAU); ctx.fill();
-    ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = o.glow; ctx.globalAlpha = 0.6; ctx.lineWidth = 1.4;
-    ctx.beginPath(); ctx.arc(0, 0, e.r * 1.55, 0, TAU); ctx.stroke();
-  } else {
-    ctx.strokeStyle = '#2a0a02'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(-e.r * 0.7, 0); ctx.lineTo(e.r * 0.7, 0); ctx.stroke();
+    let ux = 0, uy = 0; if (G.player) { const dx = G.player.px.x - e.x, dy = G.player.px.y - e.y, d = Math.hypot(dx, dy) || 1; ux = dx / d; uy = dy / d; }
+    molNode(e.x + ux * rr, e.y + uy * rr, e.r * 0.34, '#dfeaf5', o.glow);
   }
-  ctx.restore();
 }
-// Wraith — a ghost that hangs translucent, turns solid and telegraphs (charge
-// ring + aim line) just before it blinks toward you.
+// Wraith — an unstable isotope: a faint trembling nucleus; it solidifies and
+// telegraphs (charge ring + aim line) before it blinks at you.
 function drawWraithBody(e, o) {
   const charging = e.charging > 0;
-  const a = charging ? 1 : 0.5 + 0.22 * Math.sin(G.time * 4 + e.x);
-  glowHalo(e.x, e.y, e.r * 3, o.glow);
-  ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = o.col;
-  const t = G.reduceMotion ? 0 : G.time * 5;
-  ctx.beginPath();
-  ctx.arc(e.x, e.y - e.r * 0.15, e.r, Math.PI, 0);
-  ctx.lineTo(e.x + e.r, e.y + e.r * 0.7 + Math.sin(t) * 1.5);
-  ctx.lineTo(e.x + e.r * 0.33, e.y + e.r * 0.25 + Math.sin(t + 1) * 1.5);
-  ctx.lineTo(e.x - e.r * 0.33, e.y + e.r * 0.7 + Math.sin(t + 2) * 1.5);
-  ctx.lineTo(e.x - e.r, e.y + e.r * 0.25 + Math.sin(t + 3) * 1.5);
-  ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#0a0618';
-  ctx.beginPath(); ctx.arc(e.x - e.r * 0.35, e.y - e.r * 0.2, e.r * 0.17, 0, TAU); ctx.fill();
-  ctx.beginPath(); ctx.arc(e.x + e.r * 0.35, e.y - e.r * 0.2, e.r * 0.17, 0, TAU); ctx.fill();
+  const a = charging ? 1 : 0.4 + 0.15 * Math.sin(G.time * 6 + e.x);
+  const jx = G.reduceMotion ? 0 : Math.sin(G.time * 11 + e.y) * 0.6, jy = G.reduceMotion ? 0 : Math.cos(G.time * 9 + e.x) * 0.6;
+  ctx.save(); ctx.globalAlpha = a;
+  molNode(e.x + jx, e.y + jy, e.r * 0.6, o.col, o.glow);
+  for (let i = 0; i < 2; i++) {
+    const ang = (G.reduceMotion ? 0 : G.time * (i ? -1.4 : 1.4)) + i * Math.PI;
+    molNode(e.x + jx + Math.cos(ang) * e.r * 1.05, e.y + jy + Math.sin(ang) * e.r * 0.65, e.r * 0.28, '#dfeaf5', o.glow);
+  }
   ctx.restore();
   if (charging) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     const k = 1 - e.charging / 0.55;
-    ctx.strokeStyle = '#fff'; ctx.globalAlpha = 0.4 + 0.6 * Math.abs(Math.sin(G.time * 30)); ctx.lineWidth = 2;
+    ctx.strokeStyle = '#fff'; ctx.globalAlpha = 0.35 + 0.5 * Math.abs(Math.sin(G.time * 30)); ctx.lineWidth = 1.8;
     ctx.beginPath(); ctx.arc(e.x, e.y, e.r * (1.4 + k * 1.8), 0, TAU); ctx.stroke();
-    if (G.player && G.player.px) { const dx = G.player.px.x - e.x, dy = G.player.px.y - e.y, d = Math.hypot(dx, dy) || 1; ctx.strokeStyle = '#5cf0ff'; ctx.globalAlpha = 0.55 * k; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.x + dx / d * CELL * 2, e.y + dy / d * CELL * 2); ctx.stroke(); }
+    if (G.player && G.player.px) { const dx = G.player.px.x - e.x, dy = G.player.px.y - e.y, d = Math.hypot(dx, dy) || 1; ctx.strokeStyle = '#5cf0ff'; ctx.globalAlpha = 0.5 * k; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.x + dx / d * CELL * 2, e.y + dy / d * CELL * 2); ctx.stroke(); }
     ctx.restore();
   }
 }
