@@ -71,7 +71,7 @@ export function tickShootingStars(dt) {
     if (s.life >= s.max) G.shootingStars.splice(i, 1);
   }
 }
-function drawShootingStars() {
+export function drawShootingStars(col = G.pal.edge2) {
   if (!G.shootingStars.length) return;
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
@@ -80,7 +80,7 @@ function drawShootingStars() {
     const a = Math.sin((s.life / s.max) * Math.PI);     // fade in then out
     const tx = s.x - s.vx * 0.045, ty = s.y - s.vy * 0.045;
     const g = ctx.createLinearGradient(tx, ty, s.x, s.y);
-    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, G.pal.edge2);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, col);
     ctx.strokeStyle = g; ctx.globalAlpha = a * 0.9; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(s.x, s.y); ctx.stroke();
     ctx.globalAlpha = a; ctx.fillStyle = '#ffffff';

@@ -7,19 +7,31 @@
 import { ctx } from './surface';
 import { G } from '../game/state';
 import { CW, CH, OFF_X, OFF_Y, PW, PH } from '../core/dims';
-import { TAU, clamp } from '../core/math';
+import { TAU, clamp, rand } from '../core/math';
 import { glowText, luminousTitle, luminousButton, fmtScore } from './primitives';
 import { playBtnRect, dailyBtnRect, scoresBtnRect, pauseHomeRect, pauseMuteRect, pauseMotionRect, goBtnRects } from './geometry';
 import { isMuted } from '../audio/audio';
 import { todayKey, isConsecutive } from '../daily/daily';
 import { genNebula } from './background';
-import { BANDS } from '../core/bands';
+import { drawShootingStars } from './world';
+import { BANDS, RIFT_BAND } from '../core/bands';
 import { getScores, justSetEntry } from '../game/leaderboard';
 import { DAILY_FLOORS } from '../game/blueprints';
 
 function dim(a) { ctx.save(); ctx.fillStyle = `rgba(3,5,12,${a})`; ctx.fillRect(0, 0, CW, CH); ctx.restore(); }
 export function drawMenu() {
-  dim(0.5);
+  // A vertical scrim instead of a flat dim: keeps the backdrop (and its side
+  // veins) vivid full-width, while darkening only the title + button bands so
+  // the wordmark and labels stay crisp over a bright nebula.
+  ctx.save();
+  const sg = ctx.createLinearGradient(0, 0, 0, CH);
+  sg.addColorStop(0.0, 'rgba(3,5,12,0.34)');
+  sg.addColorStop(0.30, 'rgba(3,5,12,0.54)');   // VEIL wordmark band
+  sg.addColorStop(0.52, 'rgba(3,5,12,0.34)');
+  sg.addColorStop(0.80, 'rgba(3,5,12,0.60)');   // PLAY / DAILY / SCORES band
+  sg.addColorStop(1.0, 'rgba(3,5,12,0.44)');
+  ctx.fillStyle = sg; ctx.fillRect(0, 0, CW, CH);
+  ctx.restore();
   const cx = CW / 2, bob = Math.sin(G.menuT * 1.2) * 2;
 
   // top stat
@@ -119,11 +131,28 @@ export function drawPaused() {
 }
 
 export function drawAttractWorld() {
-  if (!G.menuNebula) G.menuNebula = genNebula(BANDS[0], 1, PW, PH);
+  // A vivid, *varied* backdrop: pick a random zone per page-load so the title
+  // showcases the game's palettes (Depths/Aurora/Deep Space/… and the Rift),
+  // generated rich (deeper, brighter) rather than the old dim Depths.
+  if (!G.menuNebula) {
+    const pool = [...BANDS, RIFT_BAND];
+    G.menuPal = pool[Math.floor(Math.random() * pool.length)];
+    G.menuNebula = genNebula(G.menuPal, 4, PW, PH, 0.62);
+  }
+  const pal = G.menuPal || BANDS[0];
   ctx.save();
   ctx.translate(OFF_X, OFF_Y);
-  ctx.globalAlpha = 0.5; ctx.drawImage(G.menuNebula.canvas, 0, 0, PW, PH); ctx.globalAlpha = 1;
+  // slow parallax drift; the nebula is over-scaled so the drift never bares an edge
+  const dx = Math.sin(G.menuT * 0.05) * 16, dy = Math.cos(G.menuT * 0.04) * 11;
+  ctx.globalAlpha = 0.92;
+  ctx.drawImage(G.menuNebula.canvas, dx - 20, dy - 16, PW + 40, PH + 32);
+  ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = 'lighter';
-  for (const m of G.motes) { ctx.globalAlpha = m.a * 0.8; ctx.fillStyle = '#cfe6ff'; ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, TAU); ctx.fill(); }
+  for (const m of G.motes) {
+    const tw = 0.55 + 0.45 * Math.sin(G.menuT * 1.3 + m.x);   // gentle per-star twinkle
+    ctx.globalAlpha = m.a * 0.85 * tw; ctx.fillStyle = pal.star;
+    ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, TAU); ctx.fill();
+  }
+  drawShootingStars(pal.edge2);   // reuse the in-game streaks, tinted to this zone
   ctx.restore();
 }
