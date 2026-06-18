@@ -175,7 +175,11 @@ function initLevel(lv) {
   // gentler ramp + a lower cap so high levels stay controllable (was 11 + 0.6*lv, cap 18,
   // which hit max ~L12 and felt twitchy/buggy to steer).
   G.baseSpeed = Math.min(11 + 0.32 * (lv - 1), 15);
-  G.target = bp.target;
+  // cap the reveal target ~74%: the last ~15-20% of a board was a slow, grindy
+  // chip-away against the most crowded enemies. Early levels (<0.74) are
+  // unchanged; the curve now climbs to 0.74 and holds, with difficulty carried
+  // by enemies / speed / music. Covers campaign, daily, and procedural alike.
+  G.target = Math.min(bp.target, 0.74);
 
   G.combo = 0; G.comboT = 0;
   G.shakeAmt = 0; G.flash = 0; G.zoom = 1; G.deathFreeze = 0; G.timeScale = 1; G.timeScaleTarget = 1;
