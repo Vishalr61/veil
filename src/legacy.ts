@@ -185,8 +185,9 @@ function initLevel(lv) {
   recomputeBorderPath(); recomputePercent(); G.dispPercent = G.percent;
   const floors = G.isDaily ? DAILY_FLOORS : LEVELS_PER_BAND;
   const floor = G.isDaily ? lv : ((lv - 1) % LEVELS_PER_BAND) + 1;   // which floor of the band / daily run
-  G.banner = { text: bp.title || ((G.isDaily ? 'FLOOR ' : 'LEVEL ') + lv),
-    sub: G.pal.name.toUpperCase() + '  ·  floor ' + floor + '/' + floors + '  ·  reveal ' + Math.round(G.target * 100) + '%', t: 2.0 };
+  // just the zone name (no per-level titles) — keep the banner simple
+  G.banner = { text: G.pal.name.toUpperCase(),
+    sub: 'floor ' + floor + '/' + floors + '  ·  reveal ' + Math.round(G.target * 100) + '%', t: 2.0 };
   // a level that introduces a new enemy always teaches what it does (wins over the title)
   const newType = G.isDaily ? dailyNewEnemy(lv) : newEnemyAtLevel(lv);
   if (newType) G.banner = { text: ENEMY_INFO[newType].name, sub: ENEMY_INFO[newType].desc, t: 3.4, enemy: newType };
