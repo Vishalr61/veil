@@ -66,20 +66,59 @@ export function drawScanlines(CW, CH, vig?: number) {
   ctx.fillStyle = v; ctx.fillRect(0, 0, CW, CH);
   ctx.restore();
 }
-// Luminous button — a soft glowing rounded pill. Primary = tinted fill + bright
-// border + white label; secondary = thin ghost outline + tinted label.
+// A small glyph drawn to the LEFT of a button label (centred as a group).
+function drawBtnIcon(kind, cx, cy, rr, col) {
+  ctx.save();
+  ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 6;
+  if (kind === 'play') {                                   // ▶ go
+    ctx.beginPath(); ctx.moveTo(cx - rr * 0.62, cy - rr * 0.95);
+    ctx.lineTo(cx + rr * 0.95, cy); ctx.lineTo(cx - rr * 0.62, cy + rr * 0.95);
+    ctx.closePath(); ctx.fill();
+  } else if (kind === 'daily') {                           // ✦ four-point sparkle
+    ctx.beginPath(); ctx.moveTo(cx, cy - rr);
+    ctx.quadraticCurveTo(cx + rr * 0.18, cy - rr * 0.18, cx + rr, cy);
+    ctx.quadraticCurveTo(cx + rr * 0.18, cy + rr * 0.18, cx, cy + rr);
+    ctx.quadraticCurveTo(cx - rr * 0.18, cy + rr * 0.18, cx - rr, cy);
+    ctx.quadraticCurveTo(cx - rr * 0.18, cy - rr * 0.18, cx, cy - rr);
+    ctx.closePath(); ctx.fill();
+  } else if (kind === 'scores') {                          // ▁▄█ ascending bars
+    const bw = rr * 0.46, gp = rr * 0.3, totalW = bw * 3 + gp * 2, x0 = cx - totalW / 2, base = cy + rr * 0.95;
+    for (let i = 0; i < 3; i++) { const h = rr * (0.8 + i * 0.62); roundRectPath(x0 + i * (bw + gp), base - h, bw, h, bw * 0.35); ctx.fill(); }
+  }
+  ctx.restore();
+}
+// Luminous button — a soft glowing pill with depth: a tinted fill, a top sheen, a
+// crisp glowing border, and an optional leading icon. Primary reads brighter with
+// a white label; secondary is a quieter tinted ghost.
 export function luminousButton(r, label, col, opts?) {
   opts = opts || {};
   const primary = !!opts.primary;
+  const rad = r.h / 2, cyB = r.y + r.h / 2;
   ctx.save();
-  roundRectPath(r.x, r.y, r.w, r.h, r.h / 2);
-  ctx.globalAlpha = primary ? 0.16 : 0.05; ctx.fillStyle = col; ctx.fill();
-  roundRectPath(r.x + 1, r.y + 1, r.w - 2, r.h - 2, (r.h - 2) / 2);
-  ctx.globalAlpha = primary ? 1 : 0.55; ctx.strokeStyle = col; ctx.lineWidth = primary ? 2 : 1.4;
-  ctx.shadowColor = col; ctx.shadowBlur = primary ? 16 : 7; ctx.stroke();
+  // tinted body + soft outer halo
+  roundRectPath(r.x, r.y, r.w, r.h, rad);
+  ctx.shadowColor = col; ctx.shadowBlur = primary ? 20 : 9;
+  ctx.globalAlpha = primary ? 0.20 : 0.07; ctx.fillStyle = col; ctx.fill();
+  ctx.shadowBlur = 0;
+  // top sheen for depth (a white highlight fading down)
+  roundRectPath(r.x, r.y, r.w, r.h, rad); ctx.save(); ctx.clip();
+  const sheen = ctx.createLinearGradient(0, r.y, 0, r.y + r.h);
+  sheen.addColorStop(0, `rgba(255,255,255,${primary ? 0.16 : 0.07})`); sheen.addColorStop(0.55, 'rgba(255,255,255,0)');
+  ctx.globalAlpha = 1; ctx.fillStyle = sheen; ctx.fillRect(r.x, r.y, r.w, r.h); ctx.restore();
+  // crisp glowing border
+  roundRectPath(r.x + 1, r.y + 1, r.w - 2, r.h - 2, rad - 1);
+  ctx.globalAlpha = primary ? 1 : 0.62; ctx.strokeStyle = col; ctx.lineWidth = primary ? 2 : 1.4;
+  ctx.shadowColor = col; ctx.shadowBlur = primary ? 13 : 6; ctx.stroke();
   ctx.restore();
-  glowText(label, r.x + r.w / 2, r.y + r.h / 2 + 0.5, Math.min(primary ? 18 : 15, r.h * 0.42),
-    primary ? '#ffffff' : col, { blur: primary ? 10 : 6, weight: primary ? 700 : 500, spacing: 1.5, core: primary ? '#fff' : undefined });
+  // icon + label, centred as one group
+  const fs = Math.min(primary ? 17 : 14, r.h * 0.42), lcol = primary ? '#ffffff' : col;
+  const iconR = opts.icon ? fs * 0.6 : 0, gap = opts.icon ? fs * 0.6 : 0;
+  ctx.save(); setFont(fs, primary ? 700 : 600, primary ? 2 : 1.4, undefined);
+  const tw = ctx.measureText(label).width; ctx.restore();
+  const startX = r.x + r.w / 2 - (iconR * 2 + gap + tw) / 2;
+  if (opts.icon) drawBtnIcon(opts.icon, startX + iconR, cyB, iconR, lcol);
+  glowText(label, startX + iconR * 2 + gap, cyB + 0.5, fs, lcol,
+    { blur: primary ? 9 : 6, weight: primary ? 700 : 600, spacing: primary ? 2 : 1.4, align: 'left', core: primary ? '#fff' : undefined });
 }
 export function fmtScore(n) { return String(Math.round(n)).padStart(7, '0'); }
 export function drawGlowOrb(x, y, r, core, glow, glowR) {

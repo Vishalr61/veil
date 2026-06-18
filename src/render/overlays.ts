@@ -7,8 +7,8 @@
 import { ctx } from './surface';
 import { G } from '../game/state';
 import { CW, CH, OFF_X, OFF_Y, PW, PH } from '../core/dims';
-import { TAU, clamp, rand } from '../core/math';
-import { glowText, luminousTitle, luminousButton, fmtScore } from './primitives';
+import { TAU, clamp } from '../core/math';
+import { glowText, luminousTitle, luminousButton, fmtScore, setFont } from './primitives';
 import { playBtnRect, dailyBtnRect, scoresBtnRect, pauseHomeRect, pauseMuteRect, pauseMotionRect, goBtnRects } from './geometry';
 import { isMuted } from '../audio/audio';
 import { todayKey, isConsecutive } from '../daily/daily';
@@ -33,28 +33,31 @@ export function drawMenu() {
   ctx.fillStyle = sg; ctx.fillRect(0, 0, CW, CH);
   ctx.restore();
   const cx = CW / 2, bob = Math.sin(G.menuT * 1.2) * 2;
+  const pal = G.menuPal || G.pal;
+  const acc = pal.edge2 || '#9fe8ff';   // the chosen zone's accent — ties the chrome to the backdrop
 
-  // top stat
-  glowText('HI ' + fmtScore(G.highScore), cx, CH * 0.12, 17, '#9fe8ff', { blur: 8, font: 'mono', spacing: 2 });
+  // top stat — a clean centred "BEST" badge, zone-tinted
+  glowText('BEST', cx, CH * 0.092, 9.5, acc, { blur: 5, font: 'mono', weight: 700, spacing: 4 });
+  glowText(fmtScore(G.highScore), cx, CH * 0.125, 17, '#eafaff', { blur: 7, font: 'mono', spacing: 2, core: '#fff' });
 
-  // hero wordmark with a breathing bloom, set in the upper third
-  const titleY = CH * 0.32 + bob;
-  const pulse = 30 + 8 * Math.sin(G.menuT * 1.6);
-  luminousTitle('VEIL', cx, titleY, 68, { blur: pulse, glow: '#6fd8ff', spacing: 18 });
+  // hero wordmark with a breathing bloom, haloed in the zone colour
+  const titleY = CH * 0.31 + bob;
+  const pulse = 28 + 7 * Math.sin(G.menuT * 1.6);
+  luminousTitle('VEIL', cx, titleY, 72, { blur: pulse, glow: pal.edge || '#6fd8ff', bot: acc, spacing: 20 });
 
-  // a thin luminous rule under the mark
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  const lw = 66, ly = titleY + 48;
-  const lg = ctx.createLinearGradient(cx - lw, 0, cx + lw, 0);
-  lg.addColorStop(0, 'rgba(111,216,255,0)'); lg.addColorStop(0.5, 'rgba(160,232,255,0.85)'); lg.addColorStop(1, 'rgba(111,216,255,0)');
-  ctx.fillStyle = lg; ctx.fillRect(cx - lw, ly, lw * 2, 2); ctx.restore();
-  glowText('draw light into the dark', cx, ly + 22, 14, '#bfeaff', { blur: 6, weight: 500, spacing: 3 });
+  // subtitle — a fluid, tightly-tracked tagline framed by two faint zone-tinted dots
+  const subY = titleY + 50;
+  ctx.save(); setFont(13, 400, 0.3, undefined); const stw = ctx.measureText('draw light into the dark').width; ctx.restore();
+  glowText('draw light into the dark', cx, subY, 13, '#dcefff', { blur: 9, weight: 400, spacing: 0.3 });
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = acc; ctx.shadowColor = acc; ctx.shadowBlur = 8;
+  for (const off of [-(stw / 2 + 15), stw / 2 + 15]) { ctx.globalAlpha = 0.85; ctx.beginPath(); ctx.arc(cx + off, subY, 1.6, 0, TAU); ctx.fill(); }
+  ctx.restore();
 
-  // primary CTA + secondary row
-  luminousButton(playBtnRect(), 'PLAY', '#5cf0b0', { primary: true });
+  // primary CTA + secondary row, each with a leading glyph
+  luminousButton(playBtnRect(), 'PLAY', '#5cf0b0', { primary: true, icon: 'play' });
   const tk = todayKey(new Date()), done = G.dailyPlayedKey === tk;
-  luminousButton(dailyBtnRect(), done ? 'DAILY ✓' : 'DAILY', '#ff7ad0');
-  luminousButton(scoresBtnRect(), 'SCORES', '#7fc8ff');
+  luminousButton(dailyBtnRect(), done ? 'DAILY ✓' : 'DAILY', '#ff7ad0', { icon: 'daily' });
+  luminousButton(scoresBtnRect(), 'SCORES', '#7fc8ff', { icon: 'scores' });
 
   const liveStreak = (G.dailyStreakDate === tk || isConsecutive(G.dailyStreakDate, tk)) ? G.dailyStreak : 0;
   if (liveStreak > 1) glowText('streak ' + liveStreak, cx, CH * 0.88, 14, '#ffd29a', { blur: 4, font: 'mono', spacing: 1 });
