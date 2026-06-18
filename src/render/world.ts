@@ -397,6 +397,59 @@ function drawRiftShard(px: number, py: number, x: number, y: number, idx: number
   if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(255,92,224,0.4)'; ctx.fillRect(px + s - 1.5, py, 1.5, s); }
 }
 
+// A Rift VOID MONOLITH: near-black obsidian with a single glowing crack — a heavy,
+// dark counterpoint to the translucent shard.
+function drawRiftMonolith(px: number, py: number, x: number, y: number, idx: number) {
+  const s = CELL;
+  const h = ((x * 374761393) ^ (y * 668265263)) >>> 0;
+  const col = (h & 1) ? '#5cf0ff' : '#ff5ce0';
+  ctx.fillStyle = '#0a0816'; ctx.fillRect(px, py, s, s);
+  ctx.fillStyle = 'rgba(120,90,180,0.08)'; ctx.fillRect(px, py, s, s * 0.4);
+  ctx.fillStyle = 'rgba(2,1,8,0.4)'; ctx.fillRect(px, py + s * 0.62, s, s * 0.38);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';   // a glowing crack (fake glow, no blur)
+  ctx.globalAlpha = 0.5; ctx.strokeStyle = col; ctx.lineWidth = 1;
+  const cx = px + s * 0.4 + (h % 4); let yy = py, xx = cx; ctx.beginPath(); ctx.moveTo(cx, py);
+  for (let k = 0; k < 3; k++) { yy += s / 3; xx += ((h >> (k * 2)) % 3) - 1; ctx.lineTo(xx, yy); }
+  ctx.stroke();
+  ctx.globalAlpha = 0.3; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(cx, py + s * 0.5, 1.4, 0, TAU); ctx.fill();
+  ctx.restore();
+  if (G.grid[idx - COLS] === EMPTY) { ctx.fillStyle = hexA(col, 0.3); ctx.fillRect(px, py, s, 1.3); }
+  if (G.grid[idx - 1] === EMPTY) { ctx.fillStyle = 'rgba(120,90,180,0.18)'; ctx.fillRect(px, py, 1.3, s); }
+  if (G.grid[idx + COLS] === EMPTY) { ctx.fillStyle = 'rgba(2,1,8,0.5)'; ctx.fillRect(px, py + s - 1.3, s, 1.3); }
+  if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(2,1,8,0.4)'; ctx.fillRect(px + s - 1.3, py, 1.3, s); }
+}
+
+// A Rift ENERGIZED CRYSTAL: a saturated violet facet with a live glowing core —
+// the brightest of the three forms.
+function drawRiftCrystal(px: number, py: number, x: number, y: number, idx: number) {
+  const s = CELL;
+  const h = ((x * 374761393) ^ (y * 668265263)) >>> 0;
+  ctx.fillStyle = '#3a1f6e'; ctx.fillRect(px, py, s, s);
+  ctx.fillStyle = 'rgba(200,150,255,0.16)'; ctx.fillRect(px, py, s * 0.55, s * 0.45);
+  ctx.fillStyle = 'rgba(8,4,20,0.3)'; ctx.fillRect(px, py + s * 0.6, s, s * 0.4);
+  ctx.strokeStyle = 'rgba(190,150,255,0.3)'; ctx.lineWidth = 0.7;   // facet lines
+  ctx.beginPath(); ctx.moveTo(px + 2, py + s - 2); ctx.lineTo(px + s * 0.5, py + 2); ctx.lineTo(px + s - 2, py + s - 2); ctx.stroke();
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';   // energized core
+  const ox = px + s * 0.5, oy = py + s * 0.5;
+  ctx.globalAlpha = 0.18; ctx.fillStyle = '#b86cff'; ctx.beginPath(); ctx.arc(ox, oy, 3.2, 0, TAU); ctx.fill();
+  ctx.globalAlpha = 0.6; ctx.fillStyle = (h & 1) ? '#5cf0ff' : '#d8b0ff'; ctx.beginPath(); ctx.arc(ox, oy, 1.1, 0, TAU); ctx.fill();
+  ctx.restore();
+  if (G.grid[idx - COLS] === EMPTY) { ctx.fillStyle = 'rgba(120,240,255,0.55)'; ctx.fillRect(px, py, s, 1.5); }
+  if (G.grid[idx - 1] === EMPTY) { ctx.fillStyle = 'rgba(120,240,255,0.35)'; ctx.fillRect(px, py, 1.5, s); }
+  if (G.grid[idx + COLS] === EMPTY) { ctx.fillStyle = 'rgba(255,120,230,0.5)'; ctx.fillRect(px, py + s - 1.5, s, 1.5); }
+  if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(255,120,230,0.4)'; ctx.fillRect(px + s - 1.5, py, 1.5, s); }
+}
+
+// Pick a Rift obstacle form per coarse region so formations stay coherent (a
+// whole pillar reads as one material) rather than speckled cell-by-cell.
+function drawRiftCell(px: number, py: number, x: number, y: number, idx: number) {
+  const rh = (((x / 4) | 0) * 73856093) ^ (((y / 4) | 0) * 19349663);
+  const v = (rh >>> 0) % 3;
+  if (v === 0) drawRiftMonolith(px, py, x, y, idx);
+  else if (v === 1) drawRiftCrystal(px, py, x, y, idx);
+  else drawRiftShard(px, py, x, y, idx);
+}
+
 function drawObstacles() {
   const style = G.pal.style;
   ctx.save();
@@ -420,7 +473,7 @@ function drawObstacles() {
       } else if (style === 'space') {
         drawAsteroid(px, py, x, y, idx);
       } else if (style === 'rift') {
-        drawRiftShard(px, py, x, y, idx);
+        drawRiftCell(px, py, x, y, idx);
       } else {
         ctx.fillStyle = G.pal.blobs[1];                      // band-tinted solid mass (ice/coral/rock/asteroid)
         ctx.fillRect(px, py, CELL, CELL);
