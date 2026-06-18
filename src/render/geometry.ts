@@ -13,9 +13,14 @@ export function playBtnRect() { const w = menuBtnW(); return { x: CW / 2 - w / 2
 export function dailyBtnRect() { const w = menuBtnW(), hw = (w - 14) / 2; return { x: CW / 2 - w / 2, y: CH * 0.58 + 74, w: hw, h: 50 }; }
 export function scoresBtnRect() { const w = menuBtnW(), hw = (w - 14) / 2; return { x: CW / 2 - w / 2 + hw + 14, y: CH * 0.58 + 74, w: hw, h: 50 }; }
 export function pauseBtnRect() { return { x: CW - 56, y: safeTop + 8, w: 46, h: 46 }; }
+// tappable mute glyph in the HUD (so phones can mute without a keyboard)
+export function muteBtnRect() { return { x: CW - 104, y: safeTop + 8, w: 42, h: 46 }; }
 
-// pause overlay — a single QUIT-TO-HOME button below the resume hints
-export function pauseHomeRect() { const w = Math.min(220, CW - 72); return { x: CW / 2 - w / 2, y: CH / 2 + 64, w, h: 46 }; }
+// pause overlay — touch settings: MUTE + MOTION toggles (a row) over QUIT TO HOME.
+function pauseBtnW() { return Math.min(264, CW - 56); }
+export function pauseMuteRect() { const w = pauseBtnW(), hw = (w - 12) / 2; return { x: CW / 2 - w / 2, y: CH / 2 + 26, w: hw, h: 50 }; }
+export function pauseMotionRect() { const w = pauseBtnW(), hw = (w - 12) / 2; return { x: CW / 2 - w / 2 + hw + 12, y: CH / 2 + 26, w: hw, h: 50 }; }
+export function pauseHomeRect() { const w = pauseBtnW(); return { x: CW / 2 - w / 2, y: CH / 2 + 86, w, h: 50 }; }
 
 // game-over overlay — two side-by-side buttons (primary = RETRY / SHARE, + HOME)
 export function goBtnRects() {

@@ -9,7 +9,8 @@ import { G } from '../game/state';
 import { CW, CH, OFF_X, OFF_Y, PW, PH } from '../core/dims';
 import { TAU, clamp } from '../core/math';
 import { glowText, luminousTitle, luminousButton, fmtScore } from './primitives';
-import { playBtnRect, dailyBtnRect, scoresBtnRect, pauseHomeRect, goBtnRects } from './geometry';
+import { playBtnRect, dailyBtnRect, scoresBtnRect, pauseHomeRect, pauseMuteRect, pauseMotionRect, goBtnRects } from './geometry';
+import { isMuted } from '../audio/audio';
 import { todayKey, isConsecutive } from '../daily/daily';
 import { genNebula } from './background';
 import { BANDS } from '../core/bands';
@@ -107,9 +108,12 @@ export function drawGameOver() {
 export function drawPaused() {
   dim(0.55);
   const cx = CW / 2, cyc = CH / 2;
-  glowText('PAUSED', cx, cyc - 26, 30, '#cfe6ff', { blur: 18, font: 'pixel', spacing: 2, core: '#fff' });
+  glowText('PAUSED', cx, cyc - 44, 30, '#cfe6ff', { blur: 18, font: 'pixel', spacing: 2, core: '#fff' });
   const blink = 0.5 + 0.5 * Math.sin(G.menuT * 3);
-  glowText('P / ESC resume     M mute     R reduce motion', cx, cyc + 14, 12, '#9fb6e8', { blur: 8, weight: 600, spacing: 1, alpha: blink });
+  glowText('tap the board to resume', cx, cyc - 8, 13, '#9fb6e8', { blur: 8, weight: 600, spacing: 1, alpha: blink });
+  // touch-reachable settings (keyboard M / R don't exist on mobile)
+  luminousButton(pauseMuteRect(), isMuted() ? 'SOUND OFF' : 'SOUND ON', isMuted() ? '#7f93c0' : '#5cf0b0');
+  luminousButton(pauseMotionRect(), G.reduceMotion ? 'MOTION OFF' : 'MOTION ON', G.reduceMotion ? '#7f93c0' : '#7fc8ff');
   luminousButton(pauseHomeRect(), 'QUIT TO HOME', '#ff8a9a');
 }
 
