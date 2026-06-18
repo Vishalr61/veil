@@ -361,6 +361,42 @@ function drawAsteroid(px: number, py: number, x: number, y: number, idx: number)
   if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(2,2,10,0.4)'; ctx.fillRect(px + s - 1.5, py, 1.5, s); }
 }
 
+const RIFT_SHADES = ['#1a0e2e', '#26143e', '#341a52', '#442468'];   // dark glassy violet
+
+// A Rift obstacle: a shard of fractured glass-crystal with internal cracks and a
+// chromatic rim split (cyan light edge / magenta shadow edge) — the daily zone's
+// glitch signature, distinct from the campaign's solid materials. No shadowBlur.
+function drawRiftShard(px: number, py: number, x: number, y: number, idx: number) {
+  const s = CELL;
+  const h = ((x * 374761393) ^ (y * 668265263)) >>> 0;
+  const v = h % 100;
+  const m = Math.sin(x * 0.5 + y * 0.3) + Math.sin(y * 0.66 - x * 0.2);
+  ctx.fillStyle = RIFT_SHADES[Math.max(0, Math.min(3, Math.round((m + 2) / 4 * 3)))];
+  ctx.fillRect(px, py, s, s);
+  ctx.fillStyle = 'rgba(180,140,255,0.12)'; ctx.fillRect(px, py, s * 0.5, s * 0.42);   // glassy sheen
+  ctx.fillStyle = 'rgba(4,2,12,0.34)'; ctx.fillRect(px, py + s * 0.6, s, s * 0.4);     // dark underside
+
+  ctx.strokeStyle = 'rgba(150,210,255,0.25)'; ctx.lineWidth = 0.7;   // internal fracture crack
+  ctx.beginPath(); let cx = px + (h % 6) + 2, cy = py + 3; ctx.moveTo(cx, cy);
+  for (let k = 0; k < 3; k++) { cx += ((h >> (k * 3)) % 8) - 4; cy += 3 + ((h >> (k * 2)) % 4); ctx.lineTo(cx, cy); }
+  ctx.stroke();
+
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';   // prism glints (fake glow, no blur)
+  for (let i = 0, n = 1 + (v % 2); i < n; i++) {
+    const ox = px + 3 + ((h >> (i * 5)) % Math.max(1, s - 6)), oy = py + 3 + ((h >> (i * 5 + 2)) % Math.max(1, s - 6));
+    const col = (h >> i) & 1 ? '#5cf0ff' : '#ff5ce0';
+    ctx.globalAlpha = 0.12; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(ox, oy, 2.4, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(ox, oy, 0.9, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+
+  // chromatic rim split — cyan on top/left open edges, magenta on bottom/right
+  if (G.grid[idx - COLS] === EMPTY) { ctx.fillStyle = 'rgba(92,240,255,0.5)'; ctx.fillRect(px, py, s, 1.5); }
+  if (G.grid[idx - 1] === EMPTY) { ctx.fillStyle = 'rgba(92,240,255,0.3)'; ctx.fillRect(px, py, 1.5, s); }
+  if (G.grid[idx + COLS] === EMPTY) { ctx.fillStyle = 'rgba(255,92,224,0.5)'; ctx.fillRect(px, py + s - 1.5, s, 1.5); }
+  if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(255,92,224,0.4)'; ctx.fillRect(px + s - 1.5, py, 1.5, s); }
+}
+
 function drawObstacles() {
   const style = G.pal.style;
   ctx.save();
@@ -383,6 +419,8 @@ function drawObstacles() {
         drawIceRock(px, py, x, y, idx);
       } else if (style === 'space') {
         drawAsteroid(px, py, x, y, idx);
+      } else if (style === 'rift') {
+        drawRiftShard(px, py, x, y, idx);
       } else {
         ctx.fillStyle = G.pal.blobs[1];                      // band-tinted solid mass (ice/coral/rock/asteroid)
         ctx.fillRect(px, py, CELL, CELL);
@@ -427,6 +465,7 @@ export function drawWorld() {
     else if (m.wi) { ctx.globalAlpha = m.a * (0.45 + 0.55 * Math.abs(Math.sin(G.time * 1.1 + m.x * 0.2))); ctx.fillStyle = G.pal.blobs[4]; }   // drifting dawn wisp
     else if (m.sn) { ctx.globalAlpha = m.a; ctx.fillStyle = G.pal.star; }   // falling snow (steady, cool white)
     else if (m.du) { ctx.globalAlpha = m.a * (0.3 + 0.7 * Math.abs(Math.sin(G.time * 2 + m.x * 0.5))); ctx.fillStyle = Math.sin(m.x) > 0.5 ? G.pal.blobs[3] : G.pal.star; }   // twinkling stardust
+    else if (m.pr) { ctx.globalAlpha = m.a * (0.2 + 0.8 * Math.abs(Math.sin(G.time * 5 + m.x))); ctx.fillStyle = Math.sin(m.x * 1.3) > 0 ? '#5cf0ff' : '#ff5ce0'; }   // flickering prism spark
     else { ctx.globalAlpha = m.a; ctx.fillStyle = G.pal.star; }
     ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, TAU); ctx.fill();
   }
@@ -503,12 +542,28 @@ export function drawWorld() {
       ctx.fillStyle = dg; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 2.4, 0, TAU); ctx.fill(); ctx.restore();
       continue;
     }
-    const isCh = e.type === 'chaser', isSent = e.type === 'sentinel', isSleep = e.type === 'sleeper', isCut = e.type === 'cutter';
+    const isCh = e.type === 'chaser', isSent = e.type === 'sentinel', isSleep = e.type === 'sleeper', isCut = e.type === 'cutter', isWr = e.type === 'wraith';
     let prox = 0;
     if (G.player && G.player.px && G.state === 'playing') prox = clamp(1 - Math.hypot(G.player.px.x - e.x, G.player.px.y - e.y) / (CELL * 6), 0, 1);
-    const col = frozen ? '#bfe9ff' : isCut ? '#ffe93b' : isSleep ? '#ff3a4e' : isSent ? '#ffb14a' : isCh ? CHASER_COL : ENEMY_COL;
-    const glow = frozen ? '#bfe9ff' : isCut ? '#fff07a' : isSleep ? '#ff6a4a' : isSent ? '#ffd07a' : isCh ? CHASER_GLOW : ENEMY_GLOW;
+    const col = frozen ? '#bfe9ff' : isCut ? '#ffe93b' : isSleep ? '#ff3a4e' : isSent ? '#ffb14a' : isWr ? '#c89cff' : isCh ? CHASER_COL : ENEMY_COL;
+    const glow = frozen ? '#bfe9ff' : isCut ? '#fff07a' : isSleep ? '#ff6a4a' : isSent ? '#ffd07a' : isWr ? '#5cf0ff' : isCh ? CHASER_GLOW : ENEMY_GLOW;
+    const wghost = isWr && e.charging <= 0 ? 0.6 + 0.25 * Math.sin(G.time * 4 + e.x) : 1;   // ghostly between blinks
+    ctx.save(); ctx.globalAlpha = wghost;
     drawGlowOrb(e.x, e.y, e.r * pulse, col, glow, e.r * (3.2 + prox * 2.4));
+    ctx.restore();
+    // wraith telegraph: a growing flicker ring + a line toward where it will blink
+    if (isWr && e.charging > 0 && !frozen) {
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const k = 1 - e.charging / 0.55;
+      ctx.strokeStyle = '#ffffff'; ctx.globalAlpha = 0.4 + 0.6 * Math.abs(Math.sin(G.time * 30));
+      ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * (1.4 + k * 1.7), 0, TAU); ctx.stroke();
+      if (G.player && G.player.px) {
+        const dx = G.player.px.x - e.x, dy = G.player.px.y - e.y, d = Math.hypot(dx, dy) || 1;
+        ctx.strokeStyle = '#5cf0ff'; ctx.globalAlpha = 0.55 * k; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.x + dx / d * CELL * 2, e.y + dy / d * CELL * 2); ctx.stroke();
+      }
+      ctx.restore();
+    }
     if (prox > 0.35 && !frozen) {
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       ctx.strokeStyle = glow; ctx.globalAlpha = (prox - 0.35) * 1.2 * (0.6 + 0.4 * Math.sin(G.time * 14));
@@ -599,6 +654,8 @@ function drawPUGlyph(type, x, y, col, alpha) {
   else if (type === 'shield') { ctx.beginPath(); ctx.moveTo(0, -3.4); ctx.lineTo(3, -2); ctx.lineTo(3, 1); ctx.lineTo(0, 3.6); ctx.lineTo(-3, 1); ctx.lineTo(-3, -2); ctx.closePath(); ctx.fill(); }
   else if (type === 'freeze') { for (let i = 0; i < 3; i++) { ctx.save(); ctx.rotate(i * Math.PI / 3); ctx.beginPath(); ctx.moveTo(0, -3.6); ctx.lineTo(0, 3.6); ctx.stroke(); ctx.restore(); } }
   else if (type === 'slow') { ctx.beginPath(); ctx.arc(0, 0, 3.4, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -2.6); ctx.moveTo(0, 0); ctx.lineTo(2, 0.6); ctx.stroke(); }
+  else if (type === 'bomb') { ctx.beginPath(); ctx.arc(0, 1, 3, 0, TAU); ctx.fill(); ctx.beginPath(); ctx.moveTo(1.6, -1.7); ctx.lineTo(3.2, -3.3); ctx.stroke(); }   // bomb + fuse
+  else if (type === 'surge') { ctx.beginPath(); ctx.moveTo(1.2, -3.6); ctx.lineTo(-2, 0.4); ctx.lineTo(0, 0.4); ctx.lineTo(-1.2, 3.6); ctx.lineTo(2.4, -0.8); ctx.lineTo(0.4, -0.8); ctx.closePath(); ctx.fill(); }   // lightning bolt
   else { ctx.beginPath(); for (let i = 0; i < 5; i++) { const ang = -Math.PI / 2 + i * TAU / 5; const ang2 = ang + TAU / 10; ctx.lineTo(Math.cos(ang) * 3.6, Math.sin(ang) * 3.6); ctx.lineTo(Math.cos(ang2) * 1.6, Math.sin(ang2) * 1.6); } ctx.closePath(); ctx.fill(); }
   ctx.restore();
 }

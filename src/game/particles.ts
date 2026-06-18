@@ -43,14 +43,15 @@ export function initMotes() {
   const sky = style === 'sky';       // the Expanse: slow-drifting dawn wisps
   const aurora = style === 'aurora'; // Aurora: gently falling snow
   const space = style === 'space';   // Deep Space: slow-drifting twinkling stardust
+  const rift = style === 'rift';     // The Rift: flickering prism sparks
   for (let i = 0; i < 46; i++)
     G.motes.push({
       x: Math.random() * PW, y: Math.random() * PH,
-      vx: caves ? rand(-3, 3) : ocean ? rand(-4, 4) : flora ? rand(-4, 4) : sky ? rand(-12, 12) : aurora ? rand(-7, 7) : space ? rand(-2, 2) : rand(-5, 5),
-      vy: magma ? rand(-26, -10) : ocean ? rand(-22, -8) : caves ? rand(-3, 3) : flora ? rand(-5, 5) : sky ? rand(-2, 2) : aurora ? rand(10, 26) : space ? rand(-2, 2) : rand(-6, 6),
-      r: rand(0.5, magma ? 1.9 : caves ? 1.7 : ocean ? 1.8 : flora ? 1.7 : sky ? 1.8 : aurora ? 1.7 : space ? 1.5 : 1.6),
-      a: magma ? rand(0.15, 0.5) : caves ? rand(0.2, 0.55) : ocean || flora ? rand(0.1, 0.3) : sky ? rand(0.06, 0.22) : aurora ? rand(0.12, 0.4) : space ? rand(0.1, 0.4) : rand(0.05, 0.3),
-      em: magma, cr: caves, bu: ocean, sp: flora, wi: sky, sn: aurora, du: space,
+      vx: caves ? rand(-3, 3) : ocean ? rand(-4, 4) : flora ? rand(-4, 4) : sky ? rand(-12, 12) : aurora ? rand(-7, 7) : space ? rand(-2, 2) : rift ? rand(-9, 9) : rand(-5, 5),
+      vy: magma ? rand(-26, -10) : ocean ? rand(-22, -8) : caves ? rand(-3, 3) : flora ? rand(-5, 5) : sky ? rand(-2, 2) : aurora ? rand(10, 26) : space ? rand(-2, 2) : rift ? rand(-9, 9) : rand(-6, 6),
+      r: rand(0.5, magma ? 1.9 : caves ? 1.7 : ocean ? 1.8 : flora ? 1.7 : sky ? 1.8 : aurora ? 1.7 : space ? 1.5 : rift ? 1.6 : 1.6),
+      a: magma ? rand(0.15, 0.5) : caves ? rand(0.2, 0.55) : ocean || flora ? rand(0.1, 0.3) : sky ? rand(0.06, 0.22) : aurora ? rand(0.12, 0.4) : space ? rand(0.1, 0.4) : rift ? rand(0.15, 0.5) : rand(0.05, 0.3),
+      em: magma, cr: caves, bu: ocean, sp: flora, wi: sky, sn: aurora, du: space, pr: rift,
     });
 }
 export function updateMotes(dt) {

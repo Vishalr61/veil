@@ -648,11 +648,77 @@ function genSpaceNebula(c, p, PW, PH, depth) {
   c.globalAlpha = 1;
 }
 
+// The Rift (daily zone) — a fractured prismatic void: a luminous vertical tear
+// with chromatic (cyan/magenta) split, prism shards, fracture lines and glitch
+// bands. Reads as 'outside the world', unlike any campaign zone.
+function genRiftNebula(c, p, PW, PH, depth) {
+  const B = p.blobs;            // [void black, deep violet, violet, bright violet, prism white]
+  const CY = '#5cf0ff', MG = '#ff5ce0';   // the chromatic-split signature
+
+  const base = c.createLinearGradient(0, 0, 0, PH);   // void base, lifted vs veil
+  base.addColorStop(0, '#0a0716'); base.addColorStop(0.5, '#0c0820'); base.addColorStop(1, '#120a26');
+  c.fillStyle = base; c.fillRect(0, 0, PW, PH);
+
+  c.globalCompositeOperation = 'lighter';
+
+  for (let i = 0, n = 3 + Math.round(depth * 2); i < n; i++) {   // faint violet haze
+    const x = rand(0, PW), y = rand(0, PH), r = rand(120, 280);
+    const g = c.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, hexA(B[2], 0.12)); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = 0.6; c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+  }
+  c.globalAlpha = 1;
+
+  // the RIFT — a vertical luminous tear with a chromatic split (the hero)
+  const rx = rand(PW * 0.36, PW * 0.64);
+  const halo = c.createLinearGradient(rx - 64, 0, rx + 64, 0);
+  halo.addColorStop(0, 'rgba(0,0,0,0)'); halo.addColorStop(0.5, hexA(B[3], 0.18 + depth * 0.12)); halo.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = halo; c.fillRect(rx - 64, 0, 128, PH);
+  const pts = []; let ty = -10, tx = rx;
+  while (ty < PH + 10) { pts.push({ x: Math.max(rx - 42, Math.min(rx + 42, tx + rand(-14, 14))), y: ty }); ty += rand(24, 48); tx += rand(-12, 12); }
+  const seam = (col, off, w, a) => { c.globalAlpha = a; c.strokeStyle = col; c.lineWidth = w; c.beginPath(); pts.forEach((q, i) => i ? c.lineTo(q.x + off, q.y) : c.moveTo(q.x + off, q.y)); c.stroke(); };
+  seam(CY, -3, 2.5, 0.5); seam(MG, 3, 2.5, 0.5); seam('#ffffff', 0, 1.6, 0.95);
+  c.globalAlpha = 1;
+
+  for (let i = 0, n = 5 + Math.round(depth * 4); i < n; i++) {   // prismatic fracture lines
+    let x = rand(0, PW), y = rand(0, PH); const col = i % 2 ? CY : MG;
+    c.globalAlpha = rand(0.1, 0.25); c.strokeStyle = col; c.lineWidth = rand(0.6, 1.4);
+    c.beginPath(); c.moveTo(x, y); for (let k = 0; k < 3; k++) { x += rand(-70, 70); y += rand(-70, 70); c.lineTo(x, y); } c.stroke();
+  }
+  c.globalAlpha = 1;
+
+  for (let i = 0; i < 16; i++) {   // floating prism shards
+    const x = rand(0, PW), y = rand(0, PH), s = rand(5, 16);
+    c.save(); c.translate(x, y); c.rotate(rand(0, TAU)); c.globalAlpha = rand(0.2, 0.5);
+    c.fillStyle = i % 3 === 0 ? CY : i % 3 === 1 ? MG : hexA(B[4], 0.7);
+    c.beginPath(); c.moveTo(0, -s); c.lineTo(s * 0.5, s * 0.5); c.lineTo(-s * 0.5, s * 0.5); c.closePath(); c.fill();
+    c.restore();
+  }
+  for (let i = 0; i < 120; i++) {   // sparse stars
+    c.globalAlpha = rand(0.1, 0.6); c.fillStyle = Math.random() < 0.2 ? CY : p.star;
+    c.beginPath(); c.arc(rand(0, PW), rand(0, PH), rand(0.3, 1), 0, TAU); c.fill();
+  }
+  c.globalAlpha = 1;
+
+  c.globalCompositeOperation = 'source-over';   // glitch bands (displaced strips)
+  for (let i = 0, n = 2 + Math.round(depth * 2); i < n; i++) {
+    const y = rand(0, PH), h = rand(2, 6);
+    c.globalAlpha = rand(0.05, 0.12); c.fillStyle = Math.random() < 0.5 ? CY : MG; c.fillRect(0, y, PW, h);
+  }
+  c.globalAlpha = 1;
+  const VR = Math.max(PW, PH);
+  const vig = c.createRadialGradient(PW / 2, PH / 2, VR * 0.36, PW / 2, PH / 2, VR * 0.92);
+  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.42)');
+  c.fillStyle = vig; c.fillRect(0, 0, PW, PH);
+  c.globalAlpha = 1;
+}
+
 export function genNebula(p, level, PW, PH, depth = 0) {
   level = level || 1;
   const s = createSurface(PW, PH), c = s.ctx;
-  // band style drives the backdrop flavor (magma / caves / ocean / flora / sky / aurora / space)
+  // band style drives the backdrop flavor (magma / caves / ocean / flora / sky / aurora / space / rift)
   const style = p.style || 'space';
+  if (style === 'rift') { genRiftNebula(c, p, PW, PH, depth); return s; }
   if (style === 'space') { genSpaceNebula(c, p, PW, PH, depth); return s; }
   if (style === 'magma') { genMagmaNebula(c, p, PW, PH, depth); return s; }
   if (style === 'caves') { genCrystalNebula(c, p, PW, PH, depth); return s; }
@@ -885,6 +951,17 @@ function fogSignature(c, pal, style, PW, PH, depth = 0) {
       c.fillRect(Math.random() * PW, Math.random() * PH, 1.2, 1.2);
     }
     c.globalAlpha = 1;
+  } else if (style === 'rift') {                        // the rift veil — void + prism flecks + dim fractures
+    for (let i = 0; i < 90; i++) {
+      c.globalAlpha = rand(0.05, 0.3); c.fillStyle = Math.random() < 0.2 ? '#5cf0ff' : Math.random() < 0.4 ? '#ff5ce0' : pal.star;
+      c.beginPath(); c.arc(Math.random() * PW, Math.random() * PH, rand(0.3, 1.1), 0, TAU); c.fill();
+    }
+    for (let i = 0, n = 4 + Math.round(depth * 3); i < n; i++) {
+      let x = rand(0, PW), y = rand(0, PH); c.globalAlpha = rand(0.06, 0.16);
+      c.strokeStyle = i % 2 ? '#5cf0ff' : '#ff5ce0'; c.lineWidth = rand(0.5, 1.2);
+      c.beginPath(); c.moveTo(x, y); for (let k = 0; k < 3; k++) { x += rand(-60, 60); y += rand(-60, 60); c.lineTo(x, y); } c.stroke();
+    }
+    c.globalAlpha = 1;
   } else {                                              // space: dim starfield + faint dust lanes in the void
     for (let i = 0; i < 150; i++) {                      // faint stars (the veil is the unrevealed deep)
       c.globalAlpha = rand(0.05, 0.28); c.fillStyle = Math.random() < 0.12 ? hexA(pal.blobs[3], 0.6) : pal.star;
@@ -904,8 +981,8 @@ export function genFog(pal, PW, PH, depth = 0) {
   const s = createSurface(PW, PH), c = s.ctx;
   // The Depths veil is COOL basalt (warm ember cracks come from fogSignature);
   // other bands keep their band-tinted near-black.
-  const d0 = style === 'magma' ? '#0a0813' : style === 'caves' ? '#0b0716' : style === 'ocean' ? '#04161c' : style === 'flora' ? '#06160c' : style === 'sky' ? '#070a1e' : pal.blobs[0];
-  const d1 = style === 'magma' ? '#15121f' : style === 'caves' ? '#1a1030' : style === 'ocean' ? '#0a3038' : style === 'flora' ? '#0e3018' : style === 'sky' ? '#141a3c' : pal.blobs[1];
+  const d0 = style === 'magma' ? '#0a0813' : style === 'caves' ? '#0b0716' : style === 'ocean' ? '#04161c' : style === 'flora' ? '#06160c' : style === 'sky' ? '#070a1e' : style === 'rift' ? '#08061a' : pal.blobs[0];
+  const d1 = style === 'magma' ? '#15121f' : style === 'caves' ? '#1a1030' : style === 'ocean' ? '#0a3038' : style === 'flora' ? '#0e3018' : style === 'sky' ? '#141a3c' : style === 'rift' ? '#180c30' : pal.blobs[1];
   c.fillStyle = d0; c.fillRect(0, 0, PW, PH);
   const g = c.createLinearGradient(0, 0, 0, PH);
   g.addColorStop(0, hexA(d1, 0.5)); g.addColorStop(1, hexA(d0, 0));   // subtle lift up top
@@ -976,6 +1053,18 @@ export function genFog(pal, PW, PH, depth = 0) {
       const x = rand(PW * 0.1, PW * 0.9), y = rand(PH * 0.1, PH * 0.9), r = rand(130, 240);
       const rg = c.createRadialGradient(x, y, 0, x, y, r);
       rg.addColorStop(0, hexA(i % 2 ? pal.blobs[3] : '#8a3a7a', 0.06 + depth * 0.05)); rg.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+    }
+    c.restore();
+  } else if (style === 'rift') {   // a faint prism glow + a vertical seam hint behind the veil
+    c.save(); c.globalCompositeOperation = 'lighter';
+    const rx = PW * 0.5, halo = c.createLinearGradient(rx - 50, 0, rx + 50, 0);
+    halo.addColorStop(0, 'rgba(0,0,0,0)'); halo.addColorStop(0.5, hexA(pal.blobs[3], 0.05 + depth * 0.06)); halo.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = halo; c.fillRect(rx - 50, 0, 100, PH);
+    for (let i = 0, n = 2 + Math.round(depth * 2); i < n; i++) {
+      const x = rand(PW * 0.15, PW * 0.85), y = rand(PH * 0.1, PH * 0.9), r = rand(110, 200);
+      const rg = c.createRadialGradient(x, y, 0, x, y, r);
+      rg.addColorStop(0, hexA(i % 2 ? '#5cf0ff' : '#ff5ce0', 0.04 + depth * 0.04)); rg.addColorStop(1, 'rgba(0,0,0,0)');
       c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
     }
     c.restore();

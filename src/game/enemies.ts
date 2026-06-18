@@ -20,7 +20,7 @@ export function eCell(e) {
   const cy = clamp(Math.floor(e.y / CELL), 0, ROWS - 1);
   return cy * COLS + cx;
 }
-export interface EnemyCounts { drifter: number; chaser: number; cutter: number; sentinel: number; sleeper: number; }
+export interface EnemyCounts { drifter: number; chaser: number; cutter: number; sentinel: number; sleeper: number; wraith?: number; }
 
 // Staggered introduction: drifters alone early, then a new type every ~3 levels
 // so each enemy gets room to breathe before the next arrives. This is the
@@ -39,6 +39,7 @@ export const ENEMY_INFO = {
   cutter: { name: 'CUTTER', desc: 'races to slice your line' },
   sentinel: { name: 'SENTINEL', desc: 'attacks while you rest on land' },
   sleeper: { name: 'VEIL-SLEEPER', desc: 'reveals in the dark — wake it' },
+  wraith: { name: 'WRAITH', desc: 'blinks through the rift toward you' },
 };
 export function genEnemies(lv, counts: EnemyCounts = enemyCounts(lv)) {
   const out = [];
@@ -57,7 +58,8 @@ export function genEnemies(lv, counts: EnemyCounts = enemyCounts(lv)) {
   function place(type, speed) {
     const p = spawnCell(7, false), comp = speed * 0.7071;
     out.push({ x: p.x, y: p.y, vx: (G.rng.next() < 0.5 ? -1 : 1) * comp, vy: (G.rng.next() < 0.5 ? -1 : 1) * comp,
-      r: CELL * 0.42, type, speed, comp, steerT: G.rng.range(0.2, 0.6) });
+      r: CELL * 0.42, type, speed, comp, steerT: G.rng.range(0.2, 0.6),
+      blinkT: type === 'wraith' ? G.rng.range(0.9, 1.6) : 0, charging: 0 });
   }
   function placeSleeper(speed) {
     const p = spawnCell(6, true);
@@ -67,6 +69,7 @@ export function genEnemies(lv, counts: EnemyCounts = enemyCounts(lv)) {
   for (let i = 0; i < n.chaser; i++) place('chaser', spd * 0.74);
   for (let i = 0; i < n.cutter; i++) place('cutter', spd * 0.8);
   for (let i = 0; i < n.sentinel; i++) place('sentinel', spd * 0.82);
+  for (let i = 0; i < (n.wraith || 0); i++) place('wraith', spd * 0.7);
   for (let i = 0; i < n.sleeper; i++) placeSleeper(spd * 0.95);
   return out;
 }
@@ -78,6 +81,25 @@ export function moveEnemy(e, dt) {
     e.asleep = false; e.steerT = 0;
     G.flash = G.reduceMotion ? 0.12 : 0.3; G.shakeAmt = G.reduceMotion ? 0 : Math.max(G.shakeAmt, 7);
     hapticHeavy(); spawnPopup(e.x, e.y, 'WOKE', '#ff5c6e', 16);
+  }
+  // wraith (daily): holds position, then telegraphs (~0.55s) and BLINKS ~5 cells
+  // toward you. Readable because the charge is shown; deterministic timing.
+  if (e.type === 'wraith') {
+    if (e.charging > 0) {
+      e.charging -= dt;
+      if (e.charging <= 0 && G.player) {
+        const dx = G.player.px.x - e.x, dy = G.player.px.y - e.y, d = Math.hypot(dx, dy) || 1, hop = CELL * 5;
+        const tx = clamp(e.x + dx / d * hop, CELL * 1.5, (COLS - 1.5) * CELL);
+        const ty = clamp(e.y + dy / d * hop, CELL * 1.5, (ROWS - 1.5) * CELL);
+        const cc = clamp(Math.floor(ty / CELL), 1, ROWS - 2) * COLS + clamp(Math.floor(tx / CELL), 1, COLS - 2);
+        if (G.grid[cc] !== OBSTACLE && G.grid[cc] !== FILLED) { e.x = tx; e.y = ty; }
+        e.blinkT = 2.4;
+      }
+      return;
+    }
+    e.blinkT -= dt;
+    if (e.blinkT <= 0) e.charging = 0.55;
+    return;   // holds still between blinks (no drift)
   }
   // cutter: while you draw, beeline to the BASE of your line (a fixed point) to cut you
   // off — a predictable straight approach. Otherwise it just drifts like a regular enemy.

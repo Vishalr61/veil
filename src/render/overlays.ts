@@ -14,6 +14,7 @@ import { todayKey, isConsecutive } from '../daily/daily';
 import { genNebula } from './background';
 import { BANDS } from '../core/bands';
 import { getScores, justSetEntry } from '../game/leaderboard';
+import { DAILY_FLOORS } from '../game/blueprints';
 
 function dim(a) { ctx.save(); ctx.fillStyle = `rgba(3,5,12,${a})`; ctx.fillRect(0, 0, CW, CH); ctx.restore(); }
 export function drawMenu() {
@@ -69,15 +70,17 @@ export function drawScores() {
 export function drawLevelClear() {
   dim(0.45);
   const cx = CW / 2, cyc = CH / 2, t = clamp((2.9 - G.lcTimer) * 2.2, 0, 1), pop = 1 + (1 - t) * 0.3;
-  glowText('VEIL CLEARED', cx, cyc - 36, 44 * pop, G.pal.edge2, { blur: 26, font: 'mono', spacing: 2, core: '#fff', alpha: t });
-  glowText('LEVEL ' + G.level + '  ·  ' + Math.round(G.percent * 100) + '% revealed', cx, cyc + 8, 16, '#cfe6ff', { blur: 8, weight: 600, spacing: 1, alpha: t });
+  const lastFloor = G.isDaily && G.level >= DAILY_FLOORS;
+  glowText(G.isDaily ? 'FLOOR CLEARED' : 'VEIL CLEARED', cx, cyc - 36, 44 * pop, G.pal.edge2, { blur: 26, font: 'mono', spacing: 2, core: '#fff', alpha: t });
+  glowText((G.isDaily ? 'FLOOR ' : 'LEVEL ') + G.level + '  ·  ' + Math.round(G.percent * 100) + '% revealed', cx, cyc + 8, 16, '#cfe6ff', { blur: 8, weight: 600, spacing: 1, alpha: t });
   glowText('+ ' + G.lastBonus + '  bonus', cx, cyc + 40, 18, G.pal.accent, { blur: 12, weight: 800, alpha: t });
-  glowText('next: level ' + (G.level + 1), cx, cyc + 78, 12, '#7f97c8', { blur: 0, spacing: 2, alpha: t * (0.6 + 0.4 * Math.sin(G.menuT * 4)) });
+  const next = lastFloor ? 'clearing the rift...' : 'next: ' + (G.isDaily ? 'floor ' : 'level ') + (G.level + 1);
+  glowText(next, cx, cyc + 78, 12, '#7f97c8', { blur: 0, spacing: 2, alpha: t * (0.6 + 0.4 * Math.sin(G.menuT * 4)) });
 }
 export function drawGameOver() {
   dim(0.66);
   const cx = CW / 2, cyc = CH / 2, t = clamp(G.goTimer * 1.6, 0, 1);
-  glowText('THE DARK WINS', cx, cyc - 98, 38, '#ff6b7e', { blur: 26, font: 'mono', spacing: 2, core: '#fff', alpha: t });
+  glowText(G.dailyWon ? 'DAILY COMPLETE' : 'THE DARK WINS', cx, cyc - 98, G.dailyWon ? 34 : 38, G.dailyWon ? '#5cf0b0' : '#ff6b7e', { blur: 26, font: 'mono', spacing: 2, core: '#fff', alpha: t });
   glowText('SCORE', cx, cyc - 56, 11, '#7f97c8', { font: 'mono', spacing: 3, alpha: t });
   glowText(fmtScore(G.score), cx, cyc - 26, 30, '#dff1ff', { blur: 14, font: 'mono', weight: 700, spacing: 1, core: '#fff', alpha: t });
 
@@ -91,8 +94,8 @@ export function drawGameOver() {
     glowText('BEST ' + fmtScore(G.highScore) + (gap > 0 ? '   ' + gap + ' TO BEAT' : ''), cx, cyc + 10, 13, G.pal ? G.pal.edge : '#9ad', { blur: 8, font: 'mono', weight: 700, spacing: 1, alpha: t });
   }
 
-  // local rank + reached level (+ daily tag)
-  let sub = 'reached level ' + G.level;
+  // local rank + how far you got (+ daily tag)
+  let sub = G.dailyWon ? 'all ' + G.level + ' rift floors cleared' : G.isDaily ? 'reached floor ' + G.level : 'reached level ' + G.level;
   if (G.lastRank > 0) sub = '#' + G.lastRank + ' on this device    ' + sub;
   glowText(sub, cx, cyc + 40, 12, '#8fa8d8', { font: 'mono', spacing: 1, alpha: t });
   if (G.isDaily) glowText('DAILY ' + G.dailyRunKey + (G.dailyStreak > 1 ? '    ' + G.dailyStreak + ' STREAK' : ''), cx, cyc + 62, 11, '#9fd0ff', { font: 'mono', spacing: 1, weight: 700, alpha: t });

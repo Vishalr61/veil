@@ -19,12 +19,16 @@ const PU_TYPES = [
   { type: 'slow',   w: 20, col: '#9fb8ff', label: 'slow' },
   { type: 'shield', w: 16, col: '#7dffc4', label: 'shield' },
   { type: 'life',   w: 8,  col: '#ff8fb0', label: 'life' },
+  // daily-only (The Rift): a panic clear + a score surge
+  { type: 'bomb',   w: 18, col: '#ff7a4a', label: 'bomb',  daily: true },
+  { type: 'surge',  w: 16, col: '#ffce5c', label: 'surge', daily: true },
 ];
 function pickPU() {
-  const total = PU_TYPES.reduce((s, p) => s + p.w, 0);
+  const pool = PU_TYPES.filter((p) => !(p as any).daily || G.isDaily);
+  const total = pool.reduce((s, p) => s + p.w, 0);
   let r = G.rng.next() * total;
-  for (const p of PU_TYPES) { if ((r -= p.w) <= 0) return p; }
-  return PU_TYPES[0];
+  for (const p of pool) { if ((r -= p.w) <= 0) return p; }
+  return pool[0];
 }
 export function maybeSpawnPickup(dt) {
   G.pickupSpawnT -= dt;
@@ -61,9 +65,18 @@ function applyPickup(p) {
     const ang = Math.random() * TAU, sp = rand(40, 150);
     G.particles.push({ x: p.x, y: p.y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: rand(0.4, 0.9), max: 0.9, r: rand(1.2, 3), col: p.col });
   }
-  if (p.type === 'score') { const g = 400 + G.level * 150; G.score += g; spawnPopup(p.x, p.y, '+' + g, p.col, 18); }
+  if (p.type === 'score') { const g = (400 + G.level * 150) * (G.surgeT > 0 ? 2 : 1); G.score += g; spawnPopup(p.x, p.y, '+' + g, p.col, 18); }
   else if (p.type === 'freeze') { G.enemyFreezeT = 3.6; spawnPopup(p.x, p.y, 'FREEZE', p.col, 16); }
   else if (p.type === 'slow') { G.enemySlowT = 5.5; spawnPopup(p.x, p.y, 'SLOW', p.col, 16); }
   else if (p.type === 'shield') { G.shield = true; spawnPopup(p.x, p.y, 'SHIELD', p.col, 16); }
   else if (p.type === 'life') { G.lives++; spawnPopup(p.x, p.y, '+1 LIFE', p.col, 16); }
+  else if (p.type === 'bomb') {   // clear nearby threats with a shockwave
+    const R = CELL * 5;
+    for (let i = G.enemies.length - 1; i >= 0; i--) { const e = G.enemies[i]; if (Math.hypot(e.x - p.x, e.y - p.y) < R) G.enemies.splice(i, 1); }
+    G.enemyFreezeT = Math.max(G.enemyFreezeT, 1.4);
+    if (!G.reduceMotion) { G.shakeAmt = Math.max(G.shakeAmt, 8); G.flash = 0.3; }
+    for (let i = 0; i < 30; i++) { const ang = Math.random() * TAU, sp = rand(120, 290); G.particles.push({ x: p.x, y: p.y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: rand(0.4, 0.8), max: 0.8, r: rand(1.5, 3.5), col: p.col }); }
+    spawnPopup(p.x, p.y, 'BOMB', p.col, 18);
+  }
+  else if (p.type === 'surge') { G.surgeT = 8; spawnPopup(p.x, p.y, 'SURGE  2x', p.col, 16); }
 }

@@ -73,7 +73,7 @@ export function doCapture() {
   if (area > 0) {
     if (G.comboT > 0) G.combo++; else G.combo = 1;
     G.comboT = COMBO_WINDOW;
-    const mult = comboMult();
+    const mult = comboMult() * (G.surgeT > 0 ? 2 : 1);   // SURGE booster doubles capture gains
     // anti-nibble: value per cell rises with cut size
     const valuePerCell = 4 + Math.min(area, 220) * 0.12;
     const gained = Math.round(area * valuePerCell * mult);

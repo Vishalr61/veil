@@ -37,6 +37,15 @@ export const BANDS: Band[] = [
     star: '#eae6ff', edge: '#9a7aff', edge2: '#d6c8ff', trail: '#f0ecff', player: '#ffffff', accent: '#b89aff' },
 ];
 
+// The Rift — the daily challenge's own zone. Deliberately NOT in the BANDS
+// progression (it must not shift the campaign's per-level mapping); the daily
+// flow uses it directly. A fractured prismatic void: cyan/magenta glitch splits
+// over deep violet-black.
+export const RIFT_BAND: Band = {
+  name: 'the rift', style: 'rift', blobs: ['#04030a', '#170b26', '#3e1a66', '#b85cff', '#ead6ff'],
+  star: '#f0e6ff', edge: '#9a6cff', edge2: '#d8c0ff', trail: '#f2ecff', player: '#ffffff', accent: '#c06cff',
+};
+
 export const LEVELS_PER_BAND = 5;
 
 export function bandForLevel(level: number): Band {
