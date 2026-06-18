@@ -41,6 +41,7 @@ function arrive() {
   if (v === EMPTY) {
     if (!G.hasTrail) {
       G.hasTrail = true; G.trailCells = []; G.trailPoints = [centerPx(prev)];
+      G.fuseT = 0; G.fuseMax = Math.max(2.8, 6 - G.level * 0.12);   // arm the fuse (tighter at higher levels)
       if (G.drawSoundLock <= 0) { sfxStartDraw(); hapticLight(); G.drawSoundLock = 0.25; }
     }
     G.grid[arrived] = TRAIL; G.trailCells.push(arrived); G.trailPoints.push(centerPx(arrived));
@@ -58,6 +59,13 @@ function hasEscape(idx) {
   return false;
 }
 export function updatePlayer(dt) {
+  // The FUSE: while a line is open, a spark crawls it; close (capture) or get
+  // back to safe ground before it runs out, or it catches you. Punishes long,
+  // greedy single draws — the genre's core tension.
+  if (G.hasTrail) {
+    G.fuseT += dt;
+    if (G.fuseT >= G.fuseMax) { spawnPopup(G.player.px.x, G.player.px.y, 'BURNED', '#ff7a4a', 16); triggerDeath(); return; }
+  }
   // Continuously honor a held joystick direction so a turn lands at the next valid cell.
   if (G.joyActive && G.joyDir && !G.buffered) G.buffered = G.joyDir;
   if (G.onboarding && !G.firstMoveDone && !G.player.stopped) G.firstMoveDone = true;

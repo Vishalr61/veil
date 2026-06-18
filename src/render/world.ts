@@ -657,6 +657,15 @@ export function drawWorld() {
       ctx.globalCompositeOperation = 'lighter';
       drawGlowOrb(pos.x, pos.y, 2.4, '#fff', G.pal.edge2, 12);
     }
+    // the FUSE spark — crawls the line from its base; reddens + grows as it nears you
+    const f = clamp(G.fuseT / G.fuseMax, 0, 1);
+    if (total > 2 && f > 0.001) {
+      const fp = pointAlong(pts, f * total);
+      const hot = f > 0.66, col = hot ? '#ff5a2e' : f > 0.4 ? '#ff9a3a' : '#ffd24a';
+      ctx.globalCompositeOperation = 'lighter';
+      const flick = 0.7 + 0.3 * Math.sin(G.time * (20 + f * 30));
+      drawGlowOrb(fp.x, fp.y, (2 + f * 2.2) * flick, '#fff', col, 10 + f * 16);
+    }
     ctx.restore();
   }
 

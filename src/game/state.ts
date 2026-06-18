@@ -60,6 +60,7 @@ export const G = {
   // player + trail
   player: null as any, buffered: null as any,
   hasTrail: false, trailCells: [] as any[], trailPoints: [] as any[],
+  fuseT: 0, fuseMax: 6,   // the "fuse": close your open line before the spark crawls its length
   joyActive: false, joyDir: null as any,   // held floating-joystick steer (set by touch input)
 
   // entities
