@@ -545,6 +545,22 @@ function drawSentinelBody(e, o) {
     molNode(e.x + ux * rr, e.y + uy * rr, e.r * 0.34, '#dfeaf5', o.glow);
   }
 }
+// The Qix (boss) — a vast, slow molecular mass: a big glowing core wreathed in
+// chaotic prism electrons. Shrinks (via e.r) as you claim the board.
+function drawQixBody(e, o) {
+  const r = e.r, t = G.reduceMotion ? 0 : G.time;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, r * 2.3);
+  g.addColorStop(0, o.glow); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.globalAlpha = 0.45 + 0.1 * Math.sin(t * 2); ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(e.x, e.y, r * 2.3, 0, TAU); ctx.fill();
+  ctx.restore();
+  molNode(e.x, e.y, r * 0.5, o.col, o.glow);
+  for (let i = 0; i < 6; i++) {
+    const a = t * (0.6 + i * 0.13) + i * 1.05, rr = r * (0.85 + 0.22 * Math.sin(t * 0.7 + i));
+    molNode(e.x + Math.cos(a) * rr, e.y + Math.sin(a) * rr * 0.82, r * 0.16, i % 2 ? '#5cf0ff' : '#ff5ce0', o.glow);
+  }
+}
 // Wraith — an unstable isotope: a faint trembling nucleus; it solidifies and
 // telegraphs (charge ring + aim line) before it blinks at you.
 function drawWraithBody(e, o) {
@@ -688,17 +704,18 @@ export function drawWorld() {
       ctx.fillStyle = dg; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 2.4, 0, TAU); ctx.fill(); ctx.restore();
       continue;
     }
-    const isCh = e.type === 'chaser', isSent = e.type === 'sentinel', isCut = e.type === 'cutter', isWr = e.type === 'wraith';
+    const isCh = e.type === 'chaser', isSent = e.type === 'sentinel', isCut = e.type === 'cutter', isWr = e.type === 'wraith', isQix = e.type === 'qix';
     let prox = 0;
     if (G.player && G.player.px && G.state === 'playing') prox = clamp(1 - Math.hypot(G.player.px.x - e.x, G.player.px.y - e.y) / (CELL * 6), 0, 1);
-    const col = frozen ? '#bfe9ff' : isCut ? '#ffe93b' : isSent ? '#ffb14a' : isWr ? '#c89cff' : isCh ? CHASER_COL : ENEMY_COL;
-    const glow = frozen ? '#bfe9ff' : isCut ? '#fff07a' : isSent ? '#ffd07a' : isWr ? '#5cf0ff' : isCh ? CHASER_GLOW : ENEMY_GLOW;
+    const col = frozen ? '#bfe9ff' : isCut ? '#ffe93b' : isSent ? '#ffb14a' : isWr ? '#c89cff' : isQix ? '#d08cff' : isCh ? CHASER_COL : ENEMY_COL;
+    const glow = frozen ? '#bfe9ff' : isCut ? '#fff07a' : isSent ? '#ffd07a' : isWr ? '#5cf0ff' : isQix ? '#b85cff' : isCh ? CHASER_GLOW : ENEMY_GLOW;
     const o = { col, glow, frozen };
     // distinct silhouette per type (each telegraphs its behaviour)
     if (isCh) drawChaserBody(e, o);
     else if (isCut) drawCutterBody(e, o);
     else if (isSent) drawSentinelBody(e, o);
     else if (isWr) drawWraithBody(e, o);
+    else if (isQix) drawQixBody(e, o);
     else drawDrifterBody(e, o, pulse);
     // shared close-range danger ring
     if (prox > 0.35 && !frozen) {
