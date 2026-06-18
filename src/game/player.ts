@@ -72,7 +72,7 @@ export function updatePlayer(dt) {
   }
   if (!G.player.stopped) {
     // snappier over captured land, deliberate while drawing
-    const seg = G.baseSpeed * (G.grid[G.player.from] === FILLED ? 1.45 : 1.0);
+    const seg = G.baseSpeed * (G.grid[G.player.from] === FILLED ? 1.35 : 1.0);
     G.player.t += seg * dt;
     let guard = 0;
     while (G.player.t >= 1 && !G.player.stopped) { G.player.t -= 1; arrive(); if (++guard > COLS + ROWS) break; }

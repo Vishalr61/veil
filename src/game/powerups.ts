@@ -10,7 +10,7 @@ import { CELL, COLS, ROWS } from '../core/dims';
 import { EMPTY } from '../core/constants';
 import { centerPx, cellOfPx } from '../core/grid';
 import { spawnPopup } from './particles';
-import { sfxPickup } from '../audio/audio';
+import { sfxPickup, sfxBomb, sfxSurge } from '../audio/audio';
 import { hapticLight } from '../platform/haptics';
 
 const PU_TYPES = [
@@ -76,7 +76,7 @@ function applyPickup(p) {
     G.enemyFreezeT = Math.max(G.enemyFreezeT, 1.4);
     if (!G.reduceMotion) { G.shakeAmt = Math.max(G.shakeAmt, 8); G.flash = 0.3; }
     for (let i = 0; i < 30; i++) { const ang = Math.random() * TAU, sp = rand(120, 290); G.particles.push({ x: p.x, y: p.y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: rand(0.4, 0.8), max: 0.8, r: rand(1.5, 3.5), col: p.col }); }
-    spawnPopup(p.x, p.y, 'BOMB', p.col, 18);
+    spawnPopup(p.x, p.y, 'BOMB', p.col, 18); sfxBomb();
   }
-  else if (p.type === 'surge') { G.surgeT = 8; spawnPopup(p.x, p.y, 'SURGE  2x', p.col, 16); }
+  else if (p.type === 'surge') { G.surgeT = 8; spawnPopup(p.x, p.y, 'SURGE  2x', p.col, 16); sfxSurge(); }
 }

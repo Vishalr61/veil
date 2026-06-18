@@ -2,25 +2,43 @@
    Audio — Web Audio API. Synthesized SFX + an ambient pad. Owns mute state.
    ========================================================================= */
 
-let ac: any = null, masterGain: any = null, padGain: any = null;
+import { initMusic, startMusic } from './music';
+export { setMusicIntensity, setMusicTheme } from './music';
+
+let ac: any = null, masterGain: any = null, padGain: any = null, musicGain: any = null, sfxGain: any = null;
 let muted = false;
 try { muted = localStorage.getItem('veil_muted') === '1'; } catch (e) {}
 
 export function isMuted() { return muted; }
 
 export function initAudio() {
-  if (ac) return;
+  if (ac) { resumeAudio(); return; }   // already up — just make sure it's running
   try {
     ac = new (window.AudioContext || (window as any).webkitAudioContext)();
+    // master glue: a gentle compressor keeps music + SFX from clipping when they stack
+    const comp = ac.createDynamicsCompressor();
+    comp.threshold.value = -16; comp.knee.value = 22; comp.ratio.value = 3; comp.attack.value = 0.003; comp.release.value = 0.25;
+    comp.connect(ac.destination);
     masterGain = ac.createGain();
     masterGain.gain.value = muted ? 0 : 0.9;
-    masterGain.connect(ac.destination);
+    masterGain.connect(comp);
     padGain = ac.createGain();
     padGain.gain.value = 0.0;
     padGain.connect(masterGain);
+    musicGain = ac.createGain();        // music bus, faded up after start
+    musicGain.gain.value = 0.0;
+    musicGain.connect(masterGain);
+    sfxGain = ac.createGain();          // SFX sit UNDER the music so they don't clash
+    sfxGain.gain.value = 0.6;
+    sfxGain.connect(masterGain);
     startPad();
+    initMusic(ac, musicGain); startMusic();
+    musicGain.gain.linearRampToValueAtTime(0.4, ac.currentTime + 1.5);
   } catch (e) { ac = null; }
 }
+// Resume a context the browser suspended (tab switch / mobile) — otherwise the
+// music goes silent and never recovers ("gets stuck").
+export function resumeAudio() { try { if (ac && ac.state === 'suspended') ac.resume(); } catch (e) {} }
 function startPad() {
   if (!ac) return;
   [55, 82.4, 110].forEach((f, i) => {
@@ -44,13 +62,30 @@ function tone(freq: number, dur: number, type?: string, gain?: number, when?: nu
   g.gain.setValueAtTime(0.0001, t0);
   g.gain.exponentialRampToValueAtTime(gain as number, t0 + 0.012);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  o.connect(g); g.connect(masterGain);
+  o.connect(g); g.connect(sfxGain || masterGain);
   o.start(t0); o.stop(t0 + dur + 0.02);
 }
-export function sfxStartDraw() { tone(420, 0.12, 'triangle', 0.10, 0, 540); }
-export function sfxCapture(ch: number) {
-  const base = 360 + Math.min(ch, 8) * 40;
-  [0, 4, 7, 11].forEach((n, i) => tone(base * Math.pow(2, n / 12), 0.22, 'triangle', 0.10, i * 0.045, base * Math.pow(2, n / 12) * 1.5));
+export function sfxStartDraw() { tone(420, 0.1, 'triangle', 0.06, 0, 540); }   // movement cue — kept subtle under the music
+// The core "claim" sound: a rising filtered sweep (longer/higher the bigger the
+// area you just took) capped by a bright confirm chord (pitched up by combo).
+export function sfxCapture(combo: number, area: number) {
+  if (!ac || muted) return;
+  const big = Math.min((area || 1) / 130, 1);            // 0..1 how much you claimed
+  const t0 = ac.currentTime, dur = 0.22 + 0.16 * big;
+  const o = ac.createOscillator(), lp = ac.createBiquadFilter(), g = ac.createGain();
+  o.type = 'sawtooth';
+  o.frequency.setValueAtTime(170, t0);
+  o.frequency.exponentialRampToValueAtTime(360 + 520 * big, t0 + dur);
+  lp.type = 'lowpass'; lp.Q.value = 5;
+  lp.frequency.setValueAtTime(320, t0);
+  lp.frequency.exponentialRampToValueAtTime(3200 + 1800 * big, t0 + dur);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(0.12, t0 + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur + 0.04);
+  o.connect(lp); lp.connect(g); g.connect(sfxGain || masterGain);
+  o.start(t0); o.stop(t0 + dur + 0.1);
+  const base = 540 + Math.min(combo, 8) * 46;            // confirm chord, rises with the chain
+  [0, 7, 12].forEach((n, i) => tone(base * Math.pow(2, n / 12), 0.16, 'triangle', 0.06, dur * 0.6 + i * 0.03));
 }
 export function sfxBold() { [0, 7, 12, 19].forEach((n, i) => tone(330 * Math.pow(2, n / 12), 0.3, 'sawtooth', 0.08, i * 0.05)); }
 export function sfxDeath() { tone(220, 0.5, 'sawtooth', 0.18, 0, 50); tone(110, 0.6, 'square', 0.10, 0.02, 40); }
@@ -59,6 +94,12 @@ export function sfxPickup() { [0, 5, 9, 14].forEach((n, i) => tone(520 * Math.po
 export function sfxShield() { tone(300, 0.4, 'sine', 0.14, 0, 700); tone(450, 0.4, 'triangle', 0.08, 0.03); }
 export function sfxBlip() { tone(660, 0.08, 'triangle', 0.08, 0, 880); }
 export function sfxBest() { [0, 4, 7, 12, 16, 19].forEach((n, i) => tone(523 * Math.pow(2, n / 12), 0.35, 'triangle', 0.10, i * 0.1)); }
+// --- The Rift daily: new actors + boosters + completion ---
+export function sfxBlink() { tone(880, 0.07, 'square', 0.05, 0, 240); tone(330, 0.12, 'triangle', 0.04, 0.03, 1100); }   // wraith warp
+export function sfxSentinel() { tone(170, 0.3, 'sawtooth', 0.06, 0, 120); tone(255, 0.24, 'sine', 0.04, 0.05); }          // sentinel eye opens
+export function sfxBomb() { tone(160, 0.45, 'sawtooth', 0.2, 0, 36); tone(80, 0.5, 'square', 0.14, 0.01, 28); tone(1200, 0.06, 'square', 0.08, 0, 400); }
+export function sfxSurge() { [0, 7, 12, 16].forEach((n, i) => tone(330 * Math.pow(2, n / 12), 0.3, 'sawtooth', 0.08, i * 0.05, 330 * Math.pow(2, n / 12) * 1.5)); }
+export function sfxDailyClear() { [0, 4, 7, 12, 16, 19, 24].forEach((n, i) => tone(523 * Math.pow(2, n / 12), 0.42, 'triangle', 0.11, i * 0.11)); }
 
 export function setMuted(m: boolean) {
   muted = m;

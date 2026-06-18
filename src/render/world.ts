@@ -560,7 +560,7 @@ function drawWraithBody(e, o) {
   ctx.restore();
   if (charging) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    const k = 1 - e.charging / 0.55;
+    const k = 1 - e.charging / 0.7;
     ctx.strokeStyle = '#fff'; ctx.globalAlpha = 0.35 + 0.5 * Math.abs(Math.sin(G.time * 30)); ctx.lineWidth = 1.8;
     ctx.beginPath(); ctx.arc(e.x, e.y, e.r * (1.4 + k * 1.8), 0, TAU); ctx.stroke();
     if (G.player && G.player.px) { const dx = G.player.px.x - e.x, dy = G.player.px.y - e.y, d = Math.hypot(dx, dy) || 1; ctx.strokeStyle = '#5cf0ff'; ctx.globalAlpha = 0.5 * k; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.x + dx / d * CELL * 2, e.y + dy / d * CELL * 2); ctx.stroke(); }

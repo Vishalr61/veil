@@ -36,8 +36,9 @@ import { dailyBtnRect, pauseBtnRect, pauseHomeRect, goBtnRects, scoresBtnRect } 
 import { drawHUD } from './render/hud';
 import { drawMenu, drawLevelClear, drawGameOver, drawPaused, drawAttractWorld, drawScores } from './render/overlays';
 import {
-  initAudio, setMuted, isMuted, setPadLevel,
-  sfxStartDraw, sfxCapture, sfxBold, sfxDeath, sfxLevel, sfxPickup, sfxShield, sfxBlip, sfxBest,
+  initAudio, resumeAudio, setMuted, isMuted, setPadLevel,
+  sfxStartDraw, sfxCapture, sfxBold, sfxDeath, sfxLevel, sfxPickup, sfxShield, sfxBlip, sfxBest, sfxDailyClear,
+  setMusicIntensity, setMusicTheme,
 } from './audio/audio';
 
 
@@ -132,7 +133,7 @@ function completeDaily() {
   finalizeDaily();
   clearTrail();
   G.state = 'gameover'; G.goTimer = 0;
-  G.flash = G.reduceMotion ? 0.2 : 0.6; sfxLevel();
+  G.flash = G.reduceMotion ? 0.2 : 0.6; sfxDailyClear();
 }
 function finishDeath() {
   G.deathFreeze = 0; G.timeScaleTarget = 1;
@@ -171,7 +172,9 @@ function initLevel(lv) {
   G.buffered = null; G.hasTrail = false; G.trailCells = []; G.trailPoints = [];
   G.enemies = genEnemies(lv, bp.enemies);
 
-  G.baseSpeed = Math.min(11 + 0.6 * (lv - 1), 18);
+  // gentler ramp + a lower cap so high levels stay controllable (was 11 + 0.6*lv, cap 18,
+  // which hit max ~L12 and felt twitchy/buggy to steer).
+  G.baseSpeed = Math.min(11 + 0.32 * (lv - 1), 15);
   G.target = bp.target;
 
   G.combo = 0; G.comboT = 0;
@@ -188,6 +191,7 @@ function initLevel(lv) {
   const newType = G.isDaily ? dailyNewEnemy(lv) : newEnemyAtLevel(lv);
   if (newType) G.banner = { text: ENEMY_INFO[newType].name, sub: ENEMY_INFO[newType].desc, t: 3.4, enemy: newType };
   G.hintActive = (lv === 1 && !G.isDaily);
+  setMusicTheme(G.isDaily ? 'rift' : G.pal.style);   // soundtrack key/tempo follows the zone
   G.state = 'playing';
 }
 function startGame(seed?: number) {
@@ -264,6 +268,13 @@ function update(dt) {
   } else if (G.state === 'gameover') {
     G.goTimer += dt;
   }
+  // soundtrack intensity: calm on menus, full while playing and building toward target
+  const mi = G.state === 'playing' ? 0.58 + 0.34 * Math.min(1, G.percent / G.target)
+    : G.state === 'levelclear' ? 0.82
+    : G.state === 'gameover' ? 0.12
+    : G.state === 'paused' ? 0.18
+    : 0.32;   // menu / scores
+  setMusicIntensity(mi);
 }
 
 
@@ -458,4 +469,8 @@ canvas.addEventListener('mousedown', (e) => { pointerDown(localPt(e)); });
 window.addEventListener('mousemove', (e) => { if (G.joyActive && G.state === 'playing') joyMove(localPt(e)); });
 window.addEventListener('mouseup', () => { joyEnd(); });
 
-document.addEventListener('visibilitychange', () => { if (document.hidden && G.state === 'playing') G.state = 'paused'; last = 0; });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { if (G.state === 'playing') G.state = 'paused'; }
+  else resumeAudio();   // browser suspends the context when hidden; revive it on return
+  last = 0;
+});
