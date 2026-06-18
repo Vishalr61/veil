@@ -59,6 +59,12 @@ export function sfxPickup() { [0, 5, 9, 14].forEach((n, i) => tone(520 * Math.po
 export function sfxShield() { tone(300, 0.4, 'sine', 0.14, 0, 700); tone(450, 0.4, 'triangle', 0.08, 0.03); }
 export function sfxBlip() { tone(660, 0.08, 'triangle', 0.08, 0, 880); }
 export function sfxBest() { [0, 4, 7, 12, 16, 19].forEach((n, i) => tone(523 * Math.pow(2, n / 12), 0.35, 'triangle', 0.10, i * 0.1)); }
+// --- The Rift daily: new actors + boosters + completion ---
+export function sfxBlink() { tone(880, 0.07, 'square', 0.05, 0, 240); tone(330, 0.12, 'triangle', 0.04, 0.03, 1100); }   // wraith warp
+export function sfxSentinel() { tone(170, 0.3, 'sawtooth', 0.06, 0, 120); tone(255, 0.24, 'sine', 0.04, 0.05); }          // sentinel eye opens
+export function sfxBomb() { tone(160, 0.45, 'sawtooth', 0.2, 0, 36); tone(80, 0.5, 'square', 0.14, 0.01, 28); tone(1200, 0.06, 'square', 0.08, 0, 400); }
+export function sfxSurge() { [0, 7, 12, 16].forEach((n, i) => tone(330 * Math.pow(2, n / 12), 0.3, 'sawtooth', 0.08, i * 0.05, 330 * Math.pow(2, n / 12) * 1.5)); }
+export function sfxDailyClear() { [0, 4, 7, 12, 16, 19, 24].forEach((n, i) => tone(523 * Math.pow(2, n / 12), 0.42, 'triangle', 0.11, i * 0.11)); }
 
 export function setMuted(m: boolean) {
   muted = m;

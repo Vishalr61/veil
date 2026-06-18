@@ -14,6 +14,11 @@ import { EMPTY, FILLED, OBSTACLE } from '../core/constants';
 import { centerPx, cellOfPx } from '../core/grid';
 import { spawnPopup } from './particles';
 import { hapticHeavy } from '../platform/haptics';
+import { sfxBlink, sfxSentinel } from '../audio/audio';
+
+// Plays a sound only when the player is near enough to care (avoids a chorus
+// from many actors firing across a big board).
+function near(e, cells) { return G.player && G.player.px && Math.hypot(G.player.px.x - e.x, G.player.px.y - e.y) < CELL * cells; }
 
 export function eCell(e) {
   const cx = clamp(Math.floor(e.x / CELL), 0, COLS - 1);
@@ -82,7 +87,7 @@ export function moveEnemy(e, dt) {
     G.flash = G.reduceMotion ? 0.12 : 0.3; G.shakeAmt = G.reduceMotion ? 0 : Math.max(G.shakeAmt, 7);
     hapticHeavy(); spawnPopup(e.x, e.y, 'WOKE', '#ff5c6e', 16);
   }
-  // wraith (daily): holds position, then telegraphs (~0.55s) and BLINKS ~5 cells
+  // wraith (daily): holds position, then telegraphs (~0.7s) and BLINKS ~5 cells
   // toward you. Readable because the charge is shown; deterministic timing.
   if (e.type === 'wraith') {
     if (e.charging > 0) {
@@ -94,11 +99,12 @@ export function moveEnemy(e, dt) {
         const cc = clamp(Math.floor(ty / CELL), 1, ROWS - 2) * COLS + clamp(Math.floor(tx / CELL), 1, COLS - 2);
         if (G.grid[cc] !== OBSTACLE && G.grid[cc] !== FILLED) { e.x = tx; e.y = ty; }
         e.blinkT = 2.4;
+        if (near(e, 12)) sfxBlink();
       }
       return;
     }
     e.blinkT -= dt;
-    if (e.blinkT <= 0) e.charging = 0.55;
+    if (e.blinkT <= 0) e.charging = 0.7;
     return;   // holds still between blinks (no drift)
   }
   // cutter: while you draw, beeline to the BASE of your line (a fixed point) to cut you
@@ -116,6 +122,11 @@ export function moveEnemy(e, dt) {
   // chasers + awake sleepers always hunt; sentinels hunt only while you rest on safe ground
   const hunting = e.type === 'chaser' || (e.type === 'sleeper' && !e.asleep)
     || (e.type === 'sentinel' && G.player && G.grid[cellOfPx(G.player.px)] === FILLED);
+  // sentinel "eye opens" cue: rising edge of hunting, near the player, debounced
+  if (e.type === 'sentinel') {
+    if (hunting && !e.huntPrev && near(e, 14) && G.time - (e.armSfxT || -9) > 2.5) { sfxSentinel(); e.armSfxT = G.time; }
+    e.huntPrev = hunting;
+  }
   if (hunting) {
     e.steerT -= dt;
     if (e.steerT <= 0) {

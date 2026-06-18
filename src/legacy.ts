@@ -37,7 +37,7 @@ import { drawHUD } from './render/hud';
 import { drawMenu, drawLevelClear, drawGameOver, drawPaused, drawAttractWorld, drawScores } from './render/overlays';
 import {
   initAudio, setMuted, isMuted, setPadLevel,
-  sfxStartDraw, sfxCapture, sfxBold, sfxDeath, sfxLevel, sfxPickup, sfxShield, sfxBlip, sfxBest,
+  sfxStartDraw, sfxCapture, sfxBold, sfxDeath, sfxLevel, sfxPickup, sfxShield, sfxBlip, sfxBest, sfxDailyClear,
 } from './audio/audio';
 
 
@@ -132,7 +132,7 @@ function completeDaily() {
   finalizeDaily();
   clearTrail();
   G.state = 'gameover'; G.goTimer = 0;
-  G.flash = G.reduceMotion ? 0.2 : 0.6; sfxLevel();
+  G.flash = G.reduceMotion ? 0.2 : 0.6; sfxDailyClear();
 }
 function finishDeath() {
   G.deathFreeze = 0; G.timeScaleTarget = 1;
