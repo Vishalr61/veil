@@ -20,6 +20,14 @@ import { hapticLight, hapticMedium, hapticHeavy } from '../platform/haptics';
 
 export function comboMult() { return Math.min(1 + 0.3 * (G.combo - 1), 6); }
 
+// Bold-clear bonus: reward overshooting the level target in one daring sweep
+// (Qix/Xonix risk-reward). `percent`/`target` are interior-reveal fractions; only
+// pays past an 8-point overshoot, and scales with the overshoot and the level.
+export function boldClearBonus(percent: number, target: number, level: number): number {
+  const over = Math.max(0, percent - target);
+  return over > 0.08 ? Math.round(over * 100 * (12 + level * 4)) : 0;
+}
+
 export function recomputeBorderPath() {
   const p = new Path2D();
   for (let y = 0; y < ROWS; y++) {

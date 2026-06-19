@@ -27,8 +27,8 @@ import { centerPx } from './core/grid';
 import { drawWorld, tickShootingStars } from './render/world';
 import { spawnPopup, updatePopups, updateParticles, initMotes, updateMotes } from './game/particles';
 import { ENEMY_INFO, genEnemies, moveEnemy } from './game/enemies';
-import { blueprintForLevel, newEnemyAtLevel, dailyBlueprint, dailyNewEnemy, DAILY_FLOORS } from './game/blueprints';
-import { recomputeBorderPath, recomputePercent } from './game/capture';
+import { blueprintForLevel, newEnemyAtLevel, dailyBlueprint, dailyNewEnemy, DAILY_FLOORS, levelTimeBudget } from './game/blueprints';
+import { recomputeBorderPath, recomputePercent, boldClearBonus } from './game/capture';
 import { submitScore } from './game/leaderboard';
 import { recordRun } from './game/stats';
 import { maybeSpawnPickup, updatePickups } from './game/powerups';
@@ -186,7 +186,7 @@ function initLevel(lv) {
   G.target = Math.min(bp.target, 0.74);
 
   G.combo = 0; G.comboT = 0; G.levelT = 0;
-  G.levelTimeMax = Math.max(35, 70 - lv * 1.5);   // level time budget — generous early, tighter later
+  G.levelTimeMax = levelTimeBudget(lv);   // level time budget — generous early, tighter later
   G.shakeAmt = 0; G.flash = 0; G.zoom = 1; G.deathFreeze = 0; G.hitstop = 0; G.timeScale = 1; G.timeScaleTarget = 1;
   G.enemyFreezeT = 0; G.enemySlowT = 0; G.surgeT = 0; G.scanT = 0; G.shield = false;
   G.pickups.length = 0; G.popups.length = 0; G.particles.length = 0; G.revealQueue.length = 0;
@@ -218,8 +218,7 @@ function winLevel() {
   // speed bonus: reward the time you had left on the clock
   G.lastTimeBonus = Math.max(0, Math.round((G.levelTimeMax - G.levelT) * (8 + G.level)));
   // bold clear: reward overshooting the target in one daring sweep (Qix/Xonix risk-reward)
-  const over = Math.max(0, G.percent - G.target);
-  G.lastOverBonus = over > 0.08 ? Math.round(over * 100 * (12 + G.level * 4)) : 0;
+  G.lastOverBonus = boldClearBonus(G.percent, G.target, G.level);
   G.lastBonus = pctBonus + lifeBonus + G.lastTimeBonus + G.lastOverBonus; G.score += G.lastBonus;
   G.state = 'levelclear'; G.lcTimer = 2.9; G.flash = G.reduceMotion ? 0.2 : 0.5;
   sfxLevel();
