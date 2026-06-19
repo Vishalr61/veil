@@ -179,6 +179,12 @@ export function depthForLevel(lv: number): number {
   return (((lv - 1) % 5) + 5) % 5 / 4;
 }
 
+// The level time budget in seconds (Airxonix-style clock): generous early,
+// tighter each level, floored at 35s so deep levels stay playable.
+export function levelTimeBudget(lv: number): number {
+  return Math.max(35, 70 - lv * 1.5);
+}
+
 export function blueprintForLevel(lv: number): LevelBlueprint {
   const authored = AUTHORED[lv];
   if (authored) return authored;
