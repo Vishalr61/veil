@@ -41,8 +41,11 @@ export function computeLayout() {
   CW = vw; CH = vh; MARGIN = 0;
   HUD_H = Math.round(Math.min(70, vh * 0.06) + safeTop + 10);
   const top = HUD_H, bottom = vh - Math.max(safeBottom, 6), availH = bottom - top;
-  const cell = clamp(Math.round(vw / 23), 12, 34);   // ~23 columns on a phone
-  COLS = Math.max(14, Math.floor(vw / cell));
+  // Target ~17 columns (was 23): chunkier cells so the hero + each grid step are
+  // bigger and easier to control with a thumb, especially on large phones.
+  const TARGET_COLS = 17;
+  const cell = clamp(Math.round(vw / TARGET_COLS), 16, 40);
+  COLS = Math.max(12, Math.floor(vw / cell));
   ROWS = Math.max(16, Math.floor(availH / cell));
   CELL = cell;
   PW = COLS * CELL; PH = ROWS * CELL;

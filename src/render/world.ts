@@ -740,26 +740,29 @@ export function drawWorld() {
     ctx.save();
     ctx.globalAlpha = blink;
     ctx.globalCompositeOperation = 'lighter';
+    // hero size scales with the cell so it stays a chunky, trackable token on big
+    // boards instead of a fixed tiny dot (reference cell ~18).
+    const hs = CELL / 18;
     for (let i = 0; i < G.player.tail.length; i++) {
       const t = G.player.tail[i], a = (i / G.player.tail.length) * 0.5;
       ctx.globalAlpha = a * blink; ctx.fillStyle = G.pal.trail;
-      ctx.beginPath(); ctx.arc(t.x, t.y, 2 + i * 0.25, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(t.x, t.y, (2 + i * 0.25) * hs, 0, TAU); ctx.fill();
     }
     ctx.globalAlpha = blink; ctx.globalCompositeOperation = 'source-over';
     const px = G.player.px.x, py = G.player.px.y;
     // molecular hero, kept simple + restrained: a nucleus + a single electron shell.
-    drawGlowOrb(px, py, 3.1, '#dfe8f5', G.pal.player, 7);
+    drawGlowOrb(px, py, 3.1 * hs, '#dfe8f5', G.pal.player, 7 * hs);
     ctx.globalCompositeOperation = 'lighter';
     if (G.shield) {
       ctx.strokeStyle = '#7dffc4'; ctx.globalAlpha = (0.5 + 0.25 * Math.sin(G.time * 6)) * blink;
-      ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 17, 0, TAU); ctx.stroke();
+      ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 17 * hs, 0, TAU); ctx.stroke();
     }
-    const oR = 13, oMin = 5, tilt = -0.5, spin = G.reduceMotion ? 0.6 : G.time * 2.2;
+    const oR = 13 * hs, oMin = 5 * hs, tilt = -0.5, spin = G.reduceMotion ? 0.6 : G.time * 2.2;
     ctx.strokeStyle = G.pal.edge2; ctx.globalAlpha = 0.26 * blink; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.ellipse(px, py, oR, oMin, tilt, 0, TAU); ctx.stroke();
     const ox = Math.cos(spin) * oR, oy = Math.sin(spin) * oMin;
     const ex = px + ox * Math.cos(tilt) - oy * Math.sin(tilt), ey = py + ox * Math.sin(tilt) + oy * Math.cos(tilt);
-    ctx.globalAlpha = 0.85 * blink; drawGlowOrb(ex, ey, 1.3, '#cfe0f0', G.pal.edge2, 4);
+    ctx.globalAlpha = 0.85 * blink; drawGlowOrb(ex, ey, 1.3 * hs, '#cfe0f0', G.pal.edge2, 4 * hs);
     ctx.restore();
   }
 
