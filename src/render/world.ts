@@ -660,19 +660,20 @@ export function drawWorld() {
   if (G.hasTrail && G.trailPoints.length) {
     const pts = G.trailPoints.slice();
     if (G.player && G.player.px) pts.push(G.player.px);
+    const ls = CELL / 18;   // scale the wire with the cell so it reads bold on big boards
     ctx.save();
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
     for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-    ctx.shadowColor = G.pal.accent; ctx.shadowBlur = 16; ctx.strokeStyle = G.pal.accent;
-    ctx.globalAlpha = 0.5; ctx.lineWidth = 6; ctx.stroke();
-    ctx.strokeStyle = G.pal.trail; ctx.globalAlpha = 1; ctx.shadowBlur = 8; ctx.lineWidth = 2.4; ctx.stroke();
+    ctx.shadowColor = G.pal.accent; ctx.shadowBlur = 18; ctx.strokeStyle = G.pal.accent;
+    ctx.globalAlpha = 0.5; ctx.lineWidth = 6 * ls; ctx.stroke();
+    ctx.strokeStyle = G.pal.trail; ctx.globalAlpha = 1; ctx.shadowBlur = 8; ctx.lineWidth = 2.4 * ls; ctx.stroke();
     // live energy pulse running along the wire
     let total = 0; for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
     if (total > 4) {
       const pos = pointAlong(pts, (G.time * 220) % total);
       ctx.globalCompositeOperation = 'lighter';
-      drawGlowOrb(pos.x, pos.y, 2.4, '#fff', G.pal.edge2, 12);
+      drawGlowOrb(pos.x, pos.y, 2.4 * ls, '#fff', G.pal.edge2, 12 * ls);
     }
     // the FUSE spark — crawls the line from its base; reddens + grows as it nears you
     const f = clamp(G.fuseT / G.fuseMax, 0, 1);
@@ -681,7 +682,7 @@ export function drawWorld() {
       const hot = f > 0.66, col = hot ? '#ff5a2e' : f > 0.4 ? '#ff9a3a' : '#ffd24a';
       ctx.globalCompositeOperation = 'lighter';
       const flick = 0.7 + 0.3 * Math.sin(G.time * (20 + f * 30));
-      drawGlowOrb(fp.x, fp.y, (2 + f * 2.2) * flick, '#fff', col, 10 + f * 16);
+      drawGlowOrb(fp.x, fp.y, (2 + f * 2.2) * flick * ls, '#fff', col, (10 + f * 16) * ls);
     }
     ctx.restore();
   }
@@ -743,10 +744,18 @@ export function drawWorld() {
     // hero size scales with the cell so it stays a chunky, trackable token on big
     // boards instead of a fixed tiny dot (reference cell ~18).
     const hs = CELL / 18;
-    for (let i = 0; i < G.player.tail.length; i++) {
-      const t = G.player.tail[i], a = (i / G.player.tail.length) * 0.5;
-      ctx.globalAlpha = a * blink; ctx.fillStyle = G.pal.trail;
-      ctx.beginPath(); ctx.arc(t.x, t.y, (2 + i * 0.25) * hs, 0, TAU); ctx.fill();
+    // a flowing speed streak through the recent positions — tapered + brightest
+    // near the hero — so motion reads as fast/alive instead of a faint bead trail.
+    const tl = G.player.tail;
+    if (tl.length > 1) {
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = G.pal.trail;
+      ctx.shadowColor = G.pal.trail; ctx.shadowBlur = 6 * hs;
+      for (let i = 1; i < tl.length; i++) {
+        const a = i / tl.length;
+        ctx.globalAlpha = a * a * 0.6 * blink; ctx.lineWidth = (0.8 + i * 0.45) * hs;
+        ctx.beginPath(); ctx.moveTo(tl[i - 1].x, tl[i - 1].y); ctx.lineTo(tl[i].x, tl[i].y); ctx.stroke();
+      }
+      ctx.shadowBlur = 0;
     }
     ctx.globalAlpha = blink; ctx.globalCompositeOperation = 'source-over';
     const px = G.player.px.x, py = G.player.px.y;
