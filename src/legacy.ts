@@ -203,6 +203,7 @@ function initLevel(lv) {
   if (summit) G.banner = { text: ENEMY_INFO.qix.name, sub: ENEMY_INFO.qix.desc, t: 3.2, enemy: 'qix' };   // boss floor
   G.hintActive = (lv === 1 && !G.isDaily);
   setMusicTheme(G.isDaily ? 'rift' : G.pal.style);   // soundtrack key/tempo follows the zone
+  G.introT = G.reduceMotion ? 0 : 1;   // fade the level up + settle the zoom (covers the hard cut)
   G.state = 'playing';
 }
 function startGame(seed?: number) {
@@ -241,6 +242,7 @@ function update(dt) {
   if (G.drawSoundLock > 0) G.drawSoundLock -= dt;
   G.shakeAmt = Math.max(0, G.shakeAmt - 45 * dt);
   G.flash = Math.max(0, G.flash - dt * 1.8);
+  if (G.introT > 0) G.introT = Math.max(0, G.introT - dt * 1.7);   // ~0.6s level fade-up
   G.zoom += (1 - G.zoom) * Math.min(1, dt * 6);
   if (G.banner.t > 0) G.banner.t -= dt;
   if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) G.combo = 0; }
