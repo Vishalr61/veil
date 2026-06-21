@@ -590,7 +590,10 @@ export function drawWorld() {
   const sy = (G.shakeAmt && !G.reduceMotion) ? rand(-G.shakeAmt, G.shakeAmt) : 0;
   ctx.save();
   const cxp = OFF_X + PW / 2, cyp = OFF_Y + PH / 2;
-  ctx.translate(cxp, cyp); ctx.scale(G.zoom, G.zoom); ctx.translate(-cxp, -cyp);
+  // a barely-there breathing zoom keeps the frame alive without ever shrinking
+  // below 1 (which would expose the board edges). Always >= 1.
+  const breath = G.reduceMotion ? 1 : 1 + 0.005 * (0.5 + 0.5 * Math.sin(G.time * 0.6));
+  ctx.translate(cxp, cyp); ctx.scale(G.zoom * breath, G.zoom * breath); ctx.translate(-cxp, -cyp);
   ctx.translate(OFF_X + sx, OFF_Y + sy);
 
   ctx.save();
@@ -782,12 +785,24 @@ export function drawWorld() {
 
   ctx.restore(); // clip
 
-  // frame + vignette — gentle and aspect-aware (radius off the LARGER side) so a
-  // wide window doesn't black out the side edges and hide barriers there.
-  ctx.save(); roundRectPath(0, 0, PW, PH, 8); ctx.strokeStyle = 'rgba(140,180,255,0.10)'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.restore();
-  const VR = Math.max(PW, PH);
-  const vg = ctx.createRadialGradient(PW / 2, PH / 2, VR * 0.42, PW / 2, PH / 2, VR * 0.82);
-  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.32)');
+  // time pressure (0 calm -> 1 critical): drives the reactive frame + vignette.
+  let tension = 0;
+  if (!G.reduceMotion && G.state === 'playing' && isFinite(G.levelTimeMax)) {
+    const tf = clamp(1 - G.levelT / G.levelTimeMax, 0, 1);
+    if (tf < 0.28) tension = ((0.28 - tf) / 0.28) * (0.7 + 0.3 * Math.sin(G.time * 9));
+  }
+  // reactive frame — a zone-tinted border that FLASHES on every capture/hit and
+  // PULSES red under time pressure, so the frame responds to the game.
+  const fglow = G.reduceMotion ? 0 : G.flash * 0.9 + tension * 0.7;
+  ctx.save(); roundRectPath(0, 0, PW, PH, 8);
+  ctx.strokeStyle = tension > 0.25 ? '#ff5a4a' : G.pal.edge2;
+  ctx.globalAlpha = 0.12 + fglow * 0.6; ctx.lineWidth = 1.5 + fglow * 2.4;
+  if (fglow > 0.01) { ctx.shadowColor = ctx.strokeStyle as string; ctx.shadowBlur = 16 * fglow; }
+  ctx.stroke(); ctx.restore();
+  // vignette — reddens + tightens as the clock runs out
+  const VR = Math.max(PW, PH), vigA = 0.32 + tension * 0.3;
+  const vg = ctx.createRadialGradient(PW / 2, PH / 2, VR * (0.42 - tension * 0.12), PW / 2, PH / 2, VR * 0.82);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, tension > 0.1 ? `rgba(40,2,8,${vigA})` : `rgba(0,0,0,${vigA})`);
   ctx.fillStyle = vg; roundRectPath(0, 0, PW, PH, 8); ctx.fill();
 
   // hint + banner (over board, crisp)
