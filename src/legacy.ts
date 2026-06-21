@@ -25,7 +25,7 @@ import {
 import { G } from './game/state';
 import { centerPx } from './core/grid';
 import { drawWorld, tickShootingStars } from './render/world';
-import { spawnPopup, updatePopups, updateParticles, initMotes, updateMotes } from './game/particles';
+import { spawnPopup, updatePopups, updateParticles, updateRings, initMotes, updateMotes } from './game/particles';
 import { ENEMY_INFO, genEnemies, moveEnemy } from './game/enemies';
 import { blueprintForLevel, newEnemyAtLevel, dailyBlueprint, dailyNewEnemy, DAILY_FLOORS, levelTimeBudget } from './game/blueprints';
 import { recomputeBorderPath, recomputePercent, boldClearBonus } from './game/capture';
@@ -189,7 +189,7 @@ function initLevel(lv) {
   G.levelTimeMax = levelTimeBudget(lv);   // level time budget — generous early, tighter later
   G.shakeAmt = 0; G.flash = 0; G.zoom = 1; G.deathFreeze = 0; G.hitstop = 0; G.timeScale = 1; G.timeScaleTarget = 1;
   G.enemyFreezeT = 0; G.enemySlowT = 0; G.surgeT = 0; G.scanT = 0; G.shield = false;
-  G.pickups.length = 0; G.popups.length = 0; G.particles.length = 0; G.revealQueue.length = 0;
+  G.pickups.length = 0; G.popups.length = 0; G.particles.length = 0; G.rings.length = 0; G.revealQueue.length = 0;
   G.pickupSpawnT = G.rng.range(5, 8);
   recomputeBorderPath(); recomputePercent(); G.dispPercent = G.percent;
   const floors = G.isDaily ? DAILY_FLOORS : LEVELS_PER_BAND;
@@ -246,7 +246,7 @@ function update(dt) {
   if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) G.combo = 0; }
   processReveal();
   tickShootingStars(wdt);
-  updateParticles(wdt);
+  updateParticles(wdt); updateRings(wdt);
   updatePopups(dt);
   updateMotes(wdt);
   G.dispScore += (G.score - G.dispScore) * Math.min(1, dt * 9);

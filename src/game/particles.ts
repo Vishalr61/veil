@@ -28,6 +28,21 @@ export function captureBurst(x: number, y: number, col: string, area: number, ca
   }
 }
 
+// Expanding shockwave rings from the point a capture closes — the "detonation"
+// beat. A bright fast inner ring + a wider zone-tinted outer ring; size + speed
+// scale with the area claimed. Drawn additively, ticked on real time.
+export function spawnRing(x: number, y: number, col: string, area: number) {
+  const reach = 38 + Math.min(150, area * 1.3);
+  G.rings.push({ x, y, max: reach, life: 0, dur: 0.42 + Math.min(0.3, area * 0.0018), col, w0: 3.2 });
+  G.rings.push({ x, y, max: reach * 0.55, life: 0, dur: 0.26, col: '#ffffff', w0: 2.2 });
+}
+export function updateRings(dt: number) {
+  for (let i = G.rings.length - 1; i >= 0; i--) {
+    G.rings[i].life += dt;
+    if (G.rings[i].life >= G.rings[i].dur) G.rings.splice(i, 1);
+  }
+}
+
 export function spawnPopup(x, y, text, color, size) {
   G.popups.push({ x, y, vy: -26, life: 1.1, max: 1.1, text, color, size: size || 14 });
 }

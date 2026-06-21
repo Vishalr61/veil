@@ -690,6 +690,14 @@ export function drawWorld() {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   for (const p of G.particles) { ctx.globalAlpha = clamp(p.life / p.max, 0, 1); ctx.fillStyle = p.col; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.fill(); }
+  // capture shockwave rings — expand-and-fade (ease-out), drawn additively
+  for (const r of G.rings) {
+    const k = clamp(r.life / r.dur, 0, 1), e = 1 - (1 - k) * (1 - k), a = (1 - k) * (1 - k);
+    ctx.globalAlpha = a; ctx.strokeStyle = r.col; ctx.lineWidth = Math.max(0.5, r.w0 * (1 - k));
+    ctx.shadowColor = r.col; ctx.shadowBlur = 8 * (1 - k);
+    ctx.beginPath(); ctx.arc(r.x, r.y, r.max * e, 0, TAU); ctx.stroke();
+  }
+  ctx.shadowBlur = 0;
   ctx.restore();
 
   // enemies (danger glow scales with proximity to player)
