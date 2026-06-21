@@ -13,7 +13,7 @@ import { ROWS, COLS, CELL, INTERIOR_TOTAL } from '../core/dims';
 import { EMPTY, FILLED, COMBO_WINDOW } from '../core/constants';
 import { cellIndex, centerPx } from '../core/grid';
 import { eCell } from './enemies';
-import { spawnPopup, veilBurst, captureBurst } from './particles';
+import { spawnPopup, veilBurst, captureBurst, spawnRing } from './particles';
 import { VEIL_CACHE, VEIL_HAZARD } from '../sim/veil';
 import { sfxBold, sfxCapture } from '../audio/audio';
 import { hapticLight, hapticMedium, hapticHeavy } from '../platform/haptics';
@@ -105,6 +105,7 @@ export function doCapture() {
     }
     G.shakeAmt = G.reduceMotion ? 0 : Math.min(10, 2.5 + area * 0.04);
     captureBurst(origin.x, origin.y, G.pal.edge2, area, G.reduceMotion);
+    if (!G.reduceMotion) spawnRing(origin.x, origin.y, G.pal.edge2, area);   // detonation shockwave
     sfxCapture(G.combo, area);
     // chain milestones — a louder, celebratory beat as the combo climbs
     if (G.combo === 4 || G.combo === 7 || G.combo === 11 || (G.combo > 11 && (G.combo - 11) % 5 === 0)) {

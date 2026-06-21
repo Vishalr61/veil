@@ -67,7 +67,7 @@ export const G = {
   joyActive: false, joyDir: null as any,   // held floating-joystick steer (set by touch input)
 
   // entities
-  enemies: [] as any[], particles: [] as any[], motes: [] as any[],
+  enemies: [] as any[], particles: [] as any[], rings: [] as any[], motes: [] as any[],
   popups: [] as any[], pickups: [] as any[], twinkles: [] as any[],
   revealQueue: [] as any[],
 
