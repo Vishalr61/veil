@@ -593,7 +593,9 @@ export function drawWorld() {
   // a barely-there breathing zoom keeps the frame alive without ever shrinking
   // below 1 (which would expose the board edges). Always >= 1.
   const breath = G.reduceMotion ? 1 : 1 + 0.005 * (0.5 + 0.5 * Math.sin(G.time * 0.6));
-  ctx.translate(cxp, cyp); ctx.scale(G.zoom * breath, G.zoom * breath); ctx.translate(-cxp, -cyp);
+  const introZoom = 1 + G.introT * G.introT * 0.05;   // a gentle punch-in that settles as the level fades up
+  const z = G.zoom * breath * introZoom;
+  ctx.translate(cxp, cyp); ctx.scale(z, z); ctx.translate(-cxp, -cyp);
   ctx.translate(OFF_X + sx, OFF_Y + sy);
 
   ctx.save();
@@ -825,6 +827,8 @@ export function drawWorld() {
   ctx.restore(); // world
 
   if (G.flash > 0.001) { ctx.save(); ctx.fillStyle = `rgba(255,255,255,${G.flash * 0.4})`; ctx.fillRect(0, 0, CW, CH); ctx.restore(); }
+  // level intro: fade the world up from the void (HUD draws after, so it stays put)
+  if (G.introT > 0.001) { ctx.save(); ctx.fillStyle = `rgba(4,5,12,${G.introT})`; ctx.fillRect(0, 0, CW, CH); ctx.restore(); }
 }
 function drawPUGlyph(type, x, y, col, alpha) {
   ctx.save();
