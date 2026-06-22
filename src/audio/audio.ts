@@ -6,6 +6,7 @@ import { initMusic, startMusic } from './music';
 export { setMusicIntensity, setMusicTheme } from './music';
 
 let ac: any = null, masterGain: any = null, padGain: any = null, musicGain: any = null, sfxGain: any = null;
+let sfxNoise: AudioBuffer | null = null;   // shared white-noise buffer for SFX transients
 let muted = false;
 try { muted = localStorage.getItem('veil_muted') === '1'; } catch (e) {}
 
@@ -31,6 +32,10 @@ export function initAudio() {
     sfxGain = ac.createGain();          // SFX sit UNDER the music so they don't clash
     sfxGain.gain.value = 0.6;
     sfxGain.connect(masterGain);
+    const nlen = Math.floor(ac.sampleRate * 0.4);   // short noise buffer for SFX transients
+    sfxNoise = ac.createBuffer(1, nlen, ac.sampleRate);
+    const nd = sfxNoise.getChannelData(0);
+    for (let i = 0; i < nlen; i++) nd[i] = Math.random() * 2 - 1;
     startPad();
     initMusic(ac, musicGain); startMusic();
     musicGain.gain.linearRampToValueAtTime(0.4, ac.currentTime + 1.5);
@@ -65,13 +70,32 @@ function tone(freq: number, dur: number, type?: string, gain?: number, when?: nu
   o.connect(g); g.connect(sfxGain || masterGain);
   o.start(t0); o.stop(t0 + dur + 0.02);
 }
-export function sfxStartDraw() { tone(420, 0.1, 'triangle', 0.06, 0, 540); }   // movement cue — kept subtle under the music
+// a filtered noise burst — the attack transient that makes a hit read as "punchy"
+function noiseHit(t: number, dur: number, gain: number, hp = 800, lp = 9000) {
+  if (!ac || muted || !sfxNoise) return;
+  const s = ac.createBufferSource(), h = ac.createBiquadFilter(), l = ac.createBiquadFilter(), g = ac.createGain();
+  s.buffer = sfxNoise; h.type = 'highpass'; h.frequency.value = hp; l.type = 'lowpass'; l.frequency.value = lp;
+  g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(h); h.connect(l); l.connect(g); g.connect(sfxGain || masterGain);
+  s.start(t); s.stop(t + dur + 0.02);
+}
+// a sub-bass body thump (kick-like) for weight/impact under a hit
+function thump(t: number, f0: number, f1: number, gain: number, dur: number) {
+  if (!ac || muted) return;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+  g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(sfxGain || masterGain); o.start(t); o.stop(t + dur + 0.02);
+}
+export function sfxStartDraw() { tone(420, 0.1, 'triangle', 0.06, 0, 540); noiseHit(ac ? ac.currentTime : 0, 0.04, 0.05, 2500); }   // movement cue + a soft tick
 // The core "claim" sound: a rising filtered sweep (longer/higher the bigger the
 // area you just took) capped by a bright confirm chord (pitched up by combo).
 export function sfxCapture(combo: number, area: number) {
   if (!ac || muted) return;
   const big = Math.min((area || 1) / 130, 1);            // 0..1 how much you claimed
   const t0 = ac.currentTime, dur = 0.22 + 0.16 * big;
+  noiseHit(t0, 0.1 + 0.1 * big, 0.09 + 0.06 * big, 1400);   // claim whoosh — bigger area, bigger snap
+  thump(t0, 150, 52, 0.16 + 0.12 * big, 0.13 + 0.05 * big); // bass weight so the claim lands
   const o = ac.createOscillator(), lp = ac.createBiquadFilter(), g = ac.createGain();
   o.type = 'sawtooth';
   o.frequency.setValueAtTime(170, t0);
@@ -87,10 +111,15 @@ export function sfxCapture(combo: number, area: number) {
   const base = 540 + Math.min(combo, 8) * 46;            // confirm chord, rises with the chain
   [0, 7, 12].forEach((n, i) => tone(base * Math.pow(2, n / 12), 0.16, 'triangle', 0.06, dur * 0.6 + i * 0.03));
 }
-export function sfxBold() { [0, 7, 12, 19].forEach((n, i) => tone(330 * Math.pow(2, n / 12), 0.3, 'sawtooth', 0.08, i * 0.05)); }
+export function sfxBold() {
+  const t = ac ? ac.currentTime : 0;
+  thump(t, 200, 38, 0.3, 0.26);                  // deep impact under the stab
+  noiseHit(t, 0.22, 0.16, 500, 6000);            // a big whoosh
+  [0, 7, 12, 19].forEach((n, i) => tone(330 * Math.pow(2, n / 12), 0.3, 'sawtooth', 0.08, i * 0.05));
+}
 export function sfxDeath() { tone(220, 0.5, 'sawtooth', 0.18, 0, 50); tone(110, 0.6, 'square', 0.10, 0.02, 40); }
 export function sfxLevel() { [0, 4, 7, 12, 16].forEach((n, i) => tone(440 * Math.pow(2, n / 12), 0.3, 'triangle', 0.12, i * 0.09)); }
-export function sfxPickup() { [0, 5, 9, 14].forEach((n, i) => tone(520 * Math.pow(2, n / 12), 0.16, 'triangle', 0.10, i * 0.04, 1400)); }
+export function sfxPickup() { noiseHit(ac ? ac.currentTime : 0, 0.04, 0.05, 5000); [0, 5, 9, 14].forEach((n, i) => tone(520 * Math.pow(2, n / 12), 0.16, 'triangle', 0.10, i * 0.04, 1400)); }
 export function sfxShield() { tone(300, 0.4, 'sine', 0.14, 0, 700); tone(450, 0.4, 'triangle', 0.08, 0.03); }
 export function sfxBlip() { tone(660, 0.08, 'triangle', 0.08, 0, 880); }
 export function sfxBest() { [0, 4, 7, 12, 16, 19].forEach((n, i) => tone(523 * Math.pow(2, n / 12), 0.35, 'triangle', 0.10, i * 0.1)); }
