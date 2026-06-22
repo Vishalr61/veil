@@ -20,7 +20,8 @@ export function muteBtnRect() { return { x: CW - 104, y: safeTop + 8, w: 42, h: 
 function pauseBtnW() { return Math.min(264, CW - 56); }
 export function pauseMuteRect() { const w = pauseBtnW(), hw = (w - 12) / 2; return { x: CW / 2 - w / 2, y: CH / 2 + 26, w: hw, h: 50 }; }
 export function pauseMotionRect() { const w = pauseBtnW(), hw = (w - 12) / 2; return { x: CW / 2 - w / 2 + hw + 12, y: CH / 2 + 26, w: hw, h: 50 }; }
-export function pauseHomeRect() { const w = pauseBtnW(); return { x: CW / 2 - w / 2, y: CH / 2 + 86, w, h: 50 }; }
+export function pauseControlRect() { const w = pauseBtnW(); return { x: CW / 2 - w / 2, y: CH / 2 + 86, w, h: 50 }; }
+export function pauseHomeRect() { const w = pauseBtnW(); return { x: CW / 2 - w / 2, y: CH / 2 + 146, w, h: 50 }; }
 
 // game-over overlay — two side-by-side buttons (primary = RETRY / SHARE, + HOME)
 export function goBtnRects() {

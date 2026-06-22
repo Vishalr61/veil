@@ -9,7 +9,7 @@ import { G } from '../game/state';
 import { CW, CH, OFF_X, OFF_Y, PW, PH } from '../core/dims';
 import { TAU, clamp } from '../core/math';
 import { glowText, luminousTitle, luminousButton, fmtScore, setFont } from './primitives';
-import { playBtnRect, dailyBtnRect, scoresBtnRect, pauseHomeRect, pauseMuteRect, pauseMotionRect, goBtnRects } from './geometry';
+import { playBtnRect, dailyBtnRect, scoresBtnRect, pauseHomeRect, pauseControlRect, pauseMuteRect, pauseMotionRect, goBtnRects } from './geometry';
 import { isMuted } from '../audio/audio';
 import { todayKey, isConsecutive } from '../daily/daily';
 import { genNebula } from './background';
@@ -147,6 +147,7 @@ export function drawPaused() {
   // touch-reachable settings (keyboard M / R don't exist on mobile)
   luminousButton(pauseMuteRect(), isMuted() ? 'SOUND OFF' : 'SOUND ON', isMuted() ? '#7f93c0' : '#5cf0b0');
   luminousButton(pauseMotionRect(), G.reduceMotion ? 'MOTION OFF' : 'MOTION ON', G.reduceMotion ? '#7f93c0' : '#7fc8ff');
+  luminousButton(pauseControlRect(), G.tapControl ? 'CONTROL: TAP' : 'CONTROL: DRAG', '#c0a0ff');
   luminousButton(pauseHomeRect(), 'QUIT TO HOME', '#ff8a9a');
 }
 
