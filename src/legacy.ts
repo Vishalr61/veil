@@ -295,7 +295,7 @@ function update(dt) {
   let mi = 0.32;   // menu / scores
   if (G.state === 'playing') {
     const perLevel = G.isDaily ? 0.042 : 0.013;        // daily is only 10 floors, so ramp faster
-    mi = Math.min(0.42 + (G.level - 1) * perLevel, 0.82);
+    mi = Math.min(0.62 + (G.level - 1) * perLevel, 0.95);   // start with the FULL driving groove, build to near-max
   } else if (G.state === 'levelclear') mi = 0.8;        // brief celebratory peak
   else if (G.state === 'gameover') mi = 0.12;
   else if (G.state === 'paused') mi = 0.18;

@@ -16,21 +16,23 @@ const TICK = 25;          // scheduler wake interval (ms)
 const STEPS = 16;         // 16th-note steps per bar
 
 const SCALES = { minor: [0, 2, 3, 5, 7, 8, 10], penta: [0, 3, 5, 7, 10], lydian: [0, 2, 4, 6, 7, 9, 11] };
-// bassline: semitone offset from the theme root per 16th step (-1 = rest)
-const BASS = [0, -1, 0, -1, -1, -1, 0, -1, 3, -1, 0, -1, -1, -1, 5, 7];
+// bassline: semitone offset from the theme root per 16th step (-1 = rest).
+// A driving, on-beat 8th-note pulse with movement — relentless, not syncopated.
+const BASS = [0, -1, 0, -1, 0, -1, 3, -1, 0, -1, 0, -1, 5, -1, 7, -1];
 
 interface Theme { bpm: number; root: number; scale: number[]; wave: OscillatorType; }
 // One groove, recoloured per zone (root note, tempo, scale, bass timbre).
+// Tempos pushed up ~6 BPM for a more driving, Airxonix-style propulsion.
 const THEMES: Record<string, Theme> = {
-  default: { bpm: 124, root: 55.0, scale: SCALES.minor, wave: 'sawtooth' },
-  magma:   { bpm: 122, root: 49.0, scale: SCALES.minor, wave: 'sawtooth' },   // the Depths — dark, low
-  caves:   { bpm: 126, root: 58.3, scale: SCALES.minor, wave: 'square' },     // Crystal Caves — brighter
-  ocean:   { bpm: 116, root: 51.9, scale: SCALES.minor, wave: 'sine' },       // the Abyss — deep, slow
-  flora:   { bpm: 128, root: 61.7, scale: SCALES.penta, wave: 'triangle' },   // Overgrowth — organic
-  sky:     { bpm: 120, root: 65.4, scale: SCALES.lydian, wave: 'triangle' },  // the Expanse — open, bright
-  aurora:  { bpm: 122, root: 55.0, scale: SCALES.lydian, wave: 'sine' },      // Aurora — airy
-  space:   { bpm: 118, root: 49.0, scale: SCALES.minor, wave: 'sawtooth' },   // Deep Space — vast
-  rift:    { bpm: 134, root: 58.3, scale: SCALES.penta, wave: 'sawtooth' },   // The Rift — fast, edgy
+  default: { bpm: 130, root: 55.0, scale: SCALES.minor, wave: 'sawtooth' },
+  magma:   { bpm: 128, root: 49.0, scale: SCALES.minor, wave: 'sawtooth' },   // the Depths — dark, low
+  caves:   { bpm: 132, root: 58.3, scale: SCALES.minor, wave: 'square' },     // Crystal Caves — brighter
+  ocean:   { bpm: 122, root: 51.9, scale: SCALES.minor, wave: 'sine' },       // the Abyss — deep, slow
+  flora:   { bpm: 134, root: 61.7, scale: SCALES.penta, wave: 'triangle' },   // Overgrowth — organic
+  sky:     { bpm: 126, root: 65.4, scale: SCALES.lydian, wave: 'triangle' },  // the Expanse — open, bright
+  aurora:  { bpm: 128, root: 55.0, scale: SCALES.lydian, wave: 'sine' },      // Aurora — airy
+  space:   { bpm: 124, root: 49.0, scale: SCALES.minor, wave: 'sawtooth' },   // Deep Space — vast
+  rift:    { bpm: 140, root: 58.3, scale: SCALES.penta, wave: 'sawtooth' },   // The Rift — fast, edgy
 };
 let theme: Theme = THEMES.default;
 
@@ -57,9 +59,10 @@ function env(node: any, t: number, peak: number, dur: number, attack = 0.008) {
 }
 function kick(t: number, g0: number) {
   const o = ctx.createOscillator(), g = ctx.createGain();
-  o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(48, t + 0.11);
-  g.gain.setValueAtTime(g0, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
-  o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.2);
+  // a snappier pitch drop + more body for a punchier, driving four-on-the-floor
+  o.frequency.setValueAtTime(165, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.09);
+  g.gain.setValueAtTime(g0, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+  o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.22);
 }
 function hat(t: number, g0: number) {
   const s = ctx.createBufferSource(), hp = ctx.createBiquadFilter(), g = ctx.createGain();
@@ -76,7 +79,7 @@ function snare(t: number, g0: number) {
 function bass(freq: number, t: number, dur: number, g0: number) {
   const o = ctx.createOscillator(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
   o.type = theme.wave; o.frequency.setValueAtTime(freq, t);
-  lp.type = 'lowpass'; lp.frequency.value = 520; lp.Q.value = 6;
+  lp.type = 'lowpass'; lp.frequency.value = 720; lp.Q.value = 4;   // more presence/grind, less boomy
   env(g, t, g0, dur, 0.012);
   o.connect(lp); lp.connect(g); g.connect(bus); o.start(t); o.stop(t + dur + 0.02);
 }
@@ -92,16 +95,16 @@ function scheduleStep(s: number, b: number, t: number) {
   // a snare-roll fill across the back of every 4th bar (only once there's a
   // backbeat, so calm early levels stay clean); it turns the loop over.
   const fill = i > 0.5 && (b % 4) === 3 && s >= 12;
-  if (i > 0.12 && s % 4 === 0) kick(t, 0.9);                         // four-on-the-floor
+  if (i > 0.1 && s % 4 === 0) kick(t, 1.0);                          // punchy four-on-the-floor
   if (fill) {
     snare(t, (0.16 + (s - 12) * 0.05) * Math.min(i, 1));            // rising roll into the turnaround
   } else {
-    if (i > 0.5 && (s === 4 || s === 12)) snare(t, 0.32);            // backbeat
-    if (i > 0.4 && s % 4 === 2) hat(t, 0.22 * i);                    // offbeat hats
-    if (i > 0.72 && s % 2 === 1) hat(t, 0.12 * i);                   // 16th hats at high energy
+    if (i > 0.35 && (s === 4 || s === 12)) snare(t, 0.32);           // backbeat — the drive, in early
+    if (i > 0.25 && s % 4 === 2) hat(t, 0.22 * i);                   // offbeat hats
+    if (i > 0.5 && s % 2 === 1) hat(t, 0.13 * i);                    // busy 16th hats keep it propulsive
   }
   const bo = BASS[s];
-  if (i > 0.22 && bo >= 0) bass(theme.root * Math.pow(2, bo / 12), t, sps * 1.7, 0.34);
+  if (i > 0.12 && bo >= 0) bass(theme.root * Math.pow(2, bo / 12), t, sps * 1.1, 0.4);   // tight, relentless pulse
   if (i > 0.55 && s % 2 === 0 && !fill) {                            // arp hook
     const sc = theme.scale, n = sc[(s / 2) % sc.length];
     const oct = ((b >> 2) % 2) === 1 ? 8 : 4;                        // lift an octave for the B section (every 4 bars)
