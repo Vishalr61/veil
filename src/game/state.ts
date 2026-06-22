@@ -18,6 +18,7 @@ import { bandForLevel } from '../core/bands';
 export const G = {
   // settings
   reduceMotion: false,
+  tapControl: false,   // mobile steering: false = drag joystick, true = tap a direction (relative to the hero)
 
   // grid + run identity
   grid: new Uint8Array(COLS * ROWS),

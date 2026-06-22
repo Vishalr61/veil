@@ -33,7 +33,7 @@ import { submitScore } from './game/leaderboard';
 import { recordRun } from './game/stats';
 import { maybeSpawnPickup, updatePickups } from './game/powerups';
 import { updatePlayer, checkCollisions, respawnAt, clearTrail, timeoutDeath } from './game/player';
-import { playBtnRect, dailyBtnRect, pauseBtnRect, pauseHomeRect, pauseMuteRect, pauseMotionRect, muteBtnRect, goBtnRects, scoresBtnRect } from './render/geometry';
+import { playBtnRect, dailyBtnRect, pauseBtnRect, pauseHomeRect, pauseControlRect, pauseMuteRect, pauseMotionRect, muteBtnRect, goBtnRects, scoresBtnRect } from './render/geometry';
 import { drawHUD } from './render/hud';
 import { drawMenu, drawLevelClear, drawGameOver, drawPaused, drawAttractWorld, drawScores } from './render/overlays';
 import {
@@ -70,6 +70,7 @@ setTimeout(() => relayout(true), 400);
 /* All mutable game state lives in G (see game/state.ts). Here we only hydrate
    the values that persist across sessions from localStorage. */
 try { G.reduceMotion = localStorage.getItem('veil_reduce') === '1'; } catch (e) {}
+try { G.tapControl = localStorage.getItem('veil_tapctrl') === '1'; } catch (e) {}
 try { G.dailyBest = parseInt(localStorage.getItem('veil_daily_best') || '0', 10) || 0; } catch (e) {}
 try { G.dailyPlayedKey = localStorage.getItem('veil_daily_played') || ''; } catch (e) {}
 try { G.dailyStreak = parseInt(localStorage.getItem('veil_daily_streak') || '0', 10) || 0; } catch (e) {}
@@ -347,7 +348,7 @@ function drawTouchUI() {
     ctx.globalAlpha = 0.7; ctx.fillStyle = G.pal.edge;
     ctx.beginPath(); ctx.arc(ox + Math.cos(G.time * 2) * 16, oy + Math.sin(G.time * 2) * 16, 14, 0, TAU); ctx.fill();
     ctx.restore();
-    glowText('DRAG ANYWHERE TO STEER', ox, oy - 58, 15, '#dff1ff', { blur: 12, weight: 800, spacing: 2, alpha: 0.6 + 0.4 * pulse });
+    glowText(G.tapControl ? 'TAP A DIRECTION TO STEER' : 'DRAG ANYWHERE TO STEER', ox, oy - 58, 15, '#dff1ff', { blur: 12, weight: 800, spacing: 2, alpha: 0.6 + 0.4 * pulse });
   }
 }
 function render() {
@@ -387,6 +388,11 @@ function toggleReduce() {
   try { localStorage.setItem('veil_reduce', G.reduceMotion ? '1' : '0'); } catch (e) {}
   if (G.reduceMotion) { G.shakeAmt = 0; G.zoom = 1; G.timeScale = 1; G.timeScaleTarget = 1; }
   if (G.state === 'playing') spawnPopup(G.player.px.x, G.player.px.y, 'MOTION ' + (G.reduceMotion ? 'OFF' : 'ON'), G.pal.edge2, 14);
+}
+function toggleControl() {
+  G.tapControl = !G.tapControl;
+  try { localStorage.setItem('veil_tapctrl', G.tapControl ? '1' : '0'); } catch (e) {}
+  G.joyActive = false; G.joyDir = null;   // drop any held drag state when switching
 }
 function startDaily() {
   G.dailyRunKey = todayKey(new Date());
@@ -462,6 +468,16 @@ function joyMove(p) {
 }
 function joyEnd() { G.joyActive = false; G.joyDir = null; }   // stop steering, keep advancing
 
+// TAP control: a tap sets the steer direction by where it lands relative to the
+// hero (dominant axis), like pressing an arrow key. The hero glides that way
+// until the next tap or a wall — no dragging.
+function tapSteer(p) {
+  if (!G.player || !G.player.px) return;
+  const dx = p.x - (OFF_X + G.player.px.x), dy = p.y - (OFF_Y + G.player.px.y);
+  if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;   // ignore a tap right on the hero
+  G.buffered = Math.abs(dx) > Math.abs(dy) ? { x: dx > 0 ? 1 : -1, y: 0 } : { x: 0, y: dy > 0 ? 1 : -1 };
+}
+
 // Unified pointer-down for BOTH touch and mouse, so desktop hits the same
 // buttons as a phone. (The old mouse handler ignored position, so the DAILY
 // button and the pause/home buttons did nothing under a mouse.)
@@ -470,11 +486,13 @@ function pointerDown(p) {
   if (G.state === 'playing') {
     if (inRect(p.x, p.y, pauseBtnRect())) { G.state = 'paused'; return; }
     if (inRect(p.x, p.y, muteBtnRect())) { setMuted(!isMuted()); sfxBlip(); return; }   // quick mute
-    joyStart(p); return;
+    if (G.tapControl) tapSteer(p); else joyStart(p);
+    return;
   }
   if (G.state === 'paused') {
     if (inRect(p.x, p.y, pauseMuteRect())) { setMuted(!isMuted()); sfxBlip(); return; }
     if (inRect(p.x, p.y, pauseMotionRect())) { toggleReduce(); return; }
+    if (inRect(p.x, p.y, pauseControlRect())) { toggleControl(); sfxBlip(); return; }
     if (inRect(p.x, p.y, pauseHomeRect())) { goHome(); return; }
     G.state = 'playing'; return;
   }
