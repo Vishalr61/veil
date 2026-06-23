@@ -54,7 +54,7 @@ export function drawHUD() {
 
   // LEFT — SCORE (labelled by level) + combo
   glowText((G.isDaily ? 'FLOOR ' : 'LEVEL ') + G.level, pad, cy - 13 * u, 9 * u, G.pal.edge2, { align: 'left', ...L });
-  glowText(Math.round(G.dispScore).toLocaleString('en-US'), pad, cy + 10 * u, 23 * u, '#ffffff', { align: 'left', blur: 9, font: 'mono', core: '#fff', spacing: 1 });
+  glowText(Math.round(G.dispScore).toLocaleString('en-US'), pad, cy + 10 * u, 23 * u, '#ffffff', { align: 'left', blur: 4, font: 'mono', core: '#fff', spacing: 1 });
   if (G.combo > 1 && G.state === 'playing') {
     const mx = pad, mult = comboMult();
     glowText('x' + mult.toFixed(1) + ' CHAIN', mx, cy + 26 * u, 9.5 * u, G.pal.accent, { align: 'left', blur: 6, weight: 800, font: 'mono', spacing: 1, alpha: 0.6 + 0.4 * clamp(G.comboT / COMBO_WINDOW, 0, 1) });
@@ -63,7 +63,7 @@ export function drawHUD() {
   // CENTER — REVEAL % over the target bar (TIME + LIVES live on the right)
   const barW = Math.min(150 * u, CW * 0.26), barH = 6 * u, bx = CW / 2 - barW / 2, by = cy + 6 * u;
   const frac = clamp(G.dispPercent / G.target, 0, 1);
-  glowText(Math.round(G.dispPercent * 100) + '%', CW / 2, cy - 9 * u, 22 * u, '#ffffff', { blur: 8, font: 'mono', core: '#fff', spacing: 1 });
+  glowText(Math.round(G.dispPercent * 100) + '%', CW / 2, cy - 9 * u, 22 * u, '#ffffff', { blur: 4, font: 'mono', core: '#fff', spacing: 1 });
   ctx.save();
   roundRectPath(bx, by, barW, barH, barH / 2); ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fill();
   roundRectPath(bx, by, barW, barH, barH / 2); ctx.clip();
