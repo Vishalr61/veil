@@ -14,6 +14,17 @@ import { glowText, fmtScore, roundRectPath, drawGlowOrb } from './primitives';
 import { comboMult } from '../game/capture';
 import { isMuted } from '../audio/audio';
 
+// A small filled heart — reads as "lives" instantly, crisp with only a tight glow
+// (no wide additive bloom that bleeds over the rest of the HUD).
+function drawHeart(x: number, y: number, s: number, col: string) {
+  ctx.save();
+  ctx.translate(x, y); ctx.scale(s / 4, s / 4);
+  ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 4;
+  ctx.beginPath();
+  ctx.moveTo(0, 3.2); ctx.bezierCurveTo(-4.2, -1.4, -1.7, -4.4, 0, -1.7);
+  ctx.bezierCurveTo(1.7, -4.4, 4.2, -1.4, 0, 3.2); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
 export function drawHUD() {
   ctx.save();
   const bg = ctx.createLinearGradient(0, 0, 0, HUD_H);
@@ -71,10 +82,10 @@ export function drawHUD() {
   ctx.restore();
 
   let rx = CW - 116;
-  if (G.shield) { drawGlowOrb(rx, cy, 6, '#7dffc4', '#7dffc4', 17); rx -= 20; }
-  const shown = Math.min(G.lives, 6);
-  for (let i = 0; i < shown; i++) drawGlowOrb(rx - i * 17, cy, 5.5, '#fff', G.pal.player, 17);
-  if (G.lives > 6) glowText('+' + (G.lives - 6), rx - shown * 17 + 6, cy, 12, G.pal.player, { align: 'right', font: 'mono', weight: 800, blur: 6 });
+  if (G.shield) { drawGlowOrb(rx, cy, 4.5, '#7dffc4', '#7dffc4', 11); rx -= 16; }
+  const shown = Math.min(G.lives, 6), lifeCol = '#ff8a9e';
+  for (let i = 0; i < shown; i++) drawHeart(rx - i * 15, cy, 5, lifeCol);
+  if (G.lives > 6) glowText('+' + (G.lives - 6), rx - shown * 15 + 4, cy, 11, lifeCol, { align: 'right', font: 'mono', weight: 800, blur: 4 });
 
   // LEVEL TIME — a m:ss countdown (left of the %) + a bright depleting bar along the HUD's base
   const tf = clamp(1 - G.levelT / G.levelTimeMax, 0, 1);
