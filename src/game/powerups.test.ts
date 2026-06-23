@@ -16,11 +16,15 @@ function dropOnPlayer(type: string) {
   G.pickups = [{ x: G.player.px.x, y: G.player.px.y, cell, type, col: '#fff', life: 13, max: 13, bob: 0 }];
 }
 
-describe('SCAN', () => {
-  it('sets scanT (reveal window) and is consumed', () => {
-    dropOnPlayer('scan');
+describe('BOMB (promoted to a general power-up)', () => {
+  it('clears nearby enemies and is consumed', () => {
+    dropOnPlayer('bomb');
+    G.enemies = [
+      { x: G.player.px.x + CELL, y: G.player.px.y, type: 'drifter' },       // within the blast radius
+      { x: G.player.px.x + CELL * 20, y: G.player.px.y, type: 'drifter' },  // far away — survives
+    ];
     updatePickups(0.016);
-    expect(G.scanT).toBe(6.5);
+    expect(G.enemies.length).toBe(1);
     expect(G.pickups.length).toBe(0);
   });
 });

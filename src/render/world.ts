@@ -37,10 +37,9 @@ function drawVeilTells() {
     ctx.globalAlpha = 0.05 + 0.06 * pulse;
     ctx.fillStyle = g;
     ctx.beginPath(); ctx.arc(c.x, c.y, baseR, 0, TAU); ctx.fill();
-    // scout: get close to sense WHAT it is — gold cache / red rift.
-    // SCAN power-up lights every disturbance board-wide for its duration.
-    if (px || G.scanT > 0) {
-      const scoutT = G.scanT > 0 ? 1 : clamp(1 - Math.hypot(px.x - c.x, px.y - c.y) / scoutR, 0, 1);
+    // scout: get close to sense WHAT it is — gold cache / red rift
+    if (px) {
+      const scoutT = clamp(1 - Math.hypot(px.x - c.x, px.y - c.y) / scoutR, 0, 1);
       if (scoutT > 0.02) {
         const r2 = baseR * 1.15;
         g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, r2);
@@ -840,7 +839,6 @@ function drawPUGlyph(type, x, y, col, alpha) {
   else if (type === 'slow') { ctx.beginPath(); ctx.arc(0, 0, 3.4, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -2.6); ctx.moveTo(0, 0); ctx.lineTo(2, 0.6); ctx.stroke(); }
   else if (type === 'bomb') { ctx.beginPath(); ctx.arc(0, 1, 3, 0, TAU); ctx.fill(); ctx.beginPath(); ctx.moveTo(1.6, -1.7); ctx.lineTo(3.2, -3.3); ctx.stroke(); }   // bomb + fuse
   else if (type === 'surge') { ctx.beginPath(); ctx.moveTo(1.2, -3.6); ctx.lineTo(-2, 0.4); ctx.lineTo(0, 0.4); ctx.lineTo(-1.2, 3.6); ctx.lineTo(2.4, -0.8); ctx.lineTo(0.4, -0.8); ctx.closePath(); ctx.fill(); }   // lightning bolt
-  else if (type === 'scan') { ctx.beginPath(); ctx.moveTo(-3.8, 0); ctx.quadraticCurveTo(0, -3.2, 3.8, 0); ctx.quadraticCurveTo(0, 3.2, -3.8, 0); ctx.closePath(); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, 1.4, 0, TAU); ctx.fill(); }   // an eye
   else if (type === 'time') { ctx.beginPath(); ctx.moveTo(-2.8, -3.3); ctx.lineTo(2.8, -3.3); ctx.lineTo(-2.8, 3.3); ctx.lineTo(2.8, 3.3); ctx.closePath(); ctx.stroke(); }   // hourglass
   else { ctx.beginPath(); for (let i = 0; i < 5; i++) { const ang = -Math.PI / 2 + i * TAU / 5; const ang2 = ang + TAU / 10; ctx.lineTo(Math.cos(ang) * 3.6, Math.sin(ang) * 3.6); ctx.lineTo(Math.cos(ang2) * 1.6, Math.sin(ang2) * 1.6); } ctx.closePath(); ctx.fill(); }
   ctx.restore();

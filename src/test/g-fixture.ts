@@ -25,7 +25,7 @@ export function resetG() {
   G.fuseT = 0; G.fuseMax = 6;
   G.levelT = 0; G.levelTimeMax = 60;
   G.target = 0.68;
-  G.scanT = 0; G.surgeT = 0; G.enemyFreezeT = 0; G.enemySlowT = 0; G.shield = false;
+  G.surgeT = 0; G.enemyFreezeT = 0; G.enemySlowT = 0; G.shield = false;
   G.deathFreeze = 0; G.hitstop = 0; G.timeScale = 1; G.timeScaleTarget = 1;
   G.baseSpeed = 9.5;
   G.enemies = []; G.particles = []; G.popups = []; G.pickups = []; G.revealQueue = [];

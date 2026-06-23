@@ -29,7 +29,7 @@ export function drawHUD() {
 
   // LEFT — level (small, top), score (big), combo (when chaining)
   glowText((G.isDaily ? 'FLR ' : 'LVL ') + G.level, pad, cy - 13, 11, G.pal.edge2, { align: 'left', blur: 4, font: 'mono', spacing: 2 });
-  glowText(fmtScore(G.dispScore), pad, cy + 8, 21, G.pal.trail, { align: 'left', blur: 8, font: 'mono', core: '#fff', spacing: 1 });
+  glowText(fmtScore(G.dispScore), pad, cy + 8, 23, '#ffffff', { align: 'left', blur: 9, font: 'mono', core: '#fff', spacing: 1 });
   if (G.combo > 1 && G.state === 'playing') {
     const mx = pad + 74, mult = comboMult();
     glowText('x' + mult.toFixed(1), mx, cy - 13, 12, G.pal.accent, { align: 'left', blur: 8, weight: 800 });
@@ -58,7 +58,6 @@ export function drawHUD() {
   if (G.enemyFreezeT > 0) fx.push('FREEZE ' + Math.ceil(G.enemyFreezeT));
   if (G.enemySlowT > 0) fx.push('SLOW ' + Math.ceil(G.enemySlowT));
   if (G.surgeT > 0) fx.push('2x ' + Math.ceil(G.surgeT));
-  if (G.scanT > 0) fx.push('SCAN ' + Math.ceil(G.scanT));
   if (fx.length) glowText(fx.join('   '), CW / 2, by + barH + 19, 9.5, '#bfe0ff', { blur: 6, weight: 800, font: 'mono', spacing: 1 });
 
   // RIGHT — lives, then a tappable mute glyph (the pause button is drawn by drawTouchUI)
@@ -71,9 +70,11 @@ export function drawHUD() {
   else { ctx.beginPath(); ctx.moveTo(4, -5); ctx.lineTo(9, 5); ctx.moveTo(9, -5); ctx.lineTo(4, 5); ctx.stroke(); }
   ctx.restore();
 
-  let rx = CW - 120;
-  if (G.shield) { drawGlowOrb(rx, cy, 4.5, '#7dffc4', '#7dffc4', 13); rx -= 17; }
-  for (let i = 0; i < Math.min(G.lives, 6); i++) drawGlowOrb(rx - i * 15, cy, 4, '#fff', G.pal.player, 11);
+  let rx = CW - 116;
+  if (G.shield) { drawGlowOrb(rx, cy, 6, '#7dffc4', '#7dffc4', 17); rx -= 20; }
+  const shown = Math.min(G.lives, 6);
+  for (let i = 0; i < shown; i++) drawGlowOrb(rx - i * 17, cy, 5.5, '#fff', G.pal.player, 17);
+  if (G.lives > 6) glowText('+' + (G.lives - 6), rx - shown * 17 + 6, cy, 12, G.pal.player, { align: 'right', font: 'mono', weight: 800, blur: 6 });
 
   // LEVEL TIME — a m:ss countdown (left of the %) + a bright depleting bar along the HUD's base
   const tf = clamp(1 - G.levelT / G.levelTimeMax, 0, 1);
@@ -81,10 +82,10 @@ export function drawHUD() {
   const tcol = tf > 0.4 ? G.pal.edge2 : tf > 0.2 ? '#ffce5c' : '#ff5a4a';
   const tpulse = low ? 0.6 + 0.4 * Math.sin(G.time * 9) : 1;
   const mmss = (rem >= 60 ? Math.floor(rem / 60) + ':' + String(rem % 60).padStart(2, '0') : '0:' + String(rem).padStart(2, '0'));
-  glowText(mmss, CW / 2 - 52, cy - 9, 15, tcol, { align: 'right', font: 'mono', blur: low ? 10 : 5, weight: 800, spacing: 1, alpha: tpulse });
+  glowText(mmss, CW / 2 - 56, cy - 8, 19, tcol, { align: 'right', font: 'mono', blur: low ? 12 : 6, weight: 800, spacing: 1, alpha: tpulse });
   ctx.save();
-  ctx.globalAlpha = 0.16; ctx.fillStyle = '#ffffff'; ctx.fillRect(0, HUD_H - 4, CW, 3);
-  ctx.globalAlpha = tpulse; ctx.fillStyle = tcol; ctx.shadowColor = tcol; ctx.shadowBlur = 8;
-  ctx.fillRect(0, HUD_H - 4, CW * tf, 3);
+  ctx.globalAlpha = 0.18; ctx.fillStyle = '#ffffff'; ctx.fillRect(0, HUD_H - 6, CW, 5);
+  ctx.globalAlpha = tpulse; ctx.fillStyle = tcol; ctx.shadowColor = tcol; ctx.shadowBlur = 10;
+  ctx.fillRect(0, HUD_H - 6, CW * tf, 5);
   ctx.restore();
 }
