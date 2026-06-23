@@ -16,6 +16,7 @@ import { spawnPopup } from './particles';
 import { lerp, rand, TAU } from '../core/math';
 import { sfxStartDraw, sfxShield, sfxDeath } from '../audio/audio';
 import { hapticLight, hapticMedium, hapticHeavy } from '../platform/haptics';
+import { effectiveDiff, fuseWindow } from './difficulty';
 
 /* ----------------------------- player ---------------------------------- */
 function chooseDir(ax, ay) {
@@ -45,7 +46,7 @@ function arrive() {
   if (v === EMPTY) {
     if (!G.hasTrail) {
       G.hasTrail = true; G.trailCells = []; G.trailPoints = [centerPx(prev)];
-      G.fuseT = 0; G.fuseMax = Math.max(2.8, 6 - G.level * 0.12);   // arm the fuse (tighter at higher levels)
+      G.fuseT = 0; G.fuseMax = fuseWindow(G.level, effectiveDiff());   // arm the fuse (tighter at higher levels; off/Infinity on Easy)
       if (G.drawSoundLock <= 0) { sfxStartDraw(); hapticLight(); G.drawSoundLock = 0.25; }
     }
     G.grid[arrived] = TRAIL; G.trailCells.push(arrived); G.trailPoints.push(centerPx(arrived));

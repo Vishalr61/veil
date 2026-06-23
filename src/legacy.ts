@@ -28,6 +28,8 @@ import { drawWorld, tickShootingStars } from './render/world';
 import { spawnPopup, updatePopups, updateParticles, updateRings, initMotes, updateMotes } from './game/particles';
 import { ENEMY_INFO, genEnemies, moveEnemy } from './game/enemies';
 import { blueprintForLevel, newEnemyAtLevel, dailyBlueprint, dailyNewEnemy, DAILY_FLOORS, levelTimeBudget } from './game/blueprints';
+import { effectiveDiff, loadDiff, setDiff, clearTarget, levelClock, invulnFor, riftCount, applyDiffCounts } from './game/difficulty';
+import { diffBtnRects } from './render/geometry';
 import { recomputeBorderPath, recomputePercent, boldClearBonus } from './game/capture';
 import { submitScore } from './game/leaderboard';
 import { recordRun } from './game/stats';
@@ -75,6 +77,7 @@ try {
   if (cm === 'drag' || cm === 'tap' || cm === 'swipe') G.controlMode = cm;
   else if (localStorage.getItem('veil_tapctrl') === '1') G.controlMode = 'tap';   // migrate the old boolean
 } catch (e) {}
+G.diff = loadDiff();   // persisted difficulty: 'easy' | 'medium' | 'hard'
 try { G.dailyBest = parseInt(localStorage.getItem('veil_daily_best') || '0', 10) || 0; } catch (e) {}
 try { G.dailyPlayedKey = localStorage.getItem('veil_daily_played') || ''; } catch (e) {}
 try { G.dailyStreak = parseInt(localStorage.getItem('veil_daily_streak') || '0', 10) || 0; } catch (e) {}
@@ -151,7 +154,7 @@ function finishDeath() {
     if (G.isDaily) finalizeDaily();
     return;
   }
-  respawnAt(); G.player.invuln = 1.7;
+  respawnAt(); G.player.invuln = invulnFor(1.7, effectiveDiff());   // post-death grace scales with difficulty
 }
 
 /* ----------------------------- flow ------------------------------------ */
@@ -162,6 +165,7 @@ function initLevel(lv) {
   // the campaign uses the band + authored/procedural blueprint for the level.
   G.pal = G.isDaily ? RIFT_BAND : bandForLevel(lv);
   const bp = G.isDaily ? dailyBlueprint(lv) : blueprintForLevel(lv);
+  const diff = effectiveDiff();   // the daily forces Medium inside effectiveDiff()
   G.grid = new Uint8Array(COLS * ROWS);
   for (let y = 0; y < ROWS; y++)
     for (let x = 0; x < COLS; x++)
@@ -169,17 +173,19 @@ function initLevel(lv) {
   const obst = genObstacles(G.rng.fork('terrain'), { cols: COLS, rows: ROWS, level: lv, startIdx: COLS >> 1, motif: bp.motif, density: bp.density });
   for (let i = 0; i < G.grid.length; i++) if (obst[i]) G.grid[i] = OBSTACLE;
   setInteriorTotal(openInteriorCount(obst, COLS, ROWS));   // target denominator excludes rock
-  G.veilBoard = genVeilBoard(G.rng.fork('veil'), { cols: COLS, rows: ROWS, level: lv, isOpen: (i) => G.grid[i] === EMPTY, caches: bp.caches, rifts: bp.rifts });
+  G.veilBoard = genVeilBoard(G.rng.fork('veil'), { cols: COLS, rows: ROWS, level: lv, isOpen: (i) => G.grid[i] === EMPTY, caches: bp.caches, rifts: riftCount(bp.rifts, diff) });
 
   G.nebula = genNebula(G.pal, lv, PW, PH, bp.depth); G.fog = genFog(G.pal, PW, PH, bp.depth); genTwinkles();
   for (let i = 0; i < G.grid.length; i++) if (G.grid[i] === FILLED || G.grid[i] === OBSTACLE) clearFogCell(i);
 
   const start = (COLS >> 1);
-  G.player = { from: start, to: start, t: 0, dir: null, stopped: true, invuln: 1.0, tail: [], px: centerPx(start) };
+  G.player = { from: start, to: start, t: 0, dir: null, stopped: true, invuln: invulnFor(1.0, diff), tail: [], px: centerPx(start) };
   G.buffered = null; G.hasTrail = false; G.trailCells = []; G.trailPoints = [];
   // zone summits (every 5th floor, or the daily's last floor) get THE QIX boss
   const summit = G.isDaily ? lv >= DAILY_FLOORS : lv % LEVELS_PER_BAND === 0;
-  G.enemies = genEnemies(lv, summit ? { ...bp.enemies, qix: 1 } : bp.enemies);
+  let ec = applyDiffCounts(bp.enemies, lv, summit, diff);   // schedule delays + count delta per mode
+  if (summit) ec = { ...ec, qix: 1 };
+  G.enemies = genEnemies(lv, ec);
 
   // gentler ramp + a lower cap so high levels stay controllable (was 11 + 0.6*lv, cap 18,
   // which hit max ~L12 and felt twitchy/buggy to steer).
@@ -188,10 +194,10 @@ function initLevel(lv) {
   // chip-away against the most crowded enemies. Early levels (<0.74) are
   // unchanged; the curve now climbs to 0.74 and holds, with difficulty carried
   // by enemies / speed / music. Covers campaign, daily, and procedural alike.
-  G.target = Math.min(bp.target, 0.74);
+  G.target = clearTarget(bp.target, diff);   // Easy lowers (floor 0.50); all modes capped 0.74
 
   G.combo = 0; G.comboT = 0; G.levelT = 0;
-  G.levelTimeMax = levelTimeBudget(lv);   // level time budget — generous early, tighter later
+  G.levelTimeMax = levelClock(levelTimeBudget(lv), diff);   // generous early, tighter later; OFF (Infinity) on Easy
   G.shakeAmt = 0; G.flash = 0; G.zoom = 1; G.deathFreeze = 0; G.hitstop = 0; G.timeScale = 1; G.timeScaleTarget = 1;
   G.enemyFreezeT = 0; G.enemySlowT = 0; G.surgeT = 0; G.shield = false;
   G.pickups.length = 0; G.popups.length = 0; G.particles.length = 0; G.rings.length = 0; G.revealQueue.length = 0;
@@ -212,7 +218,7 @@ function initLevel(lv) {
   G.state = 'playing';
 }
 function startGame(seed?: number) {
-  G.score = 0; G.dispScore = 0; G.lives = 3;
+  G.score = 0; G.dispScore = 0; G.lives = effectiveDiff().lives;   // Easy 5 / Medium 3 / Hard 2
   G.prevHighScore = G.highScore; G.lastRank = 0; G.beatBestThisRun = false; G.dailyWon = false;   // snapshot best before the run, for the game-over summary
   G.maxCombo = 0; G.runCaches = 0;   // reset run-summary stats
   G.gameSeed = seed != null ? (seed >>> 0) : (Math.random() * 0xffffffff) >>> 0;
@@ -512,6 +518,7 @@ function pointerDown(p) {
   if (G.state === 'levelclear') { anyKeyAction(); return; }
   // menu — start a run ONLY from the PLAY button; clicking empty space does
   // nothing (no more "click anywhere on the title to play").
+  for (const r of diffBtnRects()) if (inRect(p.x, p.y, r)) { setDiff(r.key); sfxBlip(); return; }   // EASY/MED/HARD
   if (inRect(p.x, p.y, dailyBtnRect())) { startDaily(); sfxBlip(); return; }
   if (inRect(p.x, p.y, scoresBtnRect())) { G.state = 'scores'; sfxBlip(); return; }
   if (inRect(p.x, p.y, playBtnRect())) anyKeyAction();   // PLAY
