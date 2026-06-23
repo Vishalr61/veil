@@ -17,7 +17,7 @@ import { EMPTY, FILLED, OBSTACLE, SS } from './core/constants';
 import { bandForLevel, LEVELS_PER_BAND, RIFT_BAND } from './core/bands';
 import { genNebula, genFog } from './render/background';
 import { canvas, ctx } from './render/surface';
-import { glowText, drawScanlines, drawVignette, roundRectPath } from './render/primitives';
+import { glowText, drawVignette, roundRectPath } from './render/primitives';
 import {
   COLS, ROWS, CELL, PW, PH, MARGIN, HUD_H, CW, CH, OFF_X, OFF_Y, INTERIOR_TOTAL,
   safeTop, safeBottom, computeLayout, applyCanvasSize, setInteriorTotal,
@@ -364,7 +364,7 @@ function render() {
   if (G.state === 'levelclear') drawLevelClear();
   else if (G.state === 'gameover') drawGameOver();
   else if (G.state === 'paused') drawPaused();
-  drawScanlines(CW, CH, 0.3);   // lighter CRT over gameplay than the menu
+  drawVignette(CW, CH, 0.36);   // a clean vignette (no CRT scanlines — less ambient noise)
 }
 
 /* ----------------------------- loop ------------------------------------ */
