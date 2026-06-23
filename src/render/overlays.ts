@@ -8,7 +8,7 @@ import { ctx } from './surface';
 import { G } from '../game/state';
 import { CW, CH, OFF_X, OFF_Y, PW, PH } from '../core/dims';
 import { TAU, clamp } from '../core/math';
-import { glowText, luminousButton, fmtScore, roundRectPath } from './primitives';
+import { glowText, fmtScore, roundRectPath } from './primitives';
 import { playBtnRect, dailyBtnRect, scoresBtnRect, pauseHomeRect, pauseControlRect, pauseMuteRect, pauseMotionRect, goBtnRects } from './geometry';
 import { isMuted } from '../audio/audio';
 import { todayKey, isConsecutive } from '../daily/daily';
@@ -21,7 +21,7 @@ function dim(a) { ctx.save(); ctx.fillStyle = `rgba(3,5,12,${a})`; ctx.fillRect(
 const INK = '#eef1f7', MUTED = '#79849c', ACCENT = '#8fb8e8';   // premium-minimal palette
 // A restrained menu button: a confident light fill for the primary, a quiet
 // hairline outline for the rest. No glow — crisp edges carry it.
-function minBtn(r: any, label: string, primary: boolean) {
+function minBtn(r: any, label: string, primary: boolean, tint?: string) {
   const bx = r.x + r.w / 2, by = r.y + r.h / 2, rad = r.h / 2;
   ctx.save();
   roundRectPath(r.x, r.y, r.w, r.h, rad);
@@ -29,10 +29,10 @@ function minBtn(r: any, label: string, primary: boolean) {
   else {
     ctx.fillStyle = 'rgba(255,255,255,0.025)'; ctx.fill();
     roundRectPath(r.x + 0.75, r.y + 0.75, r.w - 1.5, r.h - 1.5, rad - 0.75);
-    ctx.strokeStyle = 'rgba(255,255,255,0.16)'; ctx.lineWidth = 1.25; ctx.stroke();
+    ctx.strokeStyle = tint ? tint + '55' : 'rgba(255,255,255,0.16)'; ctx.lineWidth = 1.25; ctx.stroke();
   }
   ctx.restore();
-  glowText(label, bx, by + 0.5, primary ? 16 : 14, primary ? '#0a0e16' : '#b3bdd0',
+  glowText(label, bx, by + 0.5, primary ? 16 : 14, primary ? '#0a0e16' : (tint || '#b3bdd0'),
     { weight: primary ? 800 : 600, spacing: primary ? 3 : 2.5, blur: 0 });
 }
 export function drawMenu() {
@@ -62,7 +62,7 @@ export function drawMenu() {
 export function drawScores() {
   dim(0.74);
   const cx = CW / 2;
-  glowText('HIGH SCORES', cx, CH * 0.15, 26, '#ffe93b', { blur: 9, weight: 800, spacing: 3, core: '#fff' });
+  glowText('HIGH SCORES', cx, CH * 0.15, 25, INK, { blur: 4, weight: 800, spacing: 5, core: '#fff' });
   const list = getScores(), hot = justSetEntry();
   if (!list.length) {
     glowText('NO RUNS YET', cx, CH / 2 - 10, 16, '#9fb6e8', { blur: 6, font: 'mono', spacing: 2 });
@@ -84,13 +84,13 @@ export function drawScores() {
     glowText(parts.join('   ·   '), cx, CH * 0.80, 11, '#7f97c8', { blur: 5, font: 'mono', spacing: 1, weight: 700 });
   }
   const blink = 0.5 + 0.5 * Math.sin(G.menuT * 3);
-  glowText('TAP TO RETURN', cx, CH * 0.87, 14, '#cfe6ff', { blur: 10, weight: 700, spacing: 2, alpha: blink });
+  glowText('TAP TO RETURN', cx, CH * 0.87, 12, MUTED, { blur: 0, weight: 700, spacing: 3, alpha: blink });
 }
 export function drawLevelClear() {
   dim(0.45);
   const cx = CW / 2, cyc = CH / 2, t = clamp((2.9 - G.lcTimer) * 2.2, 0, 1), pop = 1 + (1 - t) * 0.3;
   const lastFloor = G.isDaily && G.level >= DAILY_FLOORS;
-  glowText(G.isDaily ? 'FLOOR CLEARED' : 'VEIL CLEARED', cx, cyc - 36, 42 * pop, G.pal.edge2, { blur: 24, weight: 800, spacing: 3, core: '#fff', alpha: t });
+  glowText(G.isDaily ? 'FLOOR CLEARED' : 'VEIL CLEARED', cx, cyc - 36, 40 * pop, INK, { blur: 12, weight: 800, spacing: 4, core: '#fff', alpha: t });
   glowText((G.isDaily ? 'FLOOR ' : 'LEVEL ') + G.level + '  ·  ' + Math.round(G.percent * 100) + '% revealed', cx, cyc + 8, 16, '#cfe6ff', { blur: 8, weight: 600, spacing: 1, alpha: t });
   glowText('+ ' + G.lastBonus + '  bonus', cx, cyc + 40, 18, G.pal.accent, { blur: 12, weight: 800, alpha: t });
   const bonusBits = [];
@@ -103,9 +103,9 @@ export function drawLevelClear() {
 export function drawGameOver() {
   dim(0.66);
   const cx = CW / 2, cyc = CH / 2, t = clamp(G.goTimer * 1.6, 0, 1);
-  glowText(G.dailyWon ? 'DAILY COMPLETE' : 'THE DARK WINS', cx, cyc - 98, G.dailyWon ? 33 : 37, G.dailyWon ? '#5cf0b0' : '#ff6b7e', { blur: 24, weight: 800, spacing: 3, core: '#fff', alpha: t });
-  glowText('SCORE', cx, cyc - 56, 11, '#7f97c8', { font: 'mono', spacing: 3, alpha: t });
-  glowText(fmtScore(G.score), cx, cyc - 26, 30, '#dff1ff', { blur: 14, font: 'mono', weight: 700, spacing: 1, core: '#fff', alpha: t });
+  glowText(G.dailyWon ? 'DAILY COMPLETE' : 'THE DARK WINS', cx, cyc - 98, G.dailyWon ? 33 : 37, G.dailyWon ? '#5cf0b0' : '#ff6b7e', { blur: 12, weight: 800, spacing: 4, core: '#fff', alpha: t });
+  glowText('SCORE', cx, cyc - 56, 10, MUTED, { font: 'mono', spacing: 4, weight: 700, alpha: t });
+  glowText(fmtScore(G.score), cx, cyc - 26, 32, INK, { blur: 6, font: 'mono', weight: 700, spacing: 1, core: '#fff', alpha: t });
 
   // the score-chase beat: NEW BEST, or how far you fell short of your best
   const isBest = G.score >= G.highScore && G.score > 0;
@@ -131,20 +131,20 @@ export function drawGameOver() {
   if (G.isDaily) glowText('DAILY ' + G.dailyRunKey + (G.dailyStreak > 1 ? '    ' + G.dailyStreak + ' STREAK' : ''), cx, cyc + 62, 11, '#9fd0ff', { font: 'mono', spacing: 1, weight: 700, alpha: t });
 
   const b = goBtnRects();
-  luminousButton(b.primary, G.isDaily ? 'SHARE' : 'RETRY', G.isDaily ? '#ff7ad0' : '#5cf0b0', { primary: true });
-  luminousButton(b.home, 'HOME', '#7fc8ff');
+  minBtn(b.primary, G.isDaily ? 'SHARE' : 'RETRY', true);
+  minBtn(b.home, 'HOME', false);
 }
 export function drawPaused() {
-  dim(0.55);
+  dim(0.6);
   const cx = CW / 2, cyc = CH / 2;
-  glowText('PAUSED', cx, cyc - 44, 30, '#cfe6ff', { blur: 16, weight: 800, spacing: 4, core: '#fff' });
+  glowText('PAUSED', cx, cyc - 44, 30, INK, { blur: 6, weight: 800, spacing: 6, core: '#fff' });
   const blink = 0.5 + 0.5 * Math.sin(G.menuT * 3);
-  glowText('tap the board to resume', cx, cyc - 8, 13, '#9fb6e8', { blur: 8, weight: 600, spacing: 1, alpha: blink });
+  glowText('tap the board to resume', cx, cyc - 10, 12, MUTED, { blur: 0, weight: 600, spacing: 2, alpha: blink });
   // touch-reachable settings (keyboard M / R don't exist on mobile)
-  luminousButton(pauseMuteRect(), isMuted() ? 'SOUND OFF' : 'SOUND ON', isMuted() ? '#7f93c0' : '#5cf0b0');
-  luminousButton(pauseMotionRect(), G.reduceMotion ? 'MOTION OFF' : 'MOTION ON', G.reduceMotion ? '#7f93c0' : '#7fc8ff');
-  luminousButton(pauseControlRect(), 'CONTROL: ' + G.controlMode.toUpperCase(), '#c0a0ff');
-  luminousButton(pauseHomeRect(), 'QUIT TO HOME', '#ff8a9a');
+  minBtn(pauseMuteRect(), isMuted() ? 'SOUND OFF' : 'SOUND ON', false);
+  minBtn(pauseMotionRect(), G.reduceMotion ? 'MOTION OFF' : 'MOTION ON', false);
+  minBtn(pauseControlRect(), 'CONTROL: ' + G.controlMode.toUpperCase(), false);
+  minBtn(pauseHomeRect(), 'QUIT TO HOME', false, '#e08a96');
 }
 
 export function drawAttractWorld() {
