@@ -3,12 +3,39 @@
    (doCapture clears hasTrail). timeoutDeath() is the level-clock-expired path.
 
    These assert the SPEC, not whatever the code happens to do. */
-import { G, COLS, FILLED, resetG, freshPlayer, hasPopup, cellAt } from '../test/g-fixture';
+import { G, COLS, CELL, FILLED, resetG, freshPlayer, hasPopup, cellAt } from '../test/g-fixture';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { updatePlayer, timeoutDeath } from './player';
+import { updatePlayer, timeoutDeath, checkNearMiss } from './player';
 import { doCapture } from './capture';
 
 beforeEach(() => resetG());
+
+describe('near-miss (while drawing, slip past an enemy that then recedes)', () => {
+  it('rewards a receding in-band enemy once (debounced)', () => {
+    G.hasTrail = true; G.player = freshPlayer(); G.player.px = { x: 200, y: 200 };
+    const e: any = { x: 200 + CELL * 1.2, y: 200, type: 'drifter', nmPrevD: CELL * 1.0 };  // in-band, receding
+    G.enemies = [e];
+    const before = G.score;
+    checkNearMiss(0.016);
+    expect(G.score).toBeGreaterThan(before);
+    expect(hasPopup('CLOSE')).toBe(true);
+    // debounced — an immediate second pass doesn't double-reward
+    const after = G.score; G.popups = []; e.x = 200 + CELL * 1.3;   // still receding/in-band
+    checkNearMiss(0.016);
+    expect(G.score).toBe(after);
+  });
+  it('does not fire when not drawing, or when the enemy is approaching', () => {
+    G.player = freshPlayer(); G.player.px = { x: 200, y: 200 };
+    G.hasTrail = false;                                                       // safe — not vulnerable
+    G.enemies = [{ x: 200 + CELL * 1.2, y: 200, type: 'drifter', nmPrevD: CELL * 1.0 } as any];
+    checkNearMiss(0.016);
+    expect(hasPopup('CLOSE')).toBe(false);
+    G.hasTrail = true;                                                        // drawing, but approaching (d < prev)
+    G.enemies = [{ x: 200 + CELL * 1.2, y: 200, type: 'drifter', nmPrevD: CELL * 1.4 } as any];
+    checkNearMiss(0.016);
+    expect(hasPopup('CLOSE')).toBe(false);
+  });
+});
 
 // Step the player from a FILLED safe cell onto the EMPTY cell to its right; the
 // arrival starts a draw and arms the fuse. Returns after that single step.

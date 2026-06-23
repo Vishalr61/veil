@@ -119,6 +119,26 @@ export function checkCollisions() {
     if (!safe && G.player.invuln <= 0 && Math.hypot(G.player.px.x - e.x, G.player.px.y - e.y) < CELL * 0.78) { triggerDeath(); return; }
   }
 }
+// Near-miss: while drawing (vulnerable), slipping past an enemy by a hair — it
+// gets close, then recedes — rewards a brief slow-mo "savor" + a small bonus.
+// A clutch beat that makes a daring draw feel earned. Debounced per enemy.
+export function checkNearMiss(dt) {
+  if (G.state !== 'playing' || !G.hasTrail || G.player.invuln > 0) return;
+  const px = G.player.px;
+  for (const e of G.enemies) {
+    if (e.type === 'qix' || (e.type === 'sleeper' && e.asleep)) continue;   // boss is always near
+    const d = Math.hypot(px.x - e.x, px.y - e.y), prev = e.nmPrevD == null ? d : e.nmPrevD;
+    e.nmPrevD = d; e.nmCool = Math.max(0, (e.nmCool || 0) - dt);
+    // in the danger band, just past the closest point (receding), not on cooldown
+    if (e.nmCool <= 0 && d > prev && d > CELL * 0.82 && d < CELL * 1.55) {
+      e.nmCool = 1.6;
+      const bonus = 40 + G.level * 10; G.score += bonus;
+      spawnPopup(px.x, px.y - 16, 'CLOSE +' + bonus, '#bfe9ff', 14);
+      if (!G.reduceMotion) { G.hitstop = Math.max(G.hitstop, 0.06); G.flash = Math.max(G.flash, 0.1); }
+      hapticLight();
+    }
+  }
+}
 export function respawnAt() {
   clearTrail();
   const safe = nearestFilled(cellOfPx(G.player.px));
