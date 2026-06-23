@@ -66,7 +66,7 @@ export function drawMenu() {
 export function drawScores() {
   dim(0.74);
   const cx = CW / 2;
-  glowText('HIGH SCORES', cx, CH * 0.15, 26, '#ffe93b', { blur: 10, font: 'mono', spacing: 2, core: '#fff' });
+  glowText('HIGH SCORES', cx, CH * 0.15, 26, '#ffe93b', { blur: 9, weight: 800, spacing: 3, core: '#fff' });
   const list = getScores(), hot = justSetEntry();
   if (!list.length) {
     glowText('NO RUNS YET', cx, CH / 2 - 10, 16, '#9fb6e8', { blur: 6, font: 'mono', spacing: 2 });
@@ -94,7 +94,7 @@ export function drawLevelClear() {
   dim(0.45);
   const cx = CW / 2, cyc = CH / 2, t = clamp((2.9 - G.lcTimer) * 2.2, 0, 1), pop = 1 + (1 - t) * 0.3;
   const lastFloor = G.isDaily && G.level >= DAILY_FLOORS;
-  glowText(G.isDaily ? 'FLOOR CLEARED' : 'VEIL CLEARED', cx, cyc - 36, 44 * pop, G.pal.edge2, { blur: 26, font: 'mono', spacing: 2, core: '#fff', alpha: t });
+  glowText(G.isDaily ? 'FLOOR CLEARED' : 'VEIL CLEARED', cx, cyc - 36, 42 * pop, G.pal.edge2, { blur: 24, weight: 800, spacing: 3, core: '#fff', alpha: t });
   glowText((G.isDaily ? 'FLOOR ' : 'LEVEL ') + G.level + '  ·  ' + Math.round(G.percent * 100) + '% revealed', cx, cyc + 8, 16, '#cfe6ff', { blur: 8, weight: 600, spacing: 1, alpha: t });
   glowText('+ ' + G.lastBonus + '  bonus', cx, cyc + 40, 18, G.pal.accent, { blur: 12, weight: 800, alpha: t });
   const bonusBits = [];
@@ -107,7 +107,7 @@ export function drawLevelClear() {
 export function drawGameOver() {
   dim(0.66);
   const cx = CW / 2, cyc = CH / 2, t = clamp(G.goTimer * 1.6, 0, 1);
-  glowText(G.dailyWon ? 'DAILY COMPLETE' : 'THE DARK WINS', cx, cyc - 98, G.dailyWon ? 34 : 38, G.dailyWon ? '#5cf0b0' : '#ff6b7e', { blur: 26, font: 'mono', spacing: 2, core: '#fff', alpha: t });
+  glowText(G.dailyWon ? 'DAILY COMPLETE' : 'THE DARK WINS', cx, cyc - 98, G.dailyWon ? 33 : 37, G.dailyWon ? '#5cf0b0' : '#ff6b7e', { blur: 24, weight: 800, spacing: 3, core: '#fff', alpha: t });
   glowText('SCORE', cx, cyc - 56, 11, '#7f97c8', { font: 'mono', spacing: 3, alpha: t });
   glowText(fmtScore(G.score), cx, cyc - 26, 30, '#dff1ff', { blur: 14, font: 'mono', weight: 700, spacing: 1, core: '#fff', alpha: t });
 
@@ -141,7 +141,7 @@ export function drawGameOver() {
 export function drawPaused() {
   dim(0.55);
   const cx = CW / 2, cyc = CH / 2;
-  glowText('PAUSED', cx, cyc - 44, 30, '#cfe6ff', { blur: 18, font: 'pixel', spacing: 2, core: '#fff' });
+  glowText('PAUSED', cx, cyc - 44, 30, '#cfe6ff', { blur: 16, weight: 800, spacing: 4, core: '#fff' });
   const blink = 0.5 + 0.5 * Math.sin(G.menuT * 3);
   glowText('tap the board to resume', cx, cyc - 8, 13, '#9fb6e8', { blur: 8, weight: 600, spacing: 1, alpha: blink });
   // touch-reachable settings (keyboard M / R don't exist on mobile)

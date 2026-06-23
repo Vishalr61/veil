@@ -817,9 +817,9 @@ export function drawWorld() {
       const ec = G.banner.enemy === 'chaser' ? CHASER_COL : G.banner.enemy === 'cutter' ? '#ffe93b' : G.banner.enemy === 'sentinel' ? '#ffb14a' : '#ff3a4e';
       const eg = G.banner.enemy === 'chaser' ? CHASER_GLOW : G.banner.enemy === 'cutter' ? '#fff07a' : G.banner.enemy === 'sentinel' ? '#ffd07a' : '#ff6a4a';
       ctx.save(); ctx.globalAlpha = a; drawGlowOrb(PW / 2, PH / 2 - 62, CELL * 0.5, ec, eg, CELL * 2); ctx.restore();
-      glowText('NEW THREAT', PW / 2, PH / 2 - 30, 9, eg, { blur: 8, font: 'pixel', spacing: 2, alpha: a * 0.8 });
+      glowText('NEW THREAT', PW / 2, PH / 2 - 30, 9, eg, { blur: 6, weight: 800, spacing: 3, alpha: a * 0.8 });
     }
-    glowText(G.banner.text, PW / 2, PH / 2 - 12, G.banner.enemy ? 20 : 24, G.pal.edge2, { blur: 22, font: 'pixel', spacing: 2, core: '#fff', alpha: a });
+    glowText(G.banner.text, PW / 2, PH / 2 - 12, G.banner.enemy ? 20 : 25, G.pal.edge2, { blur: 20, weight: 800, spacing: 3, core: '#fff', alpha: a });
     glowText(G.banner.sub, PW / 2, PH / 2 + 22, 15, '#cfe6ff', { blur: 6, font: 'mono', spacing: 1, alpha: a });
   }
 
