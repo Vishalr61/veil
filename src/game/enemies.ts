@@ -15,6 +15,7 @@ import { centerPx, cellOfPx } from '../core/grid';
 import { spawnPopup } from './particles';
 import { hapticHeavy } from '../platform/haptics';
 import { sfxBlink, sfxSentinel } from '../audio/audio';
+import { effectiveDiff, enemySpeed } from './difficulty';
 
 // Plays a sound only when the player is near enough to care (avoids a chorus
 // from many actors firing across a big board).
@@ -50,7 +51,7 @@ export const ENEMY_INFO = {
 export function genEnemies(lv, counts: EnemyCounts = enemyCounts(lv)) {
   const out = [];
   const n = counts;
-  const spd = Math.min(140 + 9 * (lv - 1), 240);   // zippier enemies for a lightning-quick feel
+  const spd = enemySpeed(lv, effectiveDiff());   // base/ramp/cap per difficulty (Medium = today's 140/9/240)
   const sc = centerPx((COLS >> 1));
   function spawnCell(minGap, needEmpty) {
     let x = sc.x, y = sc.y, tries = 0, cx = 2, cy = 2;

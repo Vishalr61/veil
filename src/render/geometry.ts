@@ -12,6 +12,12 @@ export function menuBtnW() { return Math.min(300, CW - 48); }
 export function playBtnRect() { const w = menuBtnW(); return { x: CW / 2 - w / 2, y: CH * 0.58, w, h: 58 }; }
 export function dailyBtnRect() { const w = menuBtnW(), hw = (w - 14) / 2; return { x: CW / 2 - w / 2, y: CH * 0.58 + 74, w: hw, h: 50 }; }
 export function scoresBtnRect() { const w = menuBtnW(), hw = (w - 14) / 2; return { x: CW / 2 - w / 2 + hw + 14, y: CH * 0.58 + 74, w: hw, h: 50 }; }
+// EASY / MED / HARD — a quiet three-up row beneath the DAILY/SCORES row.
+export function diffBtnRects(): { x: number; y: number; w: number; h: number; key: 'easy' | 'medium' | 'hard' }[] {
+  const w = menuBtnW(), gap = 10, cw = (w - gap * 2) / 3, x0 = CW / 2 - w / 2, y = CH * 0.58 + 142, h = 40;
+  const keys: ('easy' | 'medium' | 'hard')[] = ['easy', 'medium', 'hard'];
+  return keys.map((key, i) => ({ x: x0 + i * (cw + gap), y, w: cw, h, key }));
+}
 export function pauseBtnRect() { return { x: CW - 56, y: safeTop + 8, w: 46, h: 46 }; }
 // tappable mute glyph in the HUD (so phones can mute without a keyboard)
 export function muteBtnRect() { return { x: CW - 104, y: safeTop + 8, w: 42, h: 46 }; }

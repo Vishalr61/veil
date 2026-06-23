@@ -17,6 +17,7 @@ export function freshPlayer() {
 
 export function resetG() {
   G.state = 'playing';
+  G.diff = 'medium'; G.isDaily = false;   // Medium = today's tuning; the difficulty helpers read these
   G.level = 1;
   G.lives = 3;
   G.combo = 0; G.comboT = 0;

@@ -45,12 +45,14 @@ export function drawHUD() {
   const cy = safeTop + (HUD_H - safeTop) / 2;
   const pad = 16 * u;
   const L = { font: 'mono' as const, weight: 700, spacing: 2, blur: 0 };
-  // shared time state (drives the TIME stat + the base bar)
-  const tf = clamp(1 - G.levelT / G.levelTimeMax, 0, 1);
-  const rem = Math.max(0, Math.ceil(G.levelTimeMax - G.levelT)), low = tf < 0.2;
-  const tcol = tf > 0.4 ? G.pal.edge2 : tf > 0.2 ? '#ffce5c' : '#ff5a4a';
+  // shared time state (drives the TIME stat + the base bar). Easy turns the
+  // clock OFF (levelTimeMax = Infinity): show a calm ∞ and skip the depleting bar.
+  const noClock = !isFinite(G.levelTimeMax);
+  const tf = noClock ? 1 : clamp(1 - G.levelT / G.levelTimeMax, 0, 1);
+  const rem = Math.max(0, Math.ceil(G.levelTimeMax - G.levelT)), low = !noClock && tf < 0.2;
+  const tcol = (noClock || tf > 0.4) ? G.pal.edge2 : tf > 0.2 ? '#ffce5c' : '#ff5a4a';
   const tpulse = low ? 0.6 + 0.4 * Math.sin(G.time * 9) : 1;
-  const mmss = (rem >= 60 ? Math.floor(rem / 60) + ':' + String(rem % 60).padStart(2, '0') : '0:' + String(rem).padStart(2, '0'));
+  const mmss = noClock ? '∞' : (rem >= 60 ? Math.floor(rem / 60) + ':' + String(rem % 60).padStart(2, '0') : '0:' + String(rem).padStart(2, '0'));
 
   // LEFT — SCORE (labelled by level) + combo
   glowText((G.isDaily ? 'FLOOR ' : 'LEVEL ') + G.level, pad, cy - 13 * u, 9 * u, G.pal.edge2, { align: 'left', ...L });
@@ -100,10 +102,12 @@ export function drawHUD() {
   for (let i = 0; i < shown; i++) drawHeart(rx - 3 * u - i * 16 * u, cy + 11 * u, 7.5 * u, lifeCol);
   if (G.lives > 6) glowText('+' + (G.lives - 6), rx - shown * 15 * u, cy + 11 * u, 11 * u, lifeCol, { align: 'right', font: 'mono', weight: 800, blur: 4 });
 
-  // base depleting time bar
-  ctx.save();
-  ctx.globalAlpha = 0.18; ctx.fillStyle = '#ffffff'; ctx.fillRect(0, HUD_H - 6, CW, 5);
-  ctx.globalAlpha = tpulse; ctx.fillStyle = tcol; ctx.shadowColor = tcol; ctx.shadowBlur = 10;
-  ctx.fillRect(0, HUD_H - 6, CW * tf, 5);
-  ctx.restore();
+  // base depleting time bar (hidden on Easy, where there's no clock to deplete)
+  if (!noClock) {
+    ctx.save();
+    ctx.globalAlpha = 0.18; ctx.fillStyle = '#ffffff'; ctx.fillRect(0, HUD_H - 6, CW, 5);
+    ctx.globalAlpha = tpulse; ctx.fillStyle = tcol; ctx.shadowColor = tcol; ctx.shadowBlur = 10;
+    ctx.fillRect(0, HUD_H - 6, CW * tf, 5);
+    ctx.restore();
+  }
 }

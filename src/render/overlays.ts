@@ -9,7 +9,7 @@ import { G } from '../game/state';
 import { CW, CH, OFF_X, OFF_Y, PW, PH } from '../core/dims';
 import { TAU, clamp } from '../core/math';
 import { glowText, fmtScore, roundRectPath } from './primitives';
-import { playBtnRect, dailyBtnRect, scoresBtnRect, pauseHomeRect, pauseControlRect, pauseMuteRect, pauseMotionRect, goBtnRects } from './geometry';
+import { playBtnRect, dailyBtnRect, scoresBtnRect, diffBtnRects, pauseHomeRect, pauseControlRect, pauseMuteRect, pauseMotionRect, goBtnRects } from './geometry';
 import { isMuted } from '../audio/audio';
 import { todayKey, isConsecutive } from '../daily/daily';
 import { getScores, justSetEntry } from '../game/leaderboard';
@@ -55,6 +55,26 @@ export function drawMenu() {
   const tk = todayKey(new Date()), done = G.dailyPlayedKey === tk;
   minBtn(dailyBtnRect(), done ? 'DAILY ✓' : 'DAILY', false);
   minBtn(scoresBtnRect(), 'SCORES', false);
+
+  // difficulty — a quiet three-up selector; the chosen mode reads as a light fill.
+  // (The daily ignores this and always runs Medium — see effectiveDiff.)
+  const diffLabels: Record<string, string> = { easy: 'EASY', medium: 'MEDIUM', hard: 'HARD' };
+  const chips = diffBtnRects();
+  glowText('DIFFICULTY', cx, chips[0].y - 18, 9, MUTED, { font: 'mono', spacing: 3, weight: 600, blur: 0 });
+  for (const r of chips) {
+    const on = G.diff === r.key, rad = r.h / 2;
+    ctx.save();
+    roundRectPath(r.x, r.y, r.w, r.h, rad);
+    if (on) { ctx.fillStyle = INK; ctx.fill(); }
+    else {
+      ctx.fillStyle = 'rgba(255,255,255,0.02)'; ctx.fill();
+      roundRectPath(r.x + 0.75, r.y + 0.75, r.w - 1.5, r.h - 1.5, rad - 0.75);
+      ctx.strokeStyle = 'rgba(255,255,255,0.14)'; ctx.lineWidth = 1.25; ctx.stroke();
+    }
+    ctx.restore();
+    glowText(diffLabels[r.key], r.x + r.w / 2, r.y + r.h / 2 + 0.5, on ? 13 : 11.5, on ? '#0a0e16' : MUTED,
+      { weight: on ? 800 : 600, spacing: 2, blur: 0 });
+  }
 
   const liveStreak = (G.dailyStreakDate === tk || isConsecutive(G.dailyStreakDate, tk)) ? G.dailyStreak : 0;
   if (liveStreak > 1) glowText(liveStreak + ' DAY STREAK', cx, CH * 0.9, 11, MUTED, { font: 'mono', spacing: 2, weight: 600, blur: 0 });
