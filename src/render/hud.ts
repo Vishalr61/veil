@@ -35,26 +35,29 @@ export function drawHUD() {
   ctx.beginPath(); ctx.moveTo(0, HUD_H - 0.5); ctx.lineTo(CW, HUD_H - 0.5); ctx.stroke();
   ctx.restore();
 
-  const cy = safeTop + (HUD_H - safeTop) / 2;   // vertical centre below the notch / safe inset
-  const pad = 14;
+  const u = Math.max(1, HUD_H / 64);   // scale unit so the HUD grows on bigger viewports
+  const cy = safeTop + (HUD_H - safeTop) / 2;
+  const pad = 16 * u;
+  const L = { font: 'mono' as const, weight: 700, spacing: 2, blur: 0 };
+  // shared time state (drives the TIME stat + the base bar)
+  const tf = clamp(1 - G.levelT / G.levelTimeMax, 0, 1);
+  const rem = Math.max(0, Math.ceil(G.levelTimeMax - G.levelT)), low = tf < 0.2;
+  const tcol = tf > 0.4 ? G.pal.edge2 : tf > 0.2 ? '#ffce5c' : '#ff5a4a';
+  const tpulse = low ? 0.6 + 0.4 * Math.sin(G.time * 9) : 1;
+  const mmss = (rem >= 60 ? Math.floor(rem / 60) + ':' + String(rem % 60).padStart(2, '0') : '0:' + String(rem).padStart(2, '0'));
 
-  // LEFT — level (small, top), score (big), combo (when chaining)
-  glowText((G.isDaily ? 'FLR ' : 'LVL ') + G.level, pad, cy - 13, 11, G.pal.edge2, { align: 'left', blur: 4, font: 'mono', spacing: 2 });
-  glowText(fmtScore(G.dispScore), pad, cy + 8, 23, '#ffffff', { align: 'left', blur: 9, font: 'mono', core: '#fff', spacing: 1 });
+  // LEFT — SCORE (labelled by level) + combo
+  glowText((G.isDaily ? 'FLOOR ' : 'LEVEL ') + G.level, pad, cy - 13 * u, 9 * u, G.pal.edge2, { align: 'left', ...L });
+  glowText(Math.round(G.dispScore).toLocaleString('en-US'), pad, cy + 10 * u, 23 * u, '#ffffff', { align: 'left', blur: 9, font: 'mono', core: '#fff', spacing: 1 });
   if (G.combo > 1 && G.state === 'playing') {
-    const mx = pad + 74, mult = comboMult();
-    glowText('x' + mult.toFixed(1), mx, cy - 13, 12, G.pal.accent, { align: 'left', blur: 8, weight: 800 });
-    ctx.save();
-    roundRectPath(mx, cy - 4, 44, 4, 2); ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.fill(); ctx.clip();
-    ctx.fillStyle = G.pal.accent; ctx.shadowColor = G.pal.accent; ctx.shadowBlur = 6;
-    ctx.fillRect(mx, cy - 4, 44 * clamp(G.comboT / COMBO_WINDOW, 0, 1), 4);
-    ctx.restore();
+    const mx = pad, mult = comboMult();
+    glowText('x' + mult.toFixed(1) + ' CHAIN', mx, cy + 26 * u, 9.5 * u, G.pal.accent, { align: 'left', blur: 6, weight: 800, font: 'mono', spacing: 1, alpha: 0.6 + 0.4 * clamp(G.comboT / COMBO_WINDOW, 0, 1) });
   }
 
-  // CENTER — reveal % over the target bar
-  const barW = Math.min(200, CW * 0.42), barH = 7, bx = CW / 2 - barW / 2, by = cy + 5;
+  // CENTER — REVEAL % over the target bar (TIME + LIVES live on the right)
+  const barW = Math.min(150 * u, CW * 0.26), barH = 7 * u, bx = CW / 2 - barW / 2, by = cy + 8 * u;
   const frac = clamp(G.dispPercent / G.target, 0, 1);
-  glowText(Math.round(G.dispPercent * 100) + '%', CW / 2, cy - 11, 17, '#ffffff', { blur: 8, font: 'mono', core: '#fff', spacing: 1 });
+  glowText(Math.round(G.dispPercent * 100) + '%', CW / 2, cy - 8 * u, 22 * u, '#ffffff', { blur: 8, font: 'mono', core: '#fff', spacing: 1 });
   ctx.save();
   roundRectPath(bx, by, barW, barH, barH / 2); ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fill();
   roundRectPath(bx, by, barW, barH, barH / 2); ctx.clip();
@@ -62,38 +65,34 @@ export function drawHUD() {
   g.addColorStop(0, G.pal.edge); g.addColorStop(1, G.pal.edge2);
   ctx.fillStyle = g; ctx.shadowColor = G.pal.edge; ctx.shadowBlur = 10; ctx.fillRect(bx, by, barW * frac, barH);
   ctx.restore();
-  if (frac > 0.02 && frac < 0.999) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; drawGlowOrb(bx + barW * frac, by + barH / 2, 2.4, '#fff', G.pal.edge2, 9); ctx.restore(); }
-  glowText('TARGET ' + Math.round(G.target * 100) + '%', CW / 2, by + barH + 7, 8.5, '#7f93c0', { blur: 0, spacing: 1.5, weight: 700 });
-  // active power-up timers — one tidy centred line under the bar
+  if (frac > 0.02 && frac < 0.999) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; drawGlowOrb(bx + barW * frac, by + barH / 2, 2.4 * u, '#fff', G.pal.edge2, 9); ctx.restore(); }
+  glowText('TARGET ' + Math.round(G.target * 100) + '%', CW / 2, by + barH + 8 * u, 8.5 * u, '#7f93c0', { blur: 0, spacing: 1.5, weight: 700 });
   const fx = [];
   if (G.enemyFreezeT > 0) fx.push('FREEZE ' + Math.ceil(G.enemyFreezeT));
   if (G.enemySlowT > 0) fx.push('SLOW ' + Math.ceil(G.enemySlowT));
   if (G.surgeT > 0) fx.push('2x ' + Math.ceil(G.surgeT));
-  if (fx.length) glowText(fx.join('   '), CW / 2, by + barH + 19, 9.5, '#bfe0ff', { blur: 6, weight: 800, font: 'mono', spacing: 1 });
+  if (fx.length) glowText(fx.join('   '), CW / 2, by + barH + 20 * u, 9.5 * u, '#bfe0ff', { blur: 6, weight: 800, font: 'mono', spacing: 1 });
 
-  // RIGHT — lives, then a tappable mute glyph (the pause button is drawn by drawTouchUI)
+  // RIGHT — a tappable mute glyph, with TIME (m:ss) above LIVES (hearts) to its
+  // left. The m:ss + hearts are self-evident, so no labels needed here.
   const muteOn = !isMuted(), mcol = muteOn ? G.pal.accent : '#6a7290';
   ctx.save();
-  ctx.translate(CW - 83, cy);   // centre of muteBtnRect, so the tap target lines up
+  ctx.translate(CW - 83, cy);
   ctx.strokeStyle = mcol; ctx.fillStyle = mcol; ctx.lineWidth = 1.6;
   ctx.beginPath(); ctx.moveTo(-7, -2.5); ctx.lineTo(-3, -2.5); ctx.lineTo(1, -6); ctx.lineTo(1, 6); ctx.lineTo(-3, 2.5); ctx.lineTo(-7, 2.5); ctx.closePath(); ctx.fill();
   if (muteOn) { ctx.beginPath(); ctx.arc(2, 0, 5, -0.7, 0.7); ctx.stroke(); ctx.beginPath(); ctx.arc(2, 0, 8, -0.7, 0.7); ctx.globalAlpha = 0.6; ctx.stroke(); }
   else { ctx.beginPath(); ctx.moveTo(4, -5); ctx.lineTo(9, 5); ctx.moveTo(9, -5); ctx.lineTo(4, 5); ctx.stroke(); }
   ctx.restore();
 
-  let rx = CW - 116;
-  if (G.shield) { drawGlowOrb(rx, cy, 4.5, '#7dffc4', '#7dffc4', 11); rx -= 16; }
+  const rgt = CW - 106;   // right edge of the TIME/LIVES stack (left of the mute glyph)
+  glowText(mmss, rgt, cy - 9 * u, 19 * u, tcol, { align: 'right', font: 'mono', blur: low ? 12 : 6, weight: 800, spacing: 1, alpha: tpulse });
+  let rx = rgt;
+  if (G.shield) { drawGlowOrb(rx - 4 * u, cy + 11 * u, 5 * u, '#7dffc4', '#7dffc4', 13 * u); rx -= 16 * u; }
   const shown = Math.min(G.lives, 6), lifeCol = '#ff8a9e';
-  for (let i = 0; i < shown; i++) drawHeart(rx - i * 15, cy, 5, lifeCol);
-  if (G.lives > 6) glowText('+' + (G.lives - 6), rx - shown * 15 + 4, cy, 11, lifeCol, { align: 'right', font: 'mono', weight: 800, blur: 4 });
+  for (let i = 0; i < shown; i++) drawHeart(rx - 3 * u - i * 15 * u, cy + 11 * u, 6.5 * u, lifeCol);
+  if (G.lives > 6) glowText('+' + (G.lives - 6), rx - shown * 15 * u, cy + 11 * u, 11 * u, lifeCol, { align: 'right', font: 'mono', weight: 800, blur: 4 });
 
-  // LEVEL TIME — a m:ss countdown (left of the %) + a bright depleting bar along the HUD's base
-  const tf = clamp(1 - G.levelT / G.levelTimeMax, 0, 1);
-  const rem = Math.max(0, Math.ceil(G.levelTimeMax - G.levelT)), low = tf < 0.2;
-  const tcol = tf > 0.4 ? G.pal.edge2 : tf > 0.2 ? '#ffce5c' : '#ff5a4a';
-  const tpulse = low ? 0.6 + 0.4 * Math.sin(G.time * 9) : 1;
-  const mmss = (rem >= 60 ? Math.floor(rem / 60) + ':' + String(rem % 60).padStart(2, '0') : '0:' + String(rem).padStart(2, '0'));
-  glowText(mmss, CW / 2 - 56, cy - 8, 19, tcol, { align: 'right', font: 'mono', blur: low ? 12 : 6, weight: 800, spacing: 1, alpha: tpulse });
+  // base depleting time bar
   ctx.save();
   ctx.globalAlpha = 0.18; ctx.fillStyle = '#ffffff'; ctx.fillRect(0, HUD_H - 6, CW, 5);
   ctx.globalAlpha = tpulse; ctx.fillStyle = tcol; ctx.shadowColor = tcol; ctx.shadowBlur = 10;
