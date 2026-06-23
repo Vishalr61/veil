@@ -8,60 +8,56 @@ import { ctx } from './surface';
 import { G } from '../game/state';
 import { CW, CH, OFF_X, OFF_Y, PW, PH } from '../core/dims';
 import { TAU, clamp } from '../core/math';
-import { glowText, luminousTitle, luminousButton, fmtScore, setFont } from './primitives';
+import { glowText, luminousButton, fmtScore, roundRectPath } from './primitives';
 import { playBtnRect, dailyBtnRect, scoresBtnRect, pauseHomeRect, pauseControlRect, pauseMuteRect, pauseMotionRect, goBtnRects } from './geometry';
 import { isMuted } from '../audio/audio';
 import { todayKey, isConsecutive } from '../daily/daily';
-import { genNebula } from './background';
-import { drawShootingStars } from './world';
-import { BANDS, RIFT_BAND } from '../core/bands';
 import { getScores, justSetEntry } from '../game/leaderboard';
 import { getLifetime } from '../game/stats';
 import { DAILY_FLOORS } from '../game/blueprints';
 
 function dim(a) { ctx.save(); ctx.fillStyle = `rgba(3,5,12,${a})`; ctx.fillRect(0, 0, CW, CH); ctx.restore(); }
-export function drawMenu() {
-  // A vertical scrim instead of a flat dim: keeps the backdrop (and its side
-  // veins) vivid full-width, while darkening only the title + button bands so
-  // the wordmark and labels stay crisp over a bright nebula.
+
+const INK = '#eef1f7', MUTED = '#79849c', ACCENT = '#8fb8e8';   // premium-minimal palette
+// A restrained menu button: a confident light fill for the primary, a quiet
+// hairline outline for the rest. No glow — crisp edges carry it.
+function minBtn(r: any, label: string, primary: boolean) {
+  const bx = r.x + r.w / 2, by = r.y + r.h / 2, rad = r.h / 2;
   ctx.save();
-  const sg = ctx.createLinearGradient(0, 0, 0, CH);
-  sg.addColorStop(0.0, 'rgba(3,5,12,0.34)');
-  sg.addColorStop(0.30, 'rgba(3,5,12,0.54)');   // VEIL wordmark band
-  sg.addColorStop(0.52, 'rgba(3,5,12,0.34)');
-  sg.addColorStop(0.80, 'rgba(3,5,12,0.60)');   // PLAY / DAILY / SCORES band
-  sg.addColorStop(1.0, 'rgba(3,5,12,0.44)');
-  ctx.fillStyle = sg; ctx.fillRect(0, 0, CW, CH);
+  roundRectPath(r.x, r.y, r.w, r.h, rad);
+  if (primary) { ctx.fillStyle = INK; ctx.fill(); }
+  else {
+    ctx.fillStyle = 'rgba(255,255,255,0.025)'; ctx.fill();
+    roundRectPath(r.x + 0.75, r.y + 0.75, r.w - 1.5, r.h - 1.5, rad - 0.75);
+    ctx.strokeStyle = 'rgba(255,255,255,0.16)'; ctx.lineWidth = 1.25; ctx.stroke();
+  }
   ctx.restore();
-  const cx = CW / 2, bob = Math.sin(G.menuT * 1.2) * 2;
-  const pal = G.menuPal || G.pal;
-  const acc = pal.edge2 || '#9fe8ff';   // the chosen zone's accent — ties the chrome to the backdrop
+  glowText(label, bx, by + 0.5, primary ? 16 : 14, primary ? '#0a0e16' : '#b3bdd0',
+    { weight: primary ? 800 : 600, spacing: primary ? 3 : 2.5, blur: 0 });
+}
+export function drawMenu() {
+  const cx = CW / 2;
+  // a whisper of a scrim for legibility (the backdrop is already calm)
+  ctx.save(); ctx.fillStyle = 'rgba(5,8,14,0.28)'; ctx.fillRect(0, 0, CW, CH); ctx.restore();
 
-  // top stat — a clean centred "BEST" badge, zone-tinted
-  glowText('BEST', cx, CH * 0.092, 9.5, acc, { blur: 5, font: 'mono', weight: 700, spacing: 4 });
-  glowText(fmtScore(G.highScore), cx, CH * 0.125, 17, '#eafaff', { blur: 7, font: 'mono', spacing: 2, core: '#fff' });
+  // BEST — tiny, restrained, only when there's a score
+  if (G.highScore > 0) glowText('BEST  ' + fmtScore(G.highScore), cx, CH * 0.12, 12, MUTED, { font: 'mono', spacing: 3, weight: 600, blur: 0 });
 
-  // hero wordmark with a breathing bloom, haloed in the zone colour
-  const titleY = CH * 0.31 + bob;
-  const pulse = 28 + 7 * Math.sin(G.menuT * 1.6);
-  luminousTitle('VEIL', cx, titleY, 72, { blur: pulse, glow: pal.edge || '#6fd8ff', bot: acc, spacing: 20 });
+  // wordmark — large, crisp, light, generously tracked; only a whisper of glow
+  const titleY = CH * 0.37;
+  glowText('VEIL', cx, titleY, 86, INK, { weight: 700, spacing: 28, blur: 6, core: '#fff' });
+  // a single thin accent rule + the tagline, with room to breathe
+  ctx.save(); ctx.globalAlpha = 0.55; ctx.fillStyle = ACCENT; ctx.fillRect(cx - 26, titleY + 42, 52, 1.5); ctx.restore();
+  glowText('draw light into the dark', cx, titleY + 64, 13, MUTED, { weight: 500, spacing: 4, blur: 0 });
 
-  // subtitle — a fluid, tightly-tracked tagline framed by two faint zone-tinted dots
-  const subY = titleY + 50;
-  ctx.save(); setFont(13, 400, 0.3, undefined); const stw = ctx.measureText('draw light into the dark').width; ctx.restore();
-  glowText('draw light into the dark', cx, subY, 13, '#dcefff', { blur: 9, weight: 400, spacing: 0.3 });
-  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = acc; ctx.shadowColor = acc; ctx.shadowBlur = 8;
-  for (const off of [-(stw / 2 + 15), stw / 2 + 15]) { ctx.globalAlpha = 0.85; ctx.beginPath(); ctx.arc(cx + off, subY, 1.6, 0, TAU); ctx.fill(); }
-  ctx.restore();
-
-  // primary CTA + secondary row, each with a leading glyph
-  luminousButton(playBtnRect(), 'PLAY', '#5cf0b0', { primary: true, icon: 'play' });
+  // a confident light PLAY + quiet outlined DAILY / SCORES
+  minBtn(playBtnRect(), 'PLAY', true);
   const tk = todayKey(new Date()), done = G.dailyPlayedKey === tk;
-  luminousButton(dailyBtnRect(), done ? 'DAILY ✓' : 'DAILY', '#ff7ad0', { icon: 'daily' });
-  luminousButton(scoresBtnRect(), 'SCORES', '#7fc8ff', { icon: 'scores' });
+  minBtn(dailyBtnRect(), done ? 'DAILY ✓' : 'DAILY', false);
+  minBtn(scoresBtnRect(), 'SCORES', false);
 
   const liveStreak = (G.dailyStreakDate === tk || isConsecutive(G.dailyStreakDate, tk)) ? G.dailyStreak : 0;
-  if (liveStreak > 1) glowText('streak ' + liveStreak, cx, CH * 0.88, 14, '#ffd29a', { blur: 4, font: 'mono', spacing: 1 });
+  if (liveStreak > 1) glowText(liveStreak + ' DAY STREAK', cx, CH * 0.9, 11, MUTED, { font: 'mono', spacing: 2, weight: 600, blur: 0 });
 }
 export function drawScores() {
   dim(0.74);
@@ -152,28 +148,18 @@ export function drawPaused() {
 }
 
 export function drawAttractWorld() {
-  // A vivid, *varied* backdrop: pick a random zone per page-load so the title
-  // showcases the game's palettes (Depths/Aurora/Deep Space/… and the Rift),
-  // generated rich (deeper, brighter) rather than the old dim Depths.
-  if (!G.menuNebula) {
-    const pool = [...BANDS, RIFT_BAND];
-    G.menuPal = pool[Math.floor(Math.random() * pool.length)];
-    G.menuNebula = genNebula(G.menuPal, 4, PW, PH, 0.62);
-  }
-  const pal = G.menuPal || BANDS[0];
+  // Premium-minimal backdrop: near-black with a faint vertical gradient, a single
+  // soft glow behind the wordmark, and a sparse calm starfield. No vivid nebula —
+  // the quiet is the point.
   ctx.save();
   ctx.translate(OFF_X, OFF_Y);
-  // slow parallax drift; the nebula is over-scaled so the drift never bares an edge
-  const dx = Math.sin(G.menuT * 0.05) * 16, dy = Math.cos(G.menuT * 0.04) * 11;
-  ctx.globalAlpha = 0.92;
-  ctx.drawImage(G.menuNebula.canvas, dx - 20, dy - 16, PW + 40, PH + 32);
-  ctx.globalAlpha = 1;
+  const vg = ctx.createLinearGradient(0, 0, 0, PH);
+  vg.addColorStop(0, '#080b13'); vg.addColorStop(0.45, '#0a0e1a'); vg.addColorStop(1, '#06080e');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, PW, PH);
+  const gx = PW / 2, gy = PH * 0.34, glow = ctx.createRadialGradient(gx, gy, 0, gx, gy, PW * 0.78);
+  glow.addColorStop(0, 'rgba(80,130,190,0.10)'); glow.addColorStop(0.6, 'rgba(50,80,130,0.035)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = glow; ctx.fillRect(0, 0, PW, PH);
   ctx.globalCompositeOperation = 'lighter';
-  for (const m of G.motes) {
-    const tw = 0.55 + 0.45 * Math.sin(G.menuT * 1.3 + m.x);   // gentle per-star twinkle
-    ctx.globalAlpha = m.a * 0.85 * tw; ctx.fillStyle = pal.star;
-    ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, TAU); ctx.fill();
-  }
-  drawShootingStars(pal.edge2);   // reuse the in-game streaks, tinted to this zone
+  for (const m of G.motes) { ctx.globalAlpha = m.a * 0.32; ctx.fillStyle = '#9fb0cc'; ctx.beginPath(); ctx.arc(m.x, m.y, m.r * 0.7, 0, TAU); ctx.fill(); }
   ctx.restore();
 }
