@@ -50,7 +50,7 @@ export const ENEMY_INFO = {
 export function genEnemies(lv, counts: EnemyCounts = enemyCounts(lv)) {
   const out = [];
   const n = counts;
-  const spd = Math.min(115 + 8 * (lv - 1), 205);
+  const spd = Math.min(140 + 9 * (lv - 1), 240);   // zippier enemies for a lightning-quick feel
   const sc = centerPx((COLS >> 1));
   function spawnCell(minGap, needEmpty) {
     let x = sc.x, y = sc.y, tries = 0, cx = 2, cy = 2;
