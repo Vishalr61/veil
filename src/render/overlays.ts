@@ -147,7 +147,7 @@ export function drawPaused() {
   // touch-reachable settings (keyboard M / R don't exist on mobile)
   luminousButton(pauseMuteRect(), isMuted() ? 'SOUND OFF' : 'SOUND ON', isMuted() ? '#7f93c0' : '#5cf0b0');
   luminousButton(pauseMotionRect(), G.reduceMotion ? 'MOTION OFF' : 'MOTION ON', G.reduceMotion ? '#7f93c0' : '#7fc8ff');
-  luminousButton(pauseControlRect(), G.tapControl ? 'CONTROL: TAP' : 'CONTROL: DRAG', '#c0a0ff');
+  luminousButton(pauseControlRect(), 'CONTROL: ' + G.controlMode.toUpperCase(), '#c0a0ff');
   luminousButton(pauseHomeRect(), 'QUIT TO HOME', '#ff8a9a');
 }
 

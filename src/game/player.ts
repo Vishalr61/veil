@@ -24,7 +24,11 @@ function chooseDir(ax, ay) {
     if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) { G.buffered = null; }
     else {
       const i = ny * COLS + nx;
-      if (G.grid[i] !== TRAIL && G.grid[i] !== OBSTACLE) { const d = G.buffered; G.buffered = null; return d; }
+      if (G.grid[i] !== TRAIL && G.grid[i] !== OBSTACLE) {
+        const d = G.buffered; G.buffered = null;
+        if (G.player.dir && (d.x !== G.player.dir.x || d.y !== G.player.dir.y)) hapticLight();   // tactile turn confirm
+        return d;
+      }
       G.buffered = null;
     }
   }
