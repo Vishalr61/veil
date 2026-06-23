@@ -18,11 +18,17 @@ import { isMuted } from '../audio/audio';
 // (no wide additive bloom that bleeds over the rest of the HUD).
 function drawHeart(x: number, y: number, s: number, col: string) {
   ctx.save();
-  ctx.translate(x, y); ctx.scale(s / 4, s / 4);
-  ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 4;
+  ctx.translate(x, y); ctx.scale(s / 4.2, s / 4.2);
+  // a rounder, fuller heart with a soft glow
+  ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 5;
   ctx.beginPath();
-  ctx.moveTo(0, 3.2); ctx.bezierCurveTo(-4.2, -1.4, -1.7, -4.4, 0, -1.7);
-  ctx.bezierCurveTo(1.7, -4.4, 4.2, -1.4, 0, 3.2); ctx.closePath(); ctx.fill();
+  ctx.moveTo(0, 3.7);
+  ctx.bezierCurveTo(-4.7, -0.1, -3.2, -4.7, 0, -1.9);
+  ctx.bezierCurveTo(3.2, -4.7, 4.7, -0.1, 0, 3.7);
+  ctx.closePath(); ctx.fill();
+  // a glossy top-left highlight
+  ctx.shadowBlur = 0; ctx.globalAlpha = 0.45; ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.ellipse(-1.4, -1.7, 1.0, 0.7, -0.5, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 }
 export function drawHUD() {
@@ -55,9 +61,9 @@ export function drawHUD() {
   }
 
   // CENTER — REVEAL % over the target bar (TIME + LIVES live on the right)
-  const barW = Math.min(150 * u, CW * 0.26), barH = 7 * u, bx = CW / 2 - barW / 2, by = cy + 8 * u;
+  const barW = Math.min(150 * u, CW * 0.26), barH = 6 * u, bx = CW / 2 - barW / 2, by = cy + 6 * u;
   const frac = clamp(G.dispPercent / G.target, 0, 1);
-  glowText(Math.round(G.dispPercent * 100) + '%', CW / 2, cy - 8 * u, 22 * u, '#ffffff', { blur: 8, font: 'mono', core: '#fff', spacing: 1 });
+  glowText(Math.round(G.dispPercent * 100) + '%', CW / 2, cy - 9 * u, 22 * u, '#ffffff', { blur: 8, font: 'mono', core: '#fff', spacing: 1 });
   ctx.save();
   roundRectPath(bx, by, barW, barH, barH / 2); ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fill();
   roundRectPath(bx, by, barW, barH, barH / 2); ctx.clip();
@@ -66,12 +72,14 @@ export function drawHUD() {
   ctx.fillStyle = g; ctx.shadowColor = G.pal.edge; ctx.shadowBlur = 10; ctx.fillRect(bx, by, barW * frac, barH);
   ctx.restore();
   if (frac > 0.02 && frac < 0.999) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; drawGlowOrb(bx + barW * frac, by + barH / 2, 2.4 * u, '#fff', G.pal.edge2, 9); ctx.restore(); }
-  glowText('TARGET ' + Math.round(G.target * 100) + '%', CW / 2, by + barH + 8 * u, 8.5 * u, '#7f93c0', { blur: 0, spacing: 1.5, weight: 700 });
+  // TARGET / active-power-up line — one slot, high enough to clear the base bar
   const fx = [];
   if (G.enemyFreezeT > 0) fx.push('FREEZE ' + Math.ceil(G.enemyFreezeT));
   if (G.enemySlowT > 0) fx.push('SLOW ' + Math.ceil(G.enemySlowT));
   if (G.surgeT > 0) fx.push('2x ' + Math.ceil(G.surgeT));
-  if (fx.length) glowText(fx.join('   '), CW / 2, by + barH + 20 * u, 9.5 * u, '#bfe0ff', { blur: 6, weight: 800, font: 'mono', spacing: 1 });
+  const labelY = cy + 16 * u;
+  if (fx.length) glowText(fx.join('   '), CW / 2, labelY, 9 * u, '#bfe0ff', { blur: 6, weight: 800, font: 'mono', spacing: 1 });
+  else glowText('TARGET ' + Math.round(G.target * 100) + '%', CW / 2, labelY, 8.5 * u, '#7f93c0', { blur: 0, spacing: 1.5, weight: 700 });
 
   // RIGHT — a tappable mute glyph, with TIME (m:ss) above LIVES (hearts) to its
   // left. The m:ss + hearts are self-evident, so no labels needed here.
@@ -88,8 +96,8 @@ export function drawHUD() {
   glowText(mmss, rgt, cy - 9 * u, 19 * u, tcol, { align: 'right', font: 'mono', blur: low ? 12 : 6, weight: 800, spacing: 1, alpha: tpulse });
   let rx = rgt;
   if (G.shield) { drawGlowOrb(rx - 4 * u, cy + 11 * u, 5 * u, '#7dffc4', '#7dffc4', 13 * u); rx -= 16 * u; }
-  const shown = Math.min(G.lives, 6), lifeCol = '#ff8a9e';
-  for (let i = 0; i < shown; i++) drawHeart(rx - 3 * u - i * 15 * u, cy + 11 * u, 6.5 * u, lifeCol);
+  const shown = Math.min(G.lives, 6), lifeCol = '#ff5e76';
+  for (let i = 0; i < shown; i++) drawHeart(rx - 3 * u - i * 16 * u, cy + 11 * u, 7.5 * u, lifeCol);
   if (G.lives > 6) glowText('+' + (G.lives - 6), rx - shown * 15 * u, cy + 11 * u, 11 * u, lifeCol, { align: 'right', font: 'mono', weight: 800, blur: 4 });
 
   // base depleting time bar
