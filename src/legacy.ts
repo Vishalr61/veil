@@ -70,7 +70,11 @@ setTimeout(() => relayout(true), 400);
 /* All mutable game state lives in G (see game/state.ts). Here we only hydrate
    the values that persist across sessions from localStorage. */
 try { G.reduceMotion = localStorage.getItem('veil_reduce') === '1'; } catch (e) {}
-try { G.tapControl = localStorage.getItem('veil_tapctrl') === '1'; } catch (e) {}
+try {
+  const cm = localStorage.getItem('veil_ctrl');
+  if (cm === 'drag' || cm === 'tap' || cm === 'swipe') G.controlMode = cm;
+  else if (localStorage.getItem('veil_tapctrl') === '1') G.controlMode = 'tap';   // migrate the old boolean
+} catch (e) {}
 try { G.dailyBest = parseInt(localStorage.getItem('veil_daily_best') || '0', 10) || 0; } catch (e) {}
 try { G.dailyPlayedKey = localStorage.getItem('veil_daily_played') || ''; } catch (e) {}
 try { G.dailyStreak = parseInt(localStorage.getItem('veil_daily_streak') || '0', 10) || 0; } catch (e) {}
@@ -348,7 +352,7 @@ function drawTouchUI() {
     ctx.globalAlpha = 0.7; ctx.fillStyle = G.pal.edge;
     ctx.beginPath(); ctx.arc(ox + Math.cos(G.time * 2) * 16, oy + Math.sin(G.time * 2) * 16, 14, 0, TAU); ctx.fill();
     ctx.restore();
-    glowText(G.tapControl ? 'TAP A DIRECTION TO STEER' : 'DRAG ANYWHERE TO STEER', ox, oy - 58, 15, '#dff1ff', { blur: 12, weight: 800, spacing: 2, alpha: 0.6 + 0.4 * pulse });
+    glowText(G.controlMode === 'tap' ? 'TAP A DIRECTION TO STEER' : G.controlMode === 'swipe' ? 'SWIPE A DIRECTION TO STEER' : 'DRAG ANYWHERE TO STEER', ox, oy - 58, 15, '#dff1ff', { blur: 12, weight: 800, spacing: 2, alpha: 0.6 + 0.4 * pulse });
   }
 }
 function render() {
@@ -389,9 +393,10 @@ function toggleReduce() {
   if (G.reduceMotion) { G.shakeAmt = 0; G.zoom = 1; G.timeScale = 1; G.timeScaleTarget = 1; }
   if (G.state === 'playing') spawnPopup(G.player.px.x, G.player.px.y, 'MOTION ' + (G.reduceMotion ? 'OFF' : 'ON'), G.pal.edge2, 14);
 }
-function toggleControl() {
-  G.tapControl = !G.tapControl;
-  try { localStorage.setItem('veil_tapctrl', G.tapControl ? '1' : '0'); } catch (e) {}
+const CONTROL_MODES = ['drag', 'tap', 'swipe'];
+function cycleControl() {
+  G.controlMode = CONTROL_MODES[(CONTROL_MODES.indexOf(G.controlMode) + 1) % CONTROL_MODES.length];
+  try { localStorage.setItem('veil_ctrl', G.controlMode); } catch (e) {}
   G.joyActive = false; G.joyDir = null;   // drop any held drag state when switching
 }
 function startDaily() {
@@ -455,16 +460,19 @@ function localPt(t) {
 function inRect(px, py, r) { return px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h; }
 // Snap the drag vector to a 4-way grid direction, ignoring a small dead zone.
 function steerFromVec(dx, dy) {
-  const dz = Math.max(9, CELL * 0.45);
+  const dz = Math.max(8, CELL * 0.36);   // a touch more responsive than before
   if (Math.abs(dx) < dz && Math.abs(dy) < dz) return null;
   return Math.abs(dx) > Math.abs(dy) ? { x: dx > 0 ? 1 : -1, y: 0 } : { x: 0, y: dy > 0 ? 1 : -1 };
 }
 
-function joyStart(p) { G.joyActive = true; joyOX = p.x; joyOY = p.y; joyX = p.x; joyY = p.y; G.joyDir = null; }
+let swiped = false;   // swipe mode: one flick = one turn (don't re-fire while held)
+function joyStart(p) { G.joyActive = true; joyOX = p.x; joyOY = p.y; joyX = p.x; joyY = p.y; G.joyDir = null; swiped = false; }
 function joyMove(p) {
   joyX = p.x; joyY = p.y;
   const d = steerFromVec(p.x - joyOX, p.y - joyOY);
-  if (d) { G.joyDir = d; G.buffered = d; }   // held dir is re-applied each frame in updatePlayer
+  if (!d) return;
+  if (G.controlMode === 'swipe') { if (!swiped) { G.buffered = d; swiped = true; } }   // discrete flick
+  else { G.joyDir = d; G.buffered = d; }   // drag: held dir, re-applied each frame in updatePlayer
 }
 function joyEnd() { G.joyActive = false; G.joyDir = null; }   // stop steering, keep advancing
 
@@ -486,13 +494,13 @@ function pointerDown(p) {
   if (G.state === 'playing') {
     if (inRect(p.x, p.y, pauseBtnRect())) { G.state = 'paused'; return; }
     if (inRect(p.x, p.y, muteBtnRect())) { setMuted(!isMuted()); sfxBlip(); return; }   // quick mute
-    if (G.tapControl) tapSteer(p); else joyStart(p);
+    if (G.controlMode === 'tap') tapSteer(p); else joyStart(p);   // drag + swipe both track the drag
     return;
   }
   if (G.state === 'paused') {
     if (inRect(p.x, p.y, pauseMuteRect())) { setMuted(!isMuted()); sfxBlip(); return; }
     if (inRect(p.x, p.y, pauseMotionRect())) { toggleReduce(); return; }
-    if (inRect(p.x, p.y, pauseControlRect())) { toggleControl(); sfxBlip(); return; }
+    if (inRect(p.x, p.y, pauseControlRect())) { cycleControl(); sfxBlip(); return; }
     if (inRect(p.x, p.y, pauseHomeRect())) { goHome(); return; }
     G.state = 'playing'; return;
   }
