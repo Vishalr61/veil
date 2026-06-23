@@ -83,7 +83,6 @@ export const G = {
   deathFreeze: 0, hitstop: 0, drawSoundLock: 0,
   enemyFreezeT: 0, enemySlowT: 0,     // power-up effects on enemies
   surgeT: 0,                          // daily SURGE: 2x score while active
-  scanT: 0,                           // SCAN: reveal the veil's hidden caches/rifts board-wide
   shield: false,
   pickupSpawnT: 6,
   shootingStars: [] as any[], shootTimer: 4,
