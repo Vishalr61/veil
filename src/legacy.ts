@@ -32,7 +32,7 @@ import { recomputeBorderPath, recomputePercent, boldClearBonus } from './game/ca
 import { submitScore } from './game/leaderboard';
 import { recordRun } from './game/stats';
 import { maybeSpawnPickup, updatePickups } from './game/powerups';
-import { updatePlayer, checkCollisions, respawnAt, clearTrail, timeoutDeath } from './game/player';
+import { updatePlayer, checkCollisions, checkNearMiss, respawnAt, clearTrail, timeoutDeath } from './game/player';
 import { playBtnRect, dailyBtnRect, pauseBtnRect, pauseHomeRect, pauseControlRect, pauseMuteRect, pauseMotionRect, muteBtnRect, goBtnRects, scoresBtnRect } from './render/geometry';
 import { drawHUD } from './render/hud';
 import { drawMenu, drawLevelClear, drawGameOver, drawPaused, drawAttractWorld, drawScores } from './render/overlays';
@@ -281,6 +281,7 @@ function update(dt) {
         maybeSpawnPickup(dt);
         updatePickups(dt);
         checkCollisions();
+        checkNearMiss(dt);
         if (G.player.invuln > 0) G.player.invuln -= dt;
       }
     }
