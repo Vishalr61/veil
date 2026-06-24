@@ -14,7 +14,7 @@ import { SeededRng } from '../core/rng';
 
 // Layout motif: how rock is shaped. 'blobs' is the original procedural look;
 // 'open' places none; 'pillars'/'veins' are authored shapes for early bands.
-export type ObstacleMotif = 'open' | 'pillars' | 'veins' | 'blobs';
+export type ObstacleMotif = 'open' | 'pillars' | 'veins' | 'blobs' | 'grove';
 
 export interface TerrainParams {
   cols: number;
@@ -43,6 +43,7 @@ export function genObstacles(rng: SeededRng, p: TerrainParams): Uint8Array {
   const sx = startIdx % cols, sy = (startIdx / cols) | 0;
   if (motif === 'pillars') placePillars(rng, obst, cols, rows, target, sx, sy);
   else if (motif === 'veins') placeVeins(rng, obst, cols, rows, target, sx, sy);
+  else if (motif === 'grove') placeGrove(rng, obst, cols, rows, target, sx, sy);
   else placeBlobs(rng, obst, cols, rows, target, sx, sy);
 
   // Same guarantees for every motif: connected, no dead-ends, spawn kept clear.
@@ -102,6 +103,27 @@ function placeVeins(rng: SeededRng, obst: Uint8Array, cols: number, rows: number
       if (inInterior(cx, cy) && farFromSpawn(cx, cy) && !obst[cy * cols + cx]) { obst[cy * cols + cx] = 1; count++; }
       cx += dx; cy += dy;
       if (cx <= 0 || cx >= cols - 1 || cy <= 0 || cy >= rows - 1) break;
+    }
+  }
+}
+
+// A few large ORGANIC clumps (rounded thickets) — discrete, soft-edged masses
+// that read as garden groves, distinct from blobs' wandering walks and pillars'
+// hard 2x2 stamps. Each clump is a jittered disc.
+function placeGrove(rng: SeededRng, obst: Uint8Array, cols: number, rows: number, target: number, sx: number, sy: number): void {
+  const inInterior = inInteriorOf(cols, rows), farFromSpawn = farFromSpawnOf(sx, sy);
+  let count = 0, guard = 0;
+  while (count < target && guard++ < 200) {
+    const ccx = 2 + rng.int(cols - 4), ccy = 2 + rng.int(rows - 4);
+    if (!farFromSpawn(ccx, ccy)) continue;
+    const rad = 2 + rng.int(3);                       // clump radius 2..4
+    for (let dy = -rad; dy <= rad && count < target; dy++) {
+      for (let dx = -rad; dx <= rad && count < target; dx++) {
+        const d = Math.hypot(dx, dy) + rng.range(-0.6, 0.6);   // jittered edge
+        if (d > rad) continue;
+        const x = ccx + dx, y = ccy + dy, i = y * cols + x;
+        if (inInterior(x, y) && farFromSpawn(x, y) && !obst[i]) { obst[i] = 1; count++; }
+      }
     }
   }
 }

@@ -421,6 +421,94 @@ function genFloraNebula(c, p, PW, PH, depth) {
   c.globalAlpha = 1;
 }
 
+// A glowing flower — a bright white core ringed by soft luminous petals. The
+// Bloom's hero motif (used scattered + as the central landmark).
+function drawBloomFlower(c, x, y, size, B) {
+  c.save(); c.globalCompositeOperation = 'lighter';
+  const petals = 6;
+  for (let i = 0; i < petals; i++) {
+    const a = i / petals * TAU + rand(-0.12, 0.12), pxp = x + Math.cos(a) * size * 0.6, pyp = y + Math.sin(a) * size * 0.6;
+    const g = c.createRadialGradient(pxp, pyp, 0, pxp, pyp, size * 0.55);
+    g.addColorStop(0, hexA(B[4], 0.7)); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = rand(0.45, 0.7); c.fillStyle = g; c.beginPath(); c.arc(pxp, pyp, size * 0.55, 0, TAU); c.fill();
+  }
+  const cg = c.createRadialGradient(x, y, 0, x, y, size * 0.5);
+  cg.addColorStop(0, '#ffffff'); cg.addColorStop(0.5, hexA(B[4], 0.8)); cg.addColorStop(1, 'rgba(0,0,0,0)');
+  c.globalAlpha = 0.85; c.fillStyle = cg; c.beginPath(); c.arc(x, y, size * 0.5, 0, TAU); c.fill();
+  c.restore();
+}
+
+// The Bloom — a LIT bioluminescent garden, richer than the Overgrowth it grew
+// from: a teal-green grade, sun shafts through a dark canopy, glowing bio-pools,
+// the hero glowing-FLOWER motif (scattered + a great central bloom), mushrooms,
+// and drifting pollen. Bespoke to Easy mode.
+function genBloomNebula(c, p, PW, PH, depth) {
+  const B = p.blobs;   // [near-black green, dark green, teal, mint, light-mint]
+  // 1. lit teal-green base grade
+  const base = c.createLinearGradient(0, 0, 0, PH);
+  base.addColorStop(0, '#07241a'); base.addColorStop(0.5, '#0a2c20'); base.addColorStop(1, '#103a2a');
+  c.fillStyle = base; c.fillRect(0, 0, PW, PH);
+  // 2. soft mossy mottle
+  for (let i = 0; i < 12; i++) {
+    const x = rand(0, PW), y = rand(0, PH), r = rand(140, 300);
+    const g = c.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, Math.random() < 0.5 ? hexA(B[2], 0.4) : 'rgba(0,0,0,0.4)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = rand(0.3, 0.6); c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+  }
+  c.globalAlpha = 1; c.globalCompositeOperation = 'lighter';
+  // 3. green-teal ambient glow
+  const aw = c.createRadialGradient(PW / 2, PH * 0.55, 0, PW / 2, PH * 0.55, Math.max(PW, PH) * 0.8);
+  aw.addColorStop(0, hexA(B[2], 0.2)); aw.addColorStop(0.5, hexA(B[1], 0.16)); aw.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = aw; c.fillRect(0, 0, PW, PH);
+  // 4. light shafts from above (sunbeams through the canopy)
+  for (let i = 0, n = 3 + Math.round(depth * 2); i < n; i++) {
+    const x = rand(PW * 0.1, PW * 0.9), w = rand(30, 70), ang = rand(-0.25, 0.25);
+    c.save(); c.translate(x, 0); c.rotate(ang); c.globalAlpha = rand(0.04, 0.1);
+    const lg = c.createLinearGradient(0, 0, 0, PH * 0.8);
+    lg.addColorStop(0, hexA(B[4], 0.5)); lg.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = lg; c.fillRect(-w / 2, 0, w, PH * 0.8); c.restore();
+  }
+  // 5. dark canopy lobes hanging from the top edge (depth + framing)
+  c.globalCompositeOperation = 'source-over';
+  for (let i = 0, n = 6 + Math.round(depth * 4); i < n; i++) {
+    const x = rand(0, PW), y = rand(-10, PH * 0.18), r = rand(20, 55);
+    c.globalAlpha = rand(0.25, 0.5); c.fillStyle = '#06160f';
+    c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+  }
+  c.globalCompositeOperation = 'lighter';
+  // 6. glowing bio-pools low
+  for (let i = 0, n = 4 + Math.round(depth * 3); i < n; i++) {
+    const x = rand(0, PW), y = rand(PH * 0.4, PH * 0.95), r = rand(40, 90);
+    const g = c.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, hexA(B[3], 0.4)); g.addColorStop(0.5, hexA(B[2], 0.2)); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.globalAlpha = rand(0.4, 0.7); c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+  }
+  // 7. glowing flowers — the hero motif (more + larger deeper)
+  for (let i = 0, n = 5 + Math.round(depth * 5); i < n; i++)
+    drawBloomFlower(c, rand(PW * 0.06, PW * 0.94), rand(PH * 0.25, PH * 0.95), rand(8, 18), B);
+  // 8. glowing mushrooms (reused from the Overgrowth)
+  for (let i = 0, n = 4 + Math.round(depth * 4); i < n; i++)
+    drawMushroom(c, rand(PW * 0.06, PW * 0.94), rand(PH * 0.45, PH * 0.98), rand(14, 32), B);
+  // 9. HERO landmark — a great central bloom with a wide soft glow
+  const hx = rand(PW * 0.3, PW * 0.7), hy = rand(PH * 0.5, PH * 0.8);
+  const hg = c.createRadialGradient(hx, hy, 0, hx, hy, PH * 0.3);
+  hg.addColorStop(0, hexA(B[4], 0.4)); hg.addColorStop(0.4, hexA(B[3], 0.2)); hg.addColorStop(1, 'rgba(0,0,0,0)');
+  c.globalAlpha = 0.8; c.fillStyle = hg; c.beginPath(); c.arc(hx, hy, PH * 0.3, 0, TAU); c.fill();
+  drawBloomFlower(c, hx, hy, rand(30, 44), B);
+  // 10. drifting pollen glints
+  for (let i = 0, n = 60 + Math.round(depth * 30); i < n; i++) {
+    c.globalAlpha = rand(0.12, 0.4); c.fillStyle = Math.random() < 0.5 ? B[4] : p.star;
+    c.beginPath(); c.arc(Math.random() * PW, Math.random() * PH, rand(0.4, 1.5), 0, TAU); c.fill();
+  }
+  // 11. gentle vignette
+  c.globalCompositeOperation = 'source-over';
+  const VR = Math.max(PW, PH);
+  const vig = c.createRadialGradient(PW / 2, PH * 0.5, VR * 0.34, PW / 2, PH * 0.5, VR * 0.9);
+  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.32)');
+  c.fillStyle = vig; c.fillRect(0, 0, PW, PH);
+  c.globalAlpha = 1;
+}
+
 // The Expanse — a LIT dawn sky: a bright warm gradient with a hero sun low on the
 // horizon, radiating sun-rays, soft gold-lit clouds, distant birds, and fading
 // stars high up. Bright/airy — the deliberate contrast to four dark caverns.
@@ -724,6 +812,7 @@ export function genNebula(p, level, PW, PH, depth = 0) {
   if (style === 'caves') { genCrystalNebula(c, p, PW, PH, depth); return s; }
   if (style === 'ocean') { genOceanNebula(c, p, PW, PH, depth); return s; }
   if (style === 'flora') { genFloraNebula(c, p, PW, PH, depth); return s; }
+  if (style === 'bloom') { genBloomNebula(c, p, PW, PH, depth); return s; }
   if (style === 'sky') { genSkyNebula(c, p, PW, PH, depth); return s; }
   if (style === 'aurora') { genAuroraNebula(c, p, PW, PH, depth); return s; }
   c.fillStyle = '#04050d'; c.fillRect(0, 0, PW, PH);
@@ -1000,8 +1089,8 @@ export function genFog(pal, PW, PH, depth = 0) {
   const s = createSurface(PW, PH), c = s.ctx;
   // The Depths veil is COOL basalt (warm ember cracks come from fogSignature);
   // other bands keep their band-tinted near-black.
-  const d0 = style === 'magma' ? '#0a0813' : style === 'caves' ? '#0b0716' : style === 'ocean' ? '#04161c' : style === 'flora' ? '#06160c' : style === 'sky' ? '#070a1e' : style === 'rift' ? '#08061a' : pal.blobs[0];
-  const d1 = style === 'magma' ? '#15121f' : style === 'caves' ? '#1a1030' : style === 'ocean' ? '#0a3038' : style === 'flora' ? '#0e3018' : style === 'sky' ? '#141a3c' : style === 'rift' ? '#180c30' : pal.blobs[1];
+  const d0 = style === 'magma' ? '#0a0813' : style === 'caves' ? '#0b0716' : style === 'ocean' ? '#04161c' : style === 'flora' ? '#06160c' : style === 'bloom' ? '#05140e' : style === 'sky' ? '#070a1e' : style === 'rift' ? '#08061a' : pal.blobs[0];
+  const d1 = style === 'magma' ? '#15121f' : style === 'caves' ? '#1a1030' : style === 'ocean' ? '#0a3038' : style === 'flora' ? '#0e3018' : style === 'bloom' ? '#0c2c1e' : style === 'sky' ? '#141a3c' : style === 'rift' ? '#180c30' : pal.blobs[1];
   c.fillStyle = d0; c.fillRect(0, 0, PW, PH);
   const g = c.createLinearGradient(0, 0, 0, PH);
   g.addColorStop(0, hexA(d1, 0.5)); g.addColorStop(1, hexA(d0, 0));   // subtle lift up top
@@ -1048,6 +1137,26 @@ export function genFog(pal, PW, PH, depth = 0) {
       const rg = c.createRadialGradient(x, y, 0, x, y, r);
       rg.addColorStop(0, hexA(pal.blobs[3], 0.08 + depth * 0.05)); rg.addColorStop(1, 'rgba(0,0,0,0)');
       c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+    }
+    c.restore();
+  } else if (style === 'bloom') {   // a living dark: bio-pool glow + spore glints + dim canopy silhouettes
+    c.save();
+    c.globalCompositeOperation = 'source-over';   // canopy lobes (darker than the veil) up top
+    for (let i = 0, n = 5 + Math.round(depth * 3); i < n; i++) {
+      const x = rand(0, PW), y = rand(-8, PH * 0.16), r = rand(16, 42);
+      c.globalAlpha = rand(0.2, 0.4); c.fillStyle = '#030c08';
+      c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+    }
+    c.globalCompositeOperation = 'lighter';
+    for (let i = 0, n = 3 + Math.round(depth * 3); i < n; i++) {   // bio-pool glow
+      const x = rand(PW * 0.12, PW * 0.88), y = rand(PH * 0.3, PH * 0.95), r = rand(90, 190);
+      const rg = c.createRadialGradient(x, y, 0, x, y, r);
+      rg.addColorStop(0, hexA(pal.blobs[3], 0.07 + depth * 0.05)); rg.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+    }
+    for (let i = 0, n = 30 + Math.round(depth * 20); i < n; i++) {   // faint spore glints
+      c.globalAlpha = rand(0.05, 0.16); c.fillStyle = pal.blobs[4];
+      c.beginPath(); c.arc(Math.random() * PW, Math.random() * PH, rand(0.4, 1.2), 0, TAU); c.fill();
     }
     c.restore();
   } else if (style === 'sky') {   // a coming-dawn glow low on the horizon, behind the night veil

@@ -66,7 +66,7 @@ export function initMotes() {
   const magma = style === 'magma';   // the Depths: rising embers
   const caves = style === 'caves';   // Crystal Caves: slow-drifting crystal sparkle
   const ocean = style === 'ocean';   // the Abyss: rising bubbles
-  const flora = style === 'flora';   // the Overgrowth: drifting glowing spores
+  const flora = style === 'flora' || style === 'bloom';   // Overgrowth + Bloom: drifting glowing spores/pollen
   const sky = style === 'sky';       // the Expanse: slow-drifting dawn wisps
   const aurora = style === 'aurora'; // Aurora: gently falling snow
   const space = style === 'space';   // Deep Space: slow-drifting twinkling stardust

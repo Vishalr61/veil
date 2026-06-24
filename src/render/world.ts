@@ -260,6 +260,93 @@ function drawFloraRock(px: number, py: number, x: number, y: number, idx: number
   if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(px + s - 1.5, py, 1.5, s); }
 }
 
+const BLOOM_SHADES = ['#08231a', '#0c2e22', '#11392b', '#174634'];   // mossy teal-green stone, dark -> light
+// The Bloom's crafted terrain — mossy garden stone with edge lighting, plus a
+// per-cell structure grown on ~1/3 of cells (a glowing seed-pod cluster, a small
+// flower, or a mushroom cap) so contiguous rock reads as a hand-built thicket
+// rather than uniform blocks. Deterministic per cell (hash), so boards are stable.
+function drawBloomRock(px: number, py: number, x: number, y: number, idx: number) {
+  const s = CELL;
+  const h = ((x * 374761393) ^ (y * 668265263)) >>> 0;
+  const m = Math.sin(x * 0.5 + y * 0.3) + Math.sin(y * 0.65 - x * 0.2);
+  ctx.fillStyle = BLOOM_SHADES[Math.max(0, Math.min(3, Math.round((m + 2) / 4 * 3)))];
+  ctx.fillRect(px, py, s, s);
+  ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.fillRect(px, py + s * 0.62, s, s * 0.38);          // grounding shadow
+  ctx.fillStyle = hexA(G.pal.blobs[2], 0.16); ctx.fillRect(px + (h % 6) + 2, py + ((h >> 2) % 6) + 2, 2, 2);   // moss fleck
+  // edge lighting where rock meets open
+  if (G.grid[idx - COLS] === EMPTY) { ctx.fillStyle = hexA(G.pal.blobs[3], 0.3); ctx.fillRect(px, py, s, 1.4); }
+  if (G.grid[idx - 1] === EMPTY) { ctx.fillStyle = hexA(G.pal.blobs[3], 0.2); ctx.fillRect(px, py, 1.2, s); }
+  if (G.grid[idx + COLS] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(px, py + s - 1.6, s, 1.6); }
+  if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.32)'; ctx.fillRect(px + s - 1.6, py, 1.6, s); }
+  // a crafted structure on some cells (top-lit cells preferred so it reads as growth)
+  const cx = px + s / 2, cy = py + s / 2, v = h % 100;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  if (v < 14) {                                                  // glowing seed-pod cluster
+    for (let i = 0; i < 3; i++) {
+      const ox = cx + ((h >> (i * 3)) % 7) - 3, oy = py + 3 + ((h >> (i * 3 + 1)) % Math.max(1, s - 6));
+      ctx.globalAlpha = 0.16; ctx.fillStyle = G.pal.blobs[4]; ctx.beginPath(); ctx.arc(ox, oy, 3, 0, TAU); ctx.fill();
+      ctx.globalAlpha = 0.8; ctx.beginPath(); ctx.arc(ox, oy, 1.2, 0, TAU); ctx.fill();
+    }
+  } else if (v < 24) {                                           // a small flower
+    ctx.globalAlpha = 0.55; ctx.fillStyle = G.pal.blobs[4];
+    for (let i = 0; i < 5; i++) { const a = i / 5 * TAU + h; ctx.beginPath(); ctx.arc(cx + Math.cos(a) * 2.6, cy + Math.sin(a) * 2.6, 1.3, 0, TAU); ctx.fill(); }
+    ctx.globalAlpha = 0.95; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy, 1.3, 0, TAU); ctx.fill();
+  } else if (v < 33 && G.grid[idx - COLS] === EMPTY) {           // a mushroom cap poking up
+    const my = py - 1, cr = s * 0.32;
+    const g = ctx.createRadialGradient(cx, my, 0, cx, my, cr);
+    g.addColorStop(0, hexA(G.pal.blobs[4], 0.9)); g.addColorStop(0.6, hexA(G.pal.blobs[3], 0.4)); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalAlpha = 0.8; ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(cx, my, cr, cr * 0.66, 0, Math.PI, TAU); ctx.fill();
+  } else {                                                       // plain moss glow speck
+    const ox = px + 3 + (h % Math.max(1, s - 6)), oy = py + 3 + ((h >> 6) % Math.max(1, s - 6));
+    ctx.globalAlpha = 0.12; ctx.fillStyle = G.pal.blobs[4]; ctx.beginPath(); ctx.arc(ox, oy, 2.4, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(ox, oy, 1, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// Bloom garden decor — non-blocking flora that appears on the territory you CLAIM
+// (rendered only on FILLED cells), so revealing the garden is its own reward.
+// Presentation only (Math.random; Bloom never runs the seeded daily).
+export function genBloomDecor() {
+  G.bloomDecor.length = 0;
+  if (!G.pal || G.pal.style !== 'bloom') return;
+  for (let i = 0; i < 46; i++) {
+    const cxc = 1 + Math.floor(Math.random() * (COLS - 2)), cyc = 1 + Math.floor(Math.random() * (ROWS - 2));
+    const r = Math.random();
+    const type = r < 0.42 ? 'flower' : r < 0.72 ? 'glint' : r < 0.9 ? 'pool' : 'lily';
+    G.bloomDecor.push({ cell: cyc * COLS + cxc, x: (cxc + 0.5) * CELL, y: (cyc + 0.5) * CELL, type,
+      hue: Math.random(), size: 0.6 + Math.random() * 0.6, ph: Math.random() * TAU });
+  }
+}
+function drawBloomDecor(d, t) {
+  const x = d.x, y = d.y, col = d.hue < 0.5 ? G.pal.blobs[4] : '#ffe9a0';   // mint flora or warm pollen
+  if (d.type === 'glint') {
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.4 + 0.4 * (0.5 + 0.5 * Math.sin(t * 2 + d.ph));
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, 1.4 * d.size, 0, TAU); ctx.fill();
+  } else if (d.type === 'pool') {
+    ctx.globalCompositeOperation = 'lighter';
+    const r = CELL * (0.9 + d.size * 0.5), g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, hexA(G.pal.blobs[3], 0.18)); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalAlpha = 0.5 + 0.2 * Math.sin(t * 1.5 + d.ph); ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+  } else if (d.type === 'lily') {
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 0.5; ctx.fillStyle = hexA(G.pal.blobs[2], 0.6);
+    ctx.beginPath(); ctx.ellipse(x, y, CELL * 0.42 * d.size, CELL * 0.3 * d.size, d.ph, 0, TAU); ctx.fill();
+    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.5; ctx.fillStyle = hexA(G.pal.blobs[4], 0.5);
+    ctx.beginPath(); ctx.arc(x, y, 1.4, 0, TAU); ctx.fill();
+  } else {   // flower — a few petals that gently sway around a bright core
+    ctx.globalCompositeOperation = 'lighter';
+    const sz = CELL * 0.3 * d.size, sway = t === 0 ? 0 : Math.sin(t * 1.5 + d.ph) * 0.5;
+    for (let i = 0; i < 5; i++) {
+      const a = i / 5 * TAU + sway, pxp = x + Math.cos(a) * sz, pyp = y + Math.sin(a) * sz;
+      ctx.globalAlpha = 0.4; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(pxp, pyp, sz * 0.62, 0, TAU); ctx.fill();
+    }
+    ctx.globalAlpha = 0.9; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y, sz * 0.5, 0, TAU); ctx.fill();
+  }
+}
+
 const CLOUD_SHADES = ['#3a3450', '#4c4466', '#5e5680', '#74698f'];   // cool dusk cloud, dark -> light
 
 // An Expanse obstacle: a dense dawn cloud — a cool shadowed body with a warm
@@ -466,6 +553,8 @@ function drawObstacles() {
         drawAbyssRock(px, py, x, y, idx);
       } else if (style === 'flora') {
         drawFloraRock(px, py, x, y, idx);
+      } else if (style === 'bloom') {
+        drawBloomRock(px, py, x, y, idx);
       } else if (style === 'sky') {
         drawSkyCloud(px, py, x, y, idx);
       } else if (style === 'aurora') {
@@ -719,6 +808,14 @@ export function drawWorld() {
   drawVeilTells();
   drawShootingStars();
   drawObstacles();
+
+  // Bloom garden decor — flora that blooms on the land you've claimed (FILLED cells)
+  if (G.pal.style === 'bloom' && G.bloomDecor.length) {
+    const dt2 = G.reduceMotion ? 0 : G.time;
+    ctx.save();
+    for (const d of G.bloomDecor) { if (G.grid[d.cell] === FILLED) drawBloomDecor(d, dt2); }
+    ctx.restore();
+  }
 
   // coastline glow
   if (G.borderPath) {
