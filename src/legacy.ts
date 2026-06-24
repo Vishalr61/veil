@@ -27,7 +27,7 @@ import { centerPx } from './core/grid';
 import { drawWorld, tickShootingStars } from './render/world';
 import { spawnPopup, updatePopups, updateParticles, updateRings, initMotes, updateMotes } from './game/particles';
 import { ENEMY_INFO, genEnemies, moveEnemy } from './game/enemies';
-import { blueprintForLevel, newEnemyAtLevel, dailyBlueprint, dailyNewEnemy, DAILY_FLOORS, levelTimeBudget } from './game/blueprints';
+import { blueprintForLevel, newEnemyAtLevel, dailyBlueprint, dailyNewEnemy, DAILY_FLOORS, levelTimeBudget, bloomBlueprint, bloomNewEnemy } from './game/blueprints';
 import { effectiveDiff, loadDiff, setDiff, clearTarget, levelClock, invulnFor, riftCount, applyDiffCounts } from './game/difficulty';
 import { diffBtnRects } from './render/geometry';
 import { recomputeBorderPath, recomputePercent, boldClearBonus } from './game/capture';
@@ -164,8 +164,9 @@ function initLevel(lv) {
   // The daily is its own zone (The Rift) with a dedicated 10-floor blueprint set;
   // the campaign uses the band + authored/procedural blueprint for the level.
   G.pal = G.isDaily ? RIFT_BAND : bandForLevel(lv);
-  const bp = G.isDaily ? dailyBlueprint(lv) : blueprintForLevel(lv);
+  let bp = G.isDaily ? dailyBlueprint(lv) : blueprintForLevel(lv);
   const diff = effectiveDiff();   // the daily forces Medium inside effectiveDiff()
+  if (diff.key === 'easy' && !G.isDaily) bp = bloomBlueprint(bp, lv);   // Easy = the Bloom garden
   G.grid = new Uint8Array(COLS * ROWS);
   for (let y = 0; y < ROWS; y++)
     for (let x = 0; x < COLS; x++)
@@ -183,7 +184,9 @@ function initLevel(lv) {
   G.buffered = null; G.hasTrail = false; G.trailCells = []; G.trailPoints = [];
   // zone summits (every 5th floor, or the daily's last floor) get THE QIX boss
   const summit = G.isDaily ? lv >= DAILY_FLOORS : lv % LEVELS_PER_BAND === 0;
-  let ec = applyDiffCounts(bp.enemies, lv, summit, diff);   // schedule delays + count delta per mode
+  // Easy's roster comes straight from bloomBlueprint (drifter + firefly/sprite);
+  // Medium/Hard go through applyDiffCounts (schedule delays + count delta).
+  let ec = diff.key === 'easy' ? { ...bp.enemies } : applyDiffCounts(bp.enemies, lv, summit, diff);
   if (summit) ec = { ...ec, qix: 1 };
   G.enemies = genEnemies(lv, ec);
 
@@ -209,7 +212,7 @@ function initLevel(lv) {
   G.banner = { text: G.pal.name.toUpperCase(),
     sub: 'floor ' + floor + '/' + floors + '  ·  reveal ' + Math.round(G.target * 100) + '%', t: 2.0 };
   // a level that introduces a new enemy always teaches what it does (wins over the title)
-  const newType = G.isDaily ? dailyNewEnemy(lv) : newEnemyAtLevel(lv);
+  const newType = G.isDaily ? dailyNewEnemy(lv) : diff.key === 'easy' ? bloomNewEnemy(lv) : newEnemyAtLevel(lv);
   if (newType) G.banner = { text: ENEMY_INFO[newType].name, sub: ENEMY_INFO[newType].desc, t: 3.4, enemy: newType };
   if (summit) G.banner = { text: ENEMY_INFO.qix.name, sub: ENEMY_INFO.qix.desc, t: 3.2, enemy: 'qix' };   // boss floor
   G.hintActive = (lv === 1 && !G.isDaily);

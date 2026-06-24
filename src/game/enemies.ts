@@ -8,7 +8,7 @@
    ========================================================================= */
 
 import { G } from './state';
-import { clamp } from '../core/math';
+import { clamp, TAU } from '../core/math';
 import { CELL, COLS, ROWS } from '../core/dims';
 import { EMPTY, FILLED, OBSTACLE } from '../core/constants';
 import { centerPx, cellOfPx } from '../core/grid';
@@ -26,7 +26,7 @@ export function eCell(e) {
   const cy = clamp(Math.floor(e.y / CELL), 0, ROWS - 1);
   return cy * COLS + cx;
 }
-export interface EnemyCounts { drifter: number; chaser: number; cutter: number; sentinel: number; sleeper: number; wraith?: number; qix?: number; }
+export interface EnemyCounts { drifter: number; chaser: number; cutter: number; sentinel: number; sleeper: number; wraith?: number; qix?: number; firefly?: number; sprite?: number; }
 
 // Staggered introduction: drifters alone early, then a new type every ~3 levels
 // so each enemy gets room to breathe before the next arrives. This is the
@@ -47,6 +47,9 @@ export const ENEMY_INFO = {
   sleeper: { name: 'VEIL-SLEEPER', desc: 'reveals in the dark — wake it' },
   wraith: { name: 'WRAITH', desc: 'blinks through the rift toward you' },
   qix: { name: 'THE QIX', desc: 'a vast roamer — claim the board to shrink it' },
+  // Bloom (Easy) garden critters — gentle, telegraphed, never hunters.
+  firefly: { name: 'FIREFLY', desc: 'drifts in a gentle ring — time your crossing' },
+  sprite: { name: 'SPRITE', desc: 'gathers light, then hops — watch the tell' },
 };
 export function genEnemies(lv, counts: EnemyCounts = enemyCounts(lv)) {
   const out = [];
@@ -72,11 +75,30 @@ export function genEnemies(lv, counts: EnemyCounts = enemyCounts(lv)) {
     const p = spawnCell(6, true);
     out.push({ x: p.x, y: p.y, vx: 0, vy: 0, r: CELL * 0.42, type: 'sleeper', asleep: true, speed, comp: speed * 0.7071, steerT: 0 });
   }
+  // FIREFLY (Bloom): orbits a fixed anchor on a slow, fully-predictable ring.
+  function placeFirefly(speed) {
+    const p = spawnCell(7, false);
+    const orad = CELL * G.rng.range(2.0, 3.6);
+    const ow = (speed * 0.5) / orad * (G.rng.next() < 0.5 ? 1 : -1);   // angular vel: linear ~ speed*0.5
+    const oang = G.rng.range(0, TAU);
+    out.push({ x: p.x + Math.cos(oang) * orad, y: p.y + Math.sin(oang) * orad, vx: 0, vy: 0,
+      r: CELL * 0.38, type: 'firefly', speed, ax: p.x, ay: p.y, orad, oang, ow });
+  }
+  // SPRITE (Bloom): sits still, telegraphs, then hops a fixed distance in a
+  // random cardinal direction (Easy is never the seeded daily, so the random
+  // hop carries no fairness cost — it never runs in the deterministic daily).
+  function placeSprite(speed) {
+    const p = spawnCell(6, true);
+    out.push({ x: p.x, y: p.y, vx: 0, vy: 0, r: CELL * 0.4, type: 'sprite', speed,
+      hopT: G.rng.range(0.8, 1.8), charging: 0, hopDist: CELL * 2.4 });
+  }
   for (let i = 0; i < n.drifter; i++) place('drifter', spd);
   for (let i = 0; i < n.chaser; i++) place('chaser', spd * 0.74);
   for (let i = 0; i < n.cutter; i++) place('cutter', spd * 0.8);
   for (let i = 0; i < n.sentinel; i++) place('sentinel', spd * 0.82);
   for (let i = 0; i < (n.wraith || 0); i++) place('wraith', spd * 0.7);
+  for (let i = 0; i < (n.firefly || 0); i++) placeFirefly(spd * 0.6);
+  for (let i = 0; i < (n.sprite || 0); i++) placeSprite(spd * 0.9);
   for (let i = 0; i < (n.qix || 0); i++) {
     const p = spawnCell(9, false), s = spd * 0.45, r = CELL * 1.15;   // a slow roamer (moderate size)
     out.push({ x: p.x, y: p.y, vx: (G.rng.next() < 0.5 ? -1 : 1) * s * 0.7071, vy: (G.rng.next() < 0.5 ? -1 : 1) * s * 0.7071,
@@ -113,6 +135,36 @@ export function moveEnemy(e, dt) {
     e.blinkT -= dt;
     if (e.blinkT <= 0) e.charging = 0.7;
     return;   // holds still between blinks (no drift)
+  }
+  // firefly (Bloom): integrates around its fixed anchor on a steady ring. No
+  // bounce, no hunting — a calm, readable orbital path you time your crossing of.
+  if (e.type === 'firefly') {
+    e.oang += e.ow * dt;
+    e.x = e.ax + Math.cos(e.oang) * e.orad;
+    e.y = e.ay + Math.sin(e.oang) * e.orad;
+    return;
+  }
+  // sprite (Bloom): holds still, telegraphs (~0.6s glow-swell), then hops a fixed
+  // distance in a RANDOM cardinal direction (not aimed at you), pauses, repeats.
+  if (e.type === 'sprite') {
+    if (e.charging > 0) {
+      e.charging -= dt;
+      if (e.charging <= 0) {
+        const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+        const d = dirs[(Math.random() * 4) | 0];
+        const tx = e.x + d[0] * e.hopDist, ty = e.y + d[1] * e.hopDist;
+        const cc = clamp(Math.floor(ty / CELL), 1, ROWS - 2) * COLS + clamp(Math.floor(tx / CELL), 1, COLS - 2);
+        if (G.grid[cc] !== OBSTACLE && G.grid[cc] !== FILLED) {
+          e.x = clamp(tx, CELL * 1.5, (COLS - 1.5) * CELL);
+          e.y = clamp(ty, CELL * 1.5, (ROWS - 1.5) * CELL);
+        }
+        e.hopT = Math.max(0.5, 1.4 - G.level * 0.02);   // shorter pauses deeper (gentle escalation)
+      }
+      return;
+    }
+    e.hopT -= dt;
+    if (e.hopT <= 0) e.charging = 0.6;
+    return;   // holds still between hops
   }
   // qix (boss): a vast, slow roamer. It shrinks as you claim the board, and
   // lazily drifts toward you on a timer; otherwise it just bounces. Falls

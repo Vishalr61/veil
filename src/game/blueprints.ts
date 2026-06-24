@@ -213,6 +213,44 @@ export function newEnemyAtLevel(lv: number): string | null {
   return null;
 }
 
+/* ============================ EASY: THE BLOOM TRANSFORM =================== */
+// Easy is its own mode — a lush "Bloom" garden run, not Medium-lite. It rewrites
+// the base blueprint: gentler-but-mazier maps, richer caches, a gentle rift ramp,
+// and a roster of drifters + the Bloom critters (firefly/sprite) with NO
+// chaser/cutter. Movement speed stays near-flat (difficulty.ts); the climb is
+// carried by enemy count, maze complexity, hazards, and reward. Formula-based so
+// it stays endless-safe. Never runs in the daily (the daily forces Medium).
+
+// The Bloom roster for an Easy floor: a few gentle bouncers + escalating
+// fireflies (from L2) and sprites (from L4). No hunters.
+export function bloomRoster(lv: number): EnemyCounts {
+  return {
+    drifter: Math.min(1 + Math.floor(lv / 3), 3),
+    firefly: lv >= 2 ? Math.min(1 + Math.floor((lv - 2) / 2), 4) : 0,
+    sprite: lv >= 4 ? Math.min(1 + Math.floor((lv - 4) / 3), 3) : 0,
+    chaser: 0, cutter: 0, sentinel: 0, sleeper: 0,
+  };
+}
+export function bloomBlueprint(base: LevelBlueprint, lv: number): LevelBlueprint {
+  // gentler early, mazier deeper (board-complexity lever); the target is left to
+  // the base — Easy's clearTarget delta lowers it in initLevel.
+  const motif: ObstacleMotif = lv <= 1 ? 'open' : lv <= 4 ? 'pillars' : 'veins';
+  return {
+    ...base,
+    motif,
+    density: Math.min(0.03 + 0.015 * (lv - 1), 0.13),                // gentle start, denser deeper
+    caches: base.caches + 2,                                          // reward-intensity lever
+    rifts: lv <= 2 ? 0 : Math.min(1 + Math.floor((lv - 3) / 2), 5),   // gentle hazard ramp
+    enemies: bloomRoster(lv),
+  };
+}
+// The new Bloom critter introduced at this Easy floor (drives the "NEW BLOOM" card).
+export function bloomNewEnemy(lv: number): string | null {
+  const cur = bloomRoster(lv) as any, prev = bloomRoster(lv - 1) as any;
+  for (const t of ['firefly', 'sprite']) if (cur[t] > 0 && !(prev[t] > 0)) return t;
+  return null;
+}
+
 /* ============================ THE DAILY CHALLENGE ========================= */
 // A self-contained 10-floor gauntlet in The Rift (its own zone), distinct from
 // the campaign. Same difficulty curve every day; the date seeds the actual

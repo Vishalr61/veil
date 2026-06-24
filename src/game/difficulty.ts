@@ -52,14 +52,18 @@ const medium: DiffConfig = {
   pickupFreq: 1, riftScale: 1, scoreMult: 1,
 };
 
-// EASY = no time pressure; the squeeze + dodging carry it. Forgiving elsewhere,
-// but the clear target and the enemies stay real ("easy, not trivial").
+// EASY = "Bloom": its own lush garden mode, not Medium-lite. No time pressure,
+// near-flat speed (the ramp comes from count/maze/hazard/reward, not movement),
+// and a roster of gentle garden critters built by bloomBlueprint (not
+// applyDiffCounts — the schedule/count fields below are inert for Easy now).
 const easy: DiffConfig = {
   key: 'easy', label: 'EASY',
-  fuse: false, fuseScale: 1, clock: false, clockScale: 1, lives: 5,
+  fuse: false, fuseScale: 1, clock: false, clockScale: 1, lives: 3,
   targetDelta: -0.10, targetFloor: 0.50,
-  speedBase: 0.7, speedRamp: 0.4, speedCap: 140, countDelta: -1, chaserFromLevel: 6, cutterFromLevel: 11, invulnScale: 1.5,
-  pickupFreq: 1.5, riftScale: 0.5, scoreMult: 0.75,
+  // speed is intentionally near-flat: a low ramp + a low cap so deeper Bloom
+  // floors escalate via the other levers, never twitch.
+  speedBase: 0.7, speedRamp: 0.15, speedCap: 120, countDelta: 0, chaserFromLevel: 0, cutterFromLevel: 0, invulnScale: 1.5,
+  pickupFreq: 1.5, riftScale: 1, scoreMult: 0.75,   // rifts controlled by bloomBlueprint, so no extra scale
 };
 
 // HARD = Medium with the screws turned — the optimization mode.
