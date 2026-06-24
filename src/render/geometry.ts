@@ -18,6 +18,8 @@ export function diffBtnRects(): { x: number; y: number; w: number; h: number; ke
   const keys: ('easy' | 'medium' | 'hard')[] = ['easy', 'medium', 'hard'];
   return keys.map((key, i) => ({ x: x0 + i * (cw + gap), y, w: cw, h, key }));
 }
+// REPLAY the home intro — a small text button bottom-right of the title screen.
+export function replayBtnRect() { return { x: CW - 112, y: CH - 42, w: 96, h: 30 }; }
 export function pauseBtnRect() { return { x: CW - 56, y: safeTop + 8, w: 46, h: 46 }; }
 // tappable mute glyph in the HUD (so phones can mute without a keyboard)
 export function muteBtnRect() { return { x: CW - 104, y: safeTop + 8, w: 42, h: 46 }; }

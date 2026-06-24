@@ -29,7 +29,7 @@ import { spawnPopup, updatePopups, updateParticles, updateRings, initMotes, upda
 import { ENEMY_INFO, genEnemies, moveEnemy } from './game/enemies';
 import { blueprintForLevel, newEnemyAtLevel, dailyBlueprint, dailyNewEnemy, DAILY_FLOORS, levelTimeBudget, bloomBlueprint, bloomNewEnemy } from './game/blueprints';
 import { effectiveDiff, loadDiff, setDiff, clearTarget, levelClock, invulnFor, riftCount, applyDiffCounts, playerSpeed } from './game/difficulty';
-import { diffBtnRects } from './render/geometry';
+import { diffBtnRects, replayBtnRect } from './render/geometry';
 import { recomputeBorderPath, recomputePercent, boldClearBonus } from './game/capture';
 import { submitScore } from './game/leaderboard';
 import { recordRun } from './game/stats';
@@ -37,7 +37,7 @@ import { maybeSpawnPickup, updatePickups } from './game/powerups';
 import { updatePlayer, checkCollisions, checkNearMiss, respawnAt, clearTrail, timeoutDeath } from './game/player';
 import { playBtnRect, dailyBtnRect, pauseBtnRect, pauseHomeRect, pauseControlRect, pauseMuteRect, pauseMotionRect, muteBtnRect, goBtnRects, scoresBtnRect } from './render/geometry';
 import { drawHUD } from './render/hud';
-import { drawMenu, drawLevelClear, drawGameOver, drawPaused, drawAttractWorld, drawScores } from './render/overlays';
+import { drawMenu, drawLevelClear, drawGameOver, drawPaused, drawAttractWorld, drawScores, MENU_INTRO_DONE } from './render/overlays';
 import {
   initAudio, resumeAudio, setMuted, isMuted, setPadLevel,
   sfxStartDraw, sfxCapture, sfxBold, sfxDeath, sfxLevel, sfxPickup, sfxShield, sfxBlip, sfxBest, sfxDailyClear,
@@ -271,6 +271,7 @@ function update(dt) {
   else G.timeScale += (G.timeScaleTarget - G.timeScale) * Math.min(1, dt * 8);
   const wdt = dt * G.timeScale;
   G.time += dt; G.menuT += dt;
+  if (G.state === 'menu' && G.menuStarted) G.menuIntroT += dt;   // home-screen intro clock
   if (G.drawSoundLock > 0) G.drawSoundLock -= dt;
   G.shakeAmt = Math.max(0, G.shakeAmt - 45 * dt);
   G.flash = Math.max(0, G.flash - dt * 1.8);
@@ -449,7 +450,7 @@ function anyKeyAction() {
   else if (G.state === 'paused') G.state = 'playing';
 }
 // Abandon the current run and return to the title (from pause or game-over).
-function goHome() { G.isDaily = false; G.joyActive = false; G.joyDir = null; G.state = 'menu'; sfxBlip(); }
+function goHome() { G.isDaily = false; G.joyActive = false; G.joyDir = null; G.state = 'menu'; G.menuIntroT = 999; sfxBlip(); }   // skip the intro on return from a game
 window.addEventListener('keydown', (e) => {
   initAudio();
   const k = e.key;
@@ -537,8 +538,10 @@ function pointerDown(p) {
     anyKeyAction(); return;   // anywhere else: retry (or share + menu for the daily)
   }
   if (G.state === 'levelclear') { anyKeyAction(); return; }
-  // menu — start a run ONLY from the PLAY button; clicking empty space does
-  // nothing (no more "click anywhere on the title to play").
+  // menu — a tap while the intro is still running skips it to the finished title.
+  if (G.menuIntroT < MENU_INTRO_DONE) { G.menuIntroT = 999; return; }
+  if (inRect(p.x, p.y, replayBtnRect())) { G.menuIntroT = 0; sfxBlip(); return; }   // replay the intro
+  // start a run ONLY from the PLAY button; clicking empty space does nothing.
   for (const r of diffBtnRects()) if (inRect(p.x, p.y, r)) { setDiff(r.key); sfxBlip(); return; }   // EASY/MED/HARD
   if (inRect(p.x, p.y, dailyBtnRect())) { startDaily(); sfxBlip(); return; }
   if (inRect(p.x, p.y, scoresBtnRect())) { G.state = 'scores'; sfxBlip(); return; }

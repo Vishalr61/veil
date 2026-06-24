@@ -9,7 +9,7 @@ import { G } from '../game/state';
 import { CW, CH, OFF_X, OFF_Y, PW, PH } from '../core/dims';
 import { TAU, clamp } from '../core/math';
 import { glowText, fmtScore, roundRectPath } from './primitives';
-import { playBtnRect, dailyBtnRect, scoresBtnRect, diffBtnRects, pauseHomeRect, pauseControlRect, pauseMuteRect, pauseMotionRect, goBtnRects } from './geometry';
+import { playBtnRect, dailyBtnRect, scoresBtnRect, diffBtnRects, replayBtnRect, pauseHomeRect, pauseControlRect, pauseMuteRect, pauseMotionRect, goBtnRects } from './geometry';
 import { isMuted } from '../audio/audio';
 import { todayKey, isConsecutive } from '../daily/daily';
 import { getScores, justSetEntry } from '../game/leaderboard';
@@ -19,11 +19,27 @@ import { DAILY_FLOORS } from '../game/blueprints';
 function dim(a) { ctx.save(); ctx.fillStyle = `rgba(3,5,12,${a})`; ctx.fillRect(0, 0, CW, CH); ctx.restore(); }
 
 const INK = '#eef1f7', MUTED = '#79849c', ACCENT = '#8fb8e8';   // premium-minimal palette
+
+// Home "draw-and-flood" intro timeline (seconds): a pen traces the frontier
+// outline, the teal floods in, then the UI reveals. Reduce-motion skips it.
+export const MENU_DRAW = 2.6, MENU_FLOOD_AT = 2.6, MENU_FLOOD_DUR = 0.7, MENU_REVEAL_AT = 3.05, MENU_REVEAL_DUR = 0.85;
+export const MENU_INTRO_DONE = MENU_REVEAL_AT + MENU_REVEAL_DUR;
+function menuPhase() {
+  const it = G.reduceMotion ? 999 : G.menuIntroT;
+  return {
+    drawP: clamp(it / MENU_DRAW, 0, 1),
+    floodA: clamp((it - MENU_FLOOD_AT) / MENU_FLOOD_DUR, 0, 1),
+    revealA: clamp((it - MENU_REVEAL_AT) / MENU_REVEAL_DUR, 0, 1),
+    penGone: it >= MENU_DRAW + 0.25,
+  };
+}
+
 // A restrained menu button: a confident light fill for the primary, a quiet
-// hairline outline for the rest. No glow — crisp edges carry it.
-function minBtn(r: any, label: string, primary: boolean, tint?: string) {
+// hairline outline for the rest. `alpha` lets the intro fade it in.
+function minBtn(r: any, label: string, primary: boolean, tint?: string, alpha = 1) {
   const bx = r.x + r.w / 2, by = r.y + r.h / 2, rad = r.h / 2;
   ctx.save();
+  ctx.globalAlpha = alpha;
   roundRectPath(r.x, r.y, r.w, r.h, rad);
   if (primary) { ctx.fillStyle = INK; ctx.fill(); }
   else {
@@ -33,35 +49,37 @@ function minBtn(r: any, label: string, primary: boolean, tint?: string) {
   }
   ctx.restore();
   glowText(label, bx, by + 0.5, primary ? 16 : 14, primary ? '#0a0e16' : (tint || '#b3bdd0'),
-    { weight: primary ? 800 : 600, spacing: primary ? 3 : 2.5, blur: 0 });
+    { weight: primary ? 800 : 600, spacing: primary ? 3 : 2.5, blur: 0, alpha });
 }
 export function drawMenu() {
   const cx = CW / 2;
+  const A = menuPhase().revealA;     // the UI fades in only once the intro reveals it
+  if (A <= 0.005) return;
   // a light scrim — just enough for text legibility over the Horizon backdrop
-  ctx.save(); ctx.fillStyle = 'rgba(5,8,14,0.16)'; ctx.fillRect(0, 0, CW, CH); ctx.restore();
+  ctx.save(); ctx.fillStyle = `rgba(5,8,14,${0.16 * A})`; ctx.fillRect(0, 0, CW, CH); ctx.restore();
 
   // BEST — top-left, mono, only when there's a score
-  if (G.highScore > 0) glowText('BEST  ' + fmtScore(G.highScore), 22, 40, 12, '#8fa6c8', { font: 'mono', spacing: 4, weight: 700, blur: 0, align: 'left' });
+  if (G.highScore > 0) glowText('BEST  ' + fmtScore(G.highScore), 22, 40, 12, '#8fa6c8', { font: 'mono', spacing: 4, weight: 700, blur: 0, align: 'left', alpha: A });
 
   // wordmark — large, crisp, light, generously tracked, with a soft glow
   const titleY = CH * 0.34;
-  glowText('VEIL', cx, titleY, 86, INK, { weight: 700, spacing: 28, blur: 8, core: '#fff' });
-  glowText('draw light into the dark', cx, titleY + 60, 12, '#8fa6c8', { font: 'mono', weight: 400, spacing: 5, blur: 0 });
+  glowText('VEIL', cx, titleY, 86, INK, { weight: 700, spacing: 28, blur: 8, core: '#fff', alpha: A });
+  glowText('draw light into the dark', cx, titleY + 60, 12, '#8fa6c8', { font: 'mono', weight: 400, spacing: 5, blur: 0, alpha: A });
 
   // a confident light PLAY + quiet outlined DAILY / SCORES
-  minBtn(playBtnRect(), 'PLAY', true);
+  minBtn(playBtnRect(), 'PLAY', true, undefined, A);
   const tk = todayKey(new Date()), done = G.dailyPlayedKey === tk;
-  minBtn(dailyBtnRect(), done ? 'DAILY ✓' : 'DAILY', false);
-  minBtn(scoresBtnRect(), 'SCORES', false);
+  minBtn(dailyBtnRect(), done ? 'DAILY ✓' : 'DAILY', false, undefined, A);
+  minBtn(scoresBtnRect(), 'SCORES', false, undefined, A);
 
   // difficulty — a quiet three-up selector; the chosen mode reads as a light fill.
   // (The daily ignores this and always runs Medium — see effectiveDiff.)
   const diffLabels: Record<string, string> = { easy: 'EASY', medium: 'MEDIUM', hard: 'HARD' };
   const chips = diffBtnRects();
-  glowText('DIFFICULTY', cx, chips[0].y - 18, 9, MUTED, { font: 'mono', spacing: 3, weight: 600, blur: 0 });
+  glowText('DIFFICULTY', cx, chips[0].y - 18, 9, MUTED, { font: 'mono', spacing: 3, weight: 600, blur: 0, alpha: A });
   for (const r of chips) {
     const on = G.diff === r.key, rad = r.h / 2;
-    ctx.save();
+    ctx.save(); ctx.globalAlpha = A;
     roundRectPath(r.x, r.y, r.w, r.h, rad);
     if (on) { ctx.fillStyle = INK; ctx.fill(); }
     else {
@@ -71,11 +89,15 @@ export function drawMenu() {
     }
     ctx.restore();
     glowText(diffLabels[r.key], r.x + r.w / 2, r.y + r.h / 2 + 0.5, on ? 13 : 11.5, on ? '#0a0e16' : MUTED,
-      { weight: on ? 800 : 600, spacing: 2, blur: 0 });
+      { weight: on ? 800 : 600, spacing: 2, blur: 0, alpha: A });
   }
 
+  // REPLAY the intro — quiet text button, bottom-right
+  const rb = replayBtnRect();
+  glowText('↻ REPLAY', rb.x + rb.w / 2, rb.y + rb.h / 2, 10, '#5a708c', { font: 'mono', spacing: 2, weight: 700, blur: 0, alpha: A });
+
   const liveStreak = (G.dailyStreakDate === tk || isConsecutive(G.dailyStreakDate, tk)) ? G.dailyStreak : 0;
-  if (liveStreak > 1) glowText(liveStreak + ' DAY STREAK', cx, CH * 0.9, 11, MUTED, { font: 'mono', spacing: 2, weight: 600, blur: 0 });
+  if (liveStreak > 1) glowText(liveStreak + ' DAY STREAK', cx, CH * 0.9, 11, MUTED, { font: 'mono', spacing: 2, weight: 600, blur: 0, alpha: A });
 }
 export function drawScores() {
   dim(0.74);
@@ -186,52 +208,101 @@ function frontierPath() {
     if (i < FRONTIER.length - 1) ctx.lineTo(xe, FRONTIER[i + 1][2] * PH); // vertical step
   }
 }
+// The frontier as a top-edge polyline (fractions) — used to TRACE it with the pen.
+const FRONTIER_PTS: number[][] = (() => {
+  const pts: number[][] = [[0, FRONTIER[0][2]]];
+  for (let i = 0; i < FRONTIER.length; i++) {
+    pts.push([FRONTIER[i][1], FRONTIER[i][2]]);
+    if (i < FRONTIER.length - 1) pts.push([FRONTIER[i][1], FRONTIER[i + 1][2]]);
+  }
+  return pts;
+})();
+// Stroke the outline up to `prog` (0..1) of its length; returns the pen tip in px.
+function drawFrontierOutline(prog: number): [number, number] {
+  const pts = FRONTIER_PTS.map((p) => [p[0] * PW, p[1] * PH]);
+  let total = 0; const seg: number[] = [];
+  for (let i = 1; i < pts.length; i++) { const L = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); seg.push(L); total += L; }
+  const target = prog * total;
+  ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+  let acc = 0, penX = pts[0][0], penY = pts[0][1];
+  for (let i = 1; i < pts.length; i++) {
+    const L = seg[i - 1];
+    if (acc + L <= target) { ctx.lineTo(pts[i][0], pts[i][1]); acc += L; penX = pts[i][0]; penY = pts[i][1]; }
+    else { const f = L > 0 ? (target - acc) / L : 0; penX = pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * f; penY = pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f; ctx.lineTo(penX, penY); break; }
+  }
+  ctx.stroke();
+  return [penX, penY];
+}
 export function drawAttractWorld() {
   if (!menuStars) menuStars = buildMenuStars();
   const t = G.reduceMotion ? 0 : G.time;
+  const { drawP, floodA, revealA, penGone } = menuPhase();
   ctx.save();
   ctx.translate(OFF_X, OFF_Y);
   // dark field
   const vg = ctx.createLinearGradient(0, 0, 0, PH);
   vg.addColorStop(0, '#05060c'); vg.addColorStop(0.55, '#070913'); vg.addColorStop(1, '#04050b');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, PW, PH);
-  // faint grid
-  ctx.strokeStyle = 'rgba(70,90,150,0.055)'; ctx.lineWidth = 1; ctx.beginPath();
-  for (let x = 0; x <= PW; x += 44) { ctx.moveTo(x, 0); ctx.lineTo(x, PH); }
-  for (let y = 0; y <= PH; y += 44) { ctx.moveTo(0, y); ctx.lineTo(PW, y); }
-  ctx.stroke();
-  // twinkling stars (upper band)
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  for (const s of menuStars) {
-    ctx.globalAlpha = (G.reduceMotion ? 0.4 : 0.15 + 0.85 * (0.5 + 0.5 * Math.sin(t * s.spd + s.ph))) * 0.6;
-    ctx.fillStyle = '#cdd9f0'; ctx.beginPath(); ctx.arc(s.x * PW, s.y * PH, s.r, 0, TAU); ctx.fill();
+  // faint grid + twinkling stars — fade in with the reveal
+  if (revealA > 0.01) {
+    ctx.save();
+    ctx.globalAlpha = revealA; ctx.strokeStyle = 'rgba(70,90,150,0.055)'; ctx.lineWidth = 1; ctx.beginPath();
+    for (let x = 0; x <= PW; x += 44) { ctx.moveTo(x, 0); ctx.lineTo(x, PH); }
+    for (let y = 0; y <= PH; y += 44) { ctx.moveTo(0, y); ctx.lineTo(PW, y); }
+    ctx.stroke();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const s of menuStars) {
+      ctx.globalAlpha = (G.reduceMotion ? 0.4 : 0.15 + 0.85 * (0.5 + 0.5 * Math.sin(t * s.spd + s.ph))) * 0.6 * revealA;
+      ctx.fillStyle = '#cdd9f0'; ctx.beginPath(); ctx.arc(s.x * PW, s.y * PH, s.r, 0, TAU); ctx.fill();
+    }
+    ctx.restore();
   }
-  ctx.restore();
-  // the FRONTIER — teal fill below the jagged edge
-  frontierPath(); ctx.lineTo(PW, PH); ctx.lineTo(0, PH); ctx.closePath();
-  const fg = ctx.createLinearGradient(0, PH * 0.56, 0, PH);
-  fg.addColorStop(0, 'rgba(46,230,207,0.34)'); fg.addColorStop(0.55, 'rgba(17,136,170,0.2)'); fg.addColorStop(1, 'rgba(10,58,90,0.42)');
-  ctx.fillStyle = fg; ctx.fill();
-  // glowing top edge (pulses)
+  // the FRONTIER fill — floods in once the outline closes
+  if (floodA > 0.01) {
+    ctx.save();
+    frontierPath(); ctx.lineTo(PW, PH); ctx.lineTo(0, PH); ctx.closePath();
+    const fg = ctx.createLinearGradient(0, PH * 0.56, 0, PH);
+    fg.addColorStop(0, 'rgba(46,230,207,0.34)'); fg.addColorStop(0.55, 'rgba(17,136,170,0.2)'); fg.addColorStop(1, 'rgba(10,58,90,0.42)');
+    ctx.globalAlpha = floodA; ctx.fillStyle = fg; ctx.fill();
+    if (floodA < 1) {   // a quick capture flash as it floods
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = (1 - floodA) * 0.22;
+      frontierPath(); ctx.lineTo(PW, PH); ctx.lineTo(0, PH); ctx.closePath();
+      ctx.fillStyle = '#39f0e0'; ctx.fill();
+    }
+    ctx.restore();
+  }
+  // the frontier OUTLINE — drawn progressively by the pen, then a steady glow
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  ctx.shadowColor = '#39f0e0'; ctx.shadowBlur = 11 * (G.reduceMotion ? 1 : 0.85 + 0.15 * Math.sin(t * 2));
-  ctx.strokeStyle = '#aafff2'; ctx.lineWidth = 1.6; ctx.globalAlpha = 0.85; frontierPath(); ctx.stroke();
+  ctx.shadowColor = '#39f0e0'; ctx.shadowBlur = (drawP < 1 ? 8 : 11) * (G.reduceMotion ? 1 : 0.85 + 0.15 * Math.sin(t * 2));
+  ctx.strokeStyle = '#aafff2'; ctx.lineWidth = drawP < 1 ? 2.6 : 1.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.globalAlpha = drawP < 1 ? 1 : 0.85;
+  const [penX, penY] = drawFrontierOutline(drawP);
   ctx.restore();
-  // player dot + trail, at the frontier peak (x ~ 0.50)
-  const pxp = 0.5 * PW, pyp = 0.6 * PH;
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  const tg = ctx.createLinearGradient(pxp, pyp - PH * 0.17, pxp, pyp);
-  tg.addColorStop(0, 'rgba(234,255,251,0)'); tg.addColorStop(1, 'rgba(234,255,251,0.6)');
-  ctx.strokeStyle = tg; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(pxp, pyp - PH * 0.17); ctx.lineTo(pxp, pyp); ctx.stroke();
-  if (!G.reduceMotion) { const k = (t * 0.5) % 1; ctx.globalAlpha = (1 - k) * 0.5; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(pxp, pyp, 4 + k * 18, 0, TAU); ctx.stroke(); }
-  ctx.globalAlpha = 1; ctx.shadowColor = '#aafff2'; ctx.shadowBlur = 14; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(pxp, pyp, 4, 0, TAU); ctx.fill();
-  ctx.restore();
-  // Qix diamond (slow spin), upper-right
-  const qr = Math.min(22, PW * 0.055);
-  ctx.save(); ctx.translate(0.82 * PW, 0.17 * PH); ctx.rotate((G.reduceMotion ? 0.5 : t * 0.22) + Math.PI / 4);
-  ctx.globalCompositeOperation = 'lighter'; ctx.shadowColor = '#ff5ad0'; ctx.shadowBlur = 8;
-  ctx.strokeStyle = '#ff5ad0'; ctx.lineWidth = 2.5; ctx.strokeRect(-qr, -qr, qr * 2, qr * 2);
-  ctx.strokeStyle = '#ff9ae4'; ctx.lineWidth = 2; ctx.strokeRect(-qr * 0.5, -qr * 0.5, qr, qr);
-  ctx.restore();
+  // the PEN/hero that draws the outline — only while tracing
+  if (!penGone && drawP < 1 && !G.reduceMotion) {
+    const fl = 0.85 + 0.15 * Math.sin(t * 8);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.shadowColor = '#aafff2'; ctx.shadowBlur = 18 * fl; ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(penX, penY, 6 * fl, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+  // canonical idle player dot + trail — fades in with the reveal
+  if (revealA > 0.01) {
+    const pxp = 0.5 * PW, pyp = 0.6 * PH;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const tg = ctx.createLinearGradient(pxp, pyp - PH * 0.17, pxp, pyp);
+    tg.addColorStop(0, 'rgba(234,255,251,0)'); tg.addColorStop(1, 'rgba(234,255,251,0.6)');
+    ctx.globalAlpha = revealA; ctx.strokeStyle = tg; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(pxp, pyp - PH * 0.17); ctx.lineTo(pxp, pyp); ctx.stroke();
+    if (!G.reduceMotion) { const k = (t * 0.5) % 1; ctx.globalAlpha = (1 - k) * 0.5 * revealA; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(pxp, pyp, 4 + k * 18, 0, TAU); ctx.stroke(); }
+    ctx.globalAlpha = revealA; ctx.shadowColor = '#aafff2'; ctx.shadowBlur = 14; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(pxp, pyp, 4, 0, TAU); ctx.fill();
+    ctx.restore();
+    // Qix diamond (slow spin), upper-right
+    const qr = Math.min(22, PW * 0.055);
+    ctx.save(); ctx.globalAlpha = revealA; ctx.translate(0.82 * PW, 0.17 * PH); ctx.rotate((G.reduceMotion ? 0.5 : t * 0.22) + Math.PI / 4);
+    ctx.globalCompositeOperation = 'lighter'; ctx.shadowColor = '#ff5ad0'; ctx.shadowBlur = 8;
+    ctx.strokeStyle = '#ff5ad0'; ctx.lineWidth = 2.5; ctx.strokeRect(-qr, -qr, qr * 2, qr * 2);
+    ctx.strokeStyle = '#ff9ae4'; ctx.lineWidth = 2; ctx.strokeRect(-qr * 0.5, -qr * 0.5, qr, qr);
+    ctx.restore();
+  }
   ctx.restore();
 }

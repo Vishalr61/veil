@@ -57,6 +57,8 @@ export const G = {
   target: 0.68,
   baseSpeed: 9.5,
   time: 0, menuT: 0,
+  menuIntroT: 0,         // home-screen "draw-and-flood" intro clock (resets on first view / replay)
+  menuStarted: false,    // true once the tap-to-begin splash is dismissed (intro may run)
   lcTimer: 0, goTimer: 0,
   lastBonus: 0, lastTimeBonus: 0, lastOverBonus: 0,
   levelT: 0,           // seconds spent on the current level

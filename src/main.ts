@@ -12,6 +12,7 @@ import '@fontsource/space-grotesk/700.css';
 import '@fontsource/space-mono/400.css';
 import '@fontsource/space-mono/700.css';
 import { initAudio } from './audio/audio';
+import { G } from './game/state';
 import './legacy';
 
 // Tap-to-begin gate: browsers block audio until a user gesture, so the splash
@@ -21,6 +22,7 @@ import './legacy';
 function enter(e: Event) {
   e.stopImmediatePropagation();
   initAudio();
+  G.menuStarted = true; G.menuIntroT = 0;   // the title is now visible — play the draw-and-flood intro
   const s = document.getElementById('splash');
   if (s) { s.classList.add('hide'); setTimeout(() => s.remove(), 700); }
   window.removeEventListener('pointerdown', enter, true);
