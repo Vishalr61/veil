@@ -76,6 +76,7 @@ export const G = {
   // background art
   nebula: null as any, fog: null as any, pal: bandForLevel(1),
   bloomDecor: [] as any[],   // garden flora drawn on claimed (Bloom) land — flowers/pools/lilypads/glints
+  obstacleKind: new Uint8Array(0) as Uint8Array,   // per-cell garden-object kind for Bloom obstacles (visual)
 
   borderPath: null as any,
   menuNebula: null as any, menuPal: null as any, menuStars: [] as any[],

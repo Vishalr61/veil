@@ -11,6 +11,7 @@
    ========================================================================= */
 
 import { SeededRng } from '../core/rng';
+import { OBSTACLE } from '../core/constants';
 
 // Layout motif: how rock is shaped. 'blobs' is the original procedural look;
 // 'open' places none; 'pillars'/'veins' are authored shapes for early bands.
@@ -183,6 +184,42 @@ function fillIsolatedPockets(obst: Uint8Array, cols: number, rows: number, start
       if (!obst[i] && !seen[i]) obst[i] = 1;
     }
   }
+}
+
+/* ----------------------------- obstacle KINDS ----------------------------- */
+// Visual-only object kinds for Bloom obstacles. Each contiguous obstacle CLUSTER
+// gets ONE kind (shape-influenced), so a board reads as distinct garden objects —
+// boulders, logs, bushes, flowerbeds, mushroom mounds — not uniform rock.
+export const OBK_BOULDER = 0, OBK_LOG = 1, OBK_BUSH = 2, OBK_FLOWERBED = 3, OBK_MUSHROOM = 4;
+
+// Flood-fill the OBSTACLE cells of a (cols x rows) grid into connected clusters and
+// label every cell with its cluster's kind. Deterministic (a position hash picks the
+// kind), so re-running on the same layout is stable. Pure: no rendering, no globals.
+export function assignObstacleKinds(grid: Uint8Array, cols: number, rows: number): Uint8Array {
+  const n = cols * rows, kind = new Uint8Array(n), seen = new Uint8Array(n);
+  for (let start = 0; start < n; start++) {
+    if (grid[start] !== OBSTACLE || seen[start]) continue;
+    const cells: number[] = [start]; seen[start] = 1;
+    let head = 0, minX = cols, minY = rows, maxX = 0, maxY = 0;
+    while (head < cells.length) {
+      const c = cells[head++], x = c % cols, y = (c / cols) | 0;
+      if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
+      if (x + 1 < cols && grid[c + 1] === OBSTACLE && !seen[c + 1]) { seen[c + 1] = 1; cells.push(c + 1); }
+      if (x - 1 >= 0 && grid[c - 1] === OBSTACLE && !seen[c - 1]) { seen[c - 1] = 1; cells.push(c - 1); }
+      if (y + 1 < rows && grid[c + cols] === OBSTACLE && !seen[c + cols]) { seen[c + cols] = 1; cells.push(c + cols); }
+      if (y - 1 >= 0 && grid[c - cols] === OBSTACLE && !seen[c - cols]) { seen[c - cols] = 1; cells.push(c - cols); }
+    }
+    const w = maxX - minX + 1, hgt = maxY - minY + 1, sz = cells.length;
+    const aspect = Math.max(w, hgt) / Math.max(1, Math.min(w, hgt));
+    const hsh = ((minX * 73856093) ^ (minY * 19349663)) >>> 0;
+    let k: number;
+    if (sz <= 2) k = (hsh % 2) ? OBK_BUSH : OBK_FLOWERBED;                 // tiny clump
+    else if (aspect >= 2.4) k = OBK_LOG;                                   // long & thin
+    else if (sz >= 10) k = (hsh % 3 === 0) ? OBK_MUSHROOM : OBK_BOULDER;   // big & compact
+    else k = [OBK_BOULDER, OBK_BUSH, OBK_FLOWERBED, OBK_MUSHROOM][hsh % 4]; // medium: mixed
+    for (const c of cells) kind[c] = k;
+  }
+  return kind;
 }
 
 /** Count open (non-obstacle) interior cells — the reveal-target denominator. */

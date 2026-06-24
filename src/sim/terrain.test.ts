@@ -1,6 +1,8 @@
+import '../test/browser-env';
 import { describe, it, expect } from 'vitest';
 import { SeededRng } from '../core/rng';
-import { genObstacles, obstacleBudget, openInteriorCount } from './terrain';
+import { genObstacles, obstacleBudget, openInteriorCount, assignObstacleKinds, OBK_BOULDER, OBK_LOG, OBK_MUSHROOM } from './terrain';
+import { OBSTACLE } from '../core/constants';
 
 const COLS = 24, ROWS = 40, START = COLS >> 1; // top-middle border cell, as in-game
 
@@ -79,7 +81,7 @@ describe('terrain', () => {
   });
 
   // motif layouts must hold the same guarantees as the default blobs.
-  for (const motif of ['pillars', 'veins'] as const) {
+  for (const motif of ['pillars', 'veins', 'grove'] as const) {
     it(`motif '${motif}' stays connected, dead-end-free, spawn-clear, mostly open`, () => {
       for (let seed = 1; seed <= 30; seed++) {
         const o = genObstacles(new SeededRng(seed), { cols: COLS, rows: ROWS, level: 3, startIdx: START, motif, density: 0.08 });
@@ -112,5 +114,30 @@ describe('terrain', () => {
         const def = genObstacles(new SeededRng(seed), { cols: COLS, rows: ROWS, level, startIdx: START });
         expect(Array.from(fallback)).toEqual(Array.from(def));
       }
+  });
+});
+
+// Garden-object KINDS for Bloom obstacles (visual). One kind per contiguous cluster.
+describe('assignObstacleKinds', () => {
+  const grid8 = (cells: number[]) => { const g = new Uint8Array(64); for (const i of cells) g[i] = OBSTACLE; return g; };
+  it('labels every obstacle cell with a valid kind; open cells stay 0', () => {
+    const grid = grid8([9, 10, 11, 17, 25, 40]);   // an L-cluster + a lone cell
+    const kind = assignObstacleKinds(grid, 8, 8);
+    for (let i = 0; i < grid.length; i++) {
+      if (grid[i] === OBSTACLE) { expect(kind[i]).toBeGreaterThanOrEqual(OBK_BOULDER); expect(kind[i]).toBeLessThanOrEqual(OBK_MUSHROOM); }
+      else expect(kind[i]).toBe(0);
+    }
+  });
+  it('gives a contiguous cluster ONE kind', () => {
+    const cluster = [9, 10, 11, 17, 18, 19];
+    const kind = assignObstacleKinds(grid8(cluster), 8, 8);
+    for (const i of cluster) expect(kind[i]).toBe(kind[cluster[0]]);
+  });
+  it('is deterministic for the same layout', () => {
+    const grid = grid8([7, 8, 14, 21]);
+    expect(Array.from(assignObstacleKinds(grid, 8, 8))).toEqual(Array.from(assignObstacleKinds(grid, 8, 8)));
+  });
+  it('labels a long thin cluster as a LOG', () => {
+    expect(assignObstacleKinds(grid8([9, 10, 11, 12, 13, 14]), 8, 8)[9]).toBe(OBK_LOG);
   });
 });
