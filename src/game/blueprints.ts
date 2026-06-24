@@ -221,15 +221,27 @@ export function newEnemyAtLevel(lv: number): string | null {
 // carried by enemy count, maze complexity, hazards, and reward. Formula-based so
 // it stays endless-safe. Never runs in the daily (the daily forces Medium).
 
-// The Bloom roster for an Easy floor: a few gentle bouncers + escalating
-// fireflies (from L2) and sprites (from L4). No hunters.
+// The Bloom roster for an Easy floor — Airxonix-style THEMED floors: some are a
+// single creature (a firefly meadow, a sprite hollow), some are mixes, and the
+// summit (every 5th) is a full mix + the Qix. The featured count grows slowly
+// with depth. No hunters (chaser/cutter/sentinel always 0).
 export function bloomRoster(lv: number): EnemyCounts {
-  return {
-    drifter: Math.min(1 + Math.floor(lv / 3), 3),
-    firefly: lv >= 2 ? Math.min(1 + Math.floor((lv - 2) / 2), 4) : 0,
-    sprite: lv >= 4 ? Math.min(1 + Math.floor((lv - 4) / 3), 3) : 0,
-    chaser: 0, cutter: 0, sentinel: 0, sleeper: 0,
-  };
+  const z: EnemyCounts = { drifter: 0, firefly: 0, sprite: 0, chaser: 0, cutter: 0, sentinel: 0, sleeper: 0 };
+  const tier = Math.floor((lv - 1) / 5);   // +1 to featured counts every 5 floors
+  const base = 2 + tier;
+  if (lv === 1) { z.drifter = 2; return z; }                    // teach: drifters only
+  if (lv === 2) { z.firefly = base; return z; }                 // FIREFLY debut — fireflies only
+  if (lv === 3) { z.drifter = 1; z.firefly = base; return z; }  // drifters + fireflies
+  if (lv === 4) { z.sprite = base; return z; }                  // SPRITE debut — sprites only
+  // L5+: a rotating set of themed floors within each 5-floor band
+  switch ((lv - 1) % 5) {
+    case 0: z.firefly = base + 1; break;                        // firefly meadow (all fireflies)
+    case 1: z.sprite = base + 1; break;                         // sprite hollow (all sprites)
+    case 2: z.drifter = 1 + tier; z.firefly = base; break;      // drifters + fireflies
+    case 3: z.drifter = 1; z.sprite = base; break;              // drifters + sprites
+    default: z.drifter = 1 + tier; z.firefly = 1 + tier; z.sprite = 1 + tier;   // summit: a full mix
+  }
+  return z;
 }
 export function bloomBlueprint(base: LevelBlueprint, lv: number): LevelBlueprint {
   // gentler early, mazier deeper (board-complexity lever); the target is left to
@@ -244,10 +256,12 @@ export function bloomBlueprint(base: LevelBlueprint, lv: number): LevelBlueprint
     enemies: bloomRoster(lv),
   };
 }
-// The new Bloom critter introduced at this Easy floor (drives the "NEW BLOOM" card).
+// The new Bloom critter introduced at this Easy floor (drives the "NEW BLOOM"
+// card). Fixed debut floors — themed floors make types come and go, so we can't
+// infer "new" from the previous floor (it would re-fire on every reappearance).
 export function bloomNewEnemy(lv: number): string | null {
-  const cur = bloomRoster(lv) as any, prev = bloomRoster(lv - 1) as any;
-  for (const t of ['firefly', 'sprite']) if (cur[t] > 0 && !(prev[t] > 0)) return t;
+  if (lv === 2) return 'firefly';
+  if (lv === 4) return 'sprite';
   return null;
 }
 

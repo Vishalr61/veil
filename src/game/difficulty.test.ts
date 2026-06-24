@@ -51,28 +51,38 @@ describe('Easy = no time pressure', () => {
 });
 
 describe('Easy = the Bloom garden roster + map transform', () => {
-  it('has only drifters + the Bloom critters — never chaser/cutter', () => {
-    for (const lv of [1, 2, 4, 8, 20]) {
+  const total = (r: any) => r.drifter + (r.firefly || 0) + (r.sprite || 0);
+  it('never spawns hunters, and is never an empty floor', () => {
+    for (const lv of [1, 2, 4, 5, 8, 20]) {
       const r = bloomRoster(lv);
       expect(r.chaser).toBe(0); expect(r.cutter).toBe(0); expect(r.sentinel).toBe(0);
-      expect(r.drifter).toBeGreaterThanOrEqual(1);
+      expect(total(r)).toBeGreaterThanOrEqual(1);
     }
   });
-  it('introduces the firefly at L2 and the sprite at L4', () => {
+  it('debuts the firefly at L2 and the sprite at L4, each on a single-type floor', () => {
+    expect(bloomRoster(1).drifter).toBeGreaterThan(0);               // L1 = drifters only
     expect(bloomRoster(1).firefly).toBe(0); expect(bloomRoster(1).sprite).toBe(0);
-    expect(bloomRoster(2).firefly).toBe(1); expect(bloomRoster(3).sprite).toBe(0);
-    expect(bloomRoster(4).sprite).toBe(1);
+    expect(bloomRoster(2).firefly).toBeGreaterThan(0);               // L2 = fireflies only
+    expect(bloomRoster(2).drifter).toBe(0); expect(bloomRoster(2).sprite).toBe(0);
+    expect(bloomRoster(4).sprite).toBeGreaterThan(0);                // L4 = sprites only
+    expect(bloomRoster(4).drifter).toBe(0); expect(bloomRoster(4).firefly).toBe(0);
     expect(bloomNewEnemy(1)).toBe(null);
     expect(bloomNewEnemy(2)).toBe('firefly');
-    expect(bloomNewEnemy(3)).toBe(null);                     // firefly already present
     expect(bloomNewEnemy(4)).toBe('sprite');
+    expect(bloomNewEnemy(7)).toBe(null);                             // sprite reappears but isn't "new"
   });
-  it('escalates count + rifts deeper, but stays bounded', () => {
-    expect(bloomRoster(2).firefly).toBeLessThan(bloomRoster(10).firefly!);
+  it('has Airxonix-style single-type themed floors deeper in', () => {
+    expect(bloomRoster(6).drifter + bloomRoster(6).sprite!).toBe(0); // L6 = firefly meadow
+    expect(bloomRoster(6).firefly).toBeGreaterThan(0);
+    expect(bloomRoster(7).drifter + bloomRoster(7).firefly!).toBe(0);// L7 = sprite hollow
+    expect(bloomRoster(7).sprite).toBeGreaterThan(0);
+  });
+  it('escalates the featured count + rifts deeper, but stays bounded', () => {
+    expect(bloomRoster(6).firefly!).toBeGreaterThan(bloomRoster(2).firefly!);   // deeper firefly floor has more
     const base = blueprintForLevel(3);
-    expect(bloomBlueprint(base, 1).rifts).toBe(0);           // no rifts on the first floors
+    expect(bloomBlueprint(base, 1).rifts).toBe(0);
     expect(bloomBlueprint(base, 2).rifts).toBe(0);
-    expect(bloomBlueprint(base, 3).rifts).toBe(1);           // rifts begin, then ramp
+    expect(bloomBlueprint(base, 3).rifts).toBe(1);
     expect(bloomBlueprint(base, 99).rifts).toBeLessThanOrEqual(5);
   });
   it('keeps Bloom richer on rewards (more caches than the base)', () => {

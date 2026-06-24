@@ -505,7 +505,16 @@ function bond(x1, y1, x2, y2, col) {
 // slightly irregular membrane, trailing a short comet smear opposite its travel
 // so its direction reads. No orbiting satellites. Inert, just bounces.
 function drawDrifterBody(e, o, pulse) {
-  const t = G.reduceMotion ? 0 : G.time;
+  // REDUCE-MOTION: a clean, simple glowing cell — a core + one tidy membrane ring.
+  // Zero animation (like the firefly's off-motion look).
+  if (G.reduceMotion) {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.5; ctx.strokeStyle = o.glow; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 0.92, 0, TAU); ctx.stroke(); ctx.restore();
+    molNode(e.x, e.y, e.r * 0.5, o.col, o.glow);
+    return;
+  }
+  const t = G.time;
   const sp = Math.hypot(e.vx || 0, e.vy || 0) || 1;
   const ux = (e.vx || 0) / sp, uy = (e.vy || 1) / sp;   // travel direction
   // comet smear behind the cell (a soft tapered glow opposite velocity)
@@ -560,43 +569,37 @@ function drawSentinelBody(e, o) {
     molNode(e.x + ux * rr, e.y + uy * rr, e.r * 0.34, '#dfeaf5', o.glow);
   }
 }
-// The Qix (boss) — a SINGULARITY: a dark, dense void core ringed by a bright
-// swirling accretion disc and a few jagged shards dragged around it. Imposing,
-// not a calm molecule. Shrinks (via e.r) as you claim the board.
+// The Qix (boss) — a grand luminous mass: a bright core with a hot white heart,
+// wreathed in two smooth, symmetric rings of orbiting electrons (the molecular
+// look, refined). Pleasant + imposing, not jittery. REDUCE-MOTION freezes it to
+// a clean static molecule. Shrinks (via e.r) as you claim the board.
 function drawQixBody(e, o) {
-  const r = e.r, t = G.reduceMotion ? 0 : G.time;
-  ctx.save();
-  // outer halo (additive)
-  ctx.globalCompositeOperation = 'lighter';
-  const g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, r * 1.8);
-  g.addColorStop(0, o.glow); g.addColorStop(0.55, hexA(o.glow, 0.12)); g.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.globalAlpha = 0.26 + 0.06 * Math.sin(t * 2); ctx.fillStyle = g;
-  ctx.beginPath(); ctx.arc(e.x, e.y, r * 1.8, 0, TAU); ctx.fill();
-  // bright swirling accretion ring — two offset elliptical arcs, slowly spun
-  for (let k = 0; k < 2; k++) {
-    ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(t * (0.6 - k * 0.25) + k * 0.7);
-    ctx.globalAlpha = 0.5 - k * 0.18; ctx.lineWidth = 2 - k * 0.6;
-    ctx.strokeStyle = k ? '#d09cff' : o.glow; ctx.shadowColor = o.glow; ctx.shadowBlur = 10;
-    ctx.beginPath(); ctx.ellipse(0, 0, r * (1.05 + k * 0.18), r * (0.62 + k * 0.12), 0, 0.2, TAU - 0.2); ctx.stroke();
-    ctx.restore();
-  }
-  // jagged shards dragged around the core
-  ctx.globalAlpha = 0.85; ctx.fillStyle = o.col; ctx.shadowColor = o.glow; ctx.shadowBlur = 8;
-  for (let i = 0; i < 5; i++) {
-    const a = -t * 0.8 + i * TAU / 5, rr = r * (1.0 + 0.12 * Math.sin(t + i)), sx = e.x + Math.cos(a) * rr, sy = e.y + Math.sin(a) * rr;
-    ctx.save(); ctx.translate(sx, sy); ctx.rotate(a + 1.57);
-    ctx.beginPath(); ctx.moveTo(0, -r * 0.22); ctx.lineTo(r * 0.1, 0); ctx.lineTo(0, r * 0.22); ctx.lineTo(-r * 0.1, 0); ctx.closePath(); ctx.fill();
-    ctx.restore();
-  }
+  const r = e.r, rm = G.reduceMotion, t = rm ? 0 : G.time;
+  // grand soft halo
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, r * 1.9);
+  g.addColorStop(0, o.glow); g.addColorStop(0.5, hexA(o.glow, 0.14)); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.globalAlpha = rm ? 0.26 : 0.24 + 0.06 * Math.sin(t * 1.5); ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(e.x, e.y, r * 1.9, 0, TAU); ctx.fill();
   ctx.restore();
-  // the dark void core with a hot rim (drawn over, so it reads as a hole)
-  ctx.save();
-  const cg = ctx.createRadialGradient(e.x, e.y, r * 0.12, e.x, e.y, r * 0.62);
-  cg.addColorStop(0, '#05060c'); cg.addColorStop(0.7, '#0a0a16'); cg.addColorStop(1, hexA(o.glow, 0.0));
-  ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(e.x, e.y, r * 0.62, 0, TAU); ctx.fill();
-  ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = '#fff'; ctx.globalAlpha = 0.5 + 0.2 * Math.sin(t * 3);
-  ctx.lineWidth = 1.3; ctx.shadowColor = o.glow; ctx.shadowBlur = 12;
-  ctx.beginPath(); ctx.arc(e.x, e.y, r * 0.6, 0, TAU); ctx.stroke();
+  // outer ring — 6 electrons on a clean circular orbit, slowly turning
+  const N = 6;
+  for (let i = 0; i < N; i++) {
+    const a = t * 0.4 + i * TAU / N, rr = r * 1.06;
+    molNode(e.x + Math.cos(a) * rr, e.y + Math.sin(a) * rr, r * 0.16, i % 2 ? '#bfe9ff' : '#d9b8ff', o.glow);
+  }
+  // inner ring — 3 electrons counter-rotating closer in (depth)
+  for (let i = 0; i < 3; i++) {
+    const a = -t * 0.6 + i * TAU / 3, rr = r * 0.66;
+    molNode(e.x + Math.cos(a) * rr, e.y + Math.sin(a) * rr, r * 0.13, '#eaf2ff', o.glow);
+  }
+  // luminous core + a hot white heart that breathes
+  molNode(e.x, e.y, r * 0.52, o.col, o.glow);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const cg = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, r * 0.42);
+  cg.addColorStop(0, '#ffffff'); cg.addColorStop(1, hexA(o.glow, 0));
+  ctx.globalAlpha = rm ? 0.7 : 0.6 + 0.2 * Math.sin(t * 2); ctx.fillStyle = cg;
+  ctx.beginPath(); ctx.arc(e.x, e.y, r * 0.42, 0, TAU); ctx.fill();
   ctx.restore();
 }
 // Wraith — an unstable isotope: a faint trembling nucleus; it solidifies and
