@@ -160,7 +160,9 @@ export function moveEnemy(e, dt) {
           const ox = e.x, oy = e.y;
           e.x = clamp(tx, CELL * 1.5, (COLS - 1.5) * CELL);
           e.y = clamp(ty, CELL * 1.5, (ROWS - 1.5) * CELL);
-          if (!G.reduceMotion) { e.zipFrom = { x: ox, y: oy }; e.zipT = 0.22; }   // brief green zip streak
+          // keep the zip streak even in reduce-motion: it reads as ZOOMING to the
+          // target rather than teleporting (the one bit of motion worth showing).
+          e.zipFrom = { x: ox, y: oy }; e.zipT = 0.22;
         }
         e.hopT = Math.max(0.5, 1.4 - G.level * 0.02);   // shorter pauses deeper (gentle escalation)
       }

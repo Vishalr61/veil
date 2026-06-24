@@ -101,8 +101,10 @@ describe('hero move speed', () => {
     expect(playerSpeed(50, MED)).toBe(20);                   // cap
     expect(playerSpeed(1, HARD)).toBeCloseTo(13.5, 5);
     expect(playerSpeed(6, EASY)).toBeLessThan(playerSpeed(6, MED));   // L6+ is the gripe — calmer on Easy
-    expect(playerSpeed(13, EASY)).toBeLessThan(12.5);        // deep floors stay slow/controllable
-    expect(playerSpeed(99, EASY)).toBe(12);                  // low cap, near-flat ramp
+    expect(playerSpeed(20, EASY)).toBe(playerSpeed(10, EASY));   // holds L10 speed forever after L10
+    expect(playerSpeed(100, EASY)).toBe(playerSpeed(10, EASY));
+    expect(playerSpeed(10, EASY)).toBeLessThan(12);             // and it's slow/controllable
+    expect(playerSpeed(50, MED)).toBe(20);                     // Medium still ramps to its cap (no L10 clamp)
   });
 });
 

@@ -136,10 +136,8 @@ export function checkNearMiss(dt) {
     // in the danger band, just past the closest point (receding), not on cooldown
     if (e.nmCool <= 0 && d > prev && d > CELL * 0.82 && d < CELL * 1.55) {
       e.nmCool = 1.6;
-      const bonus = 40 + G.level * 10; G.score += bonus;
-      spawnPopup(px.x, px.y - 16, 'CLOSE +' + bonus, '#bfe9ff', 14);
-      if (!G.reduceMotion) { G.hitstop = Math.max(G.hitstop, 0.06); G.flash = Math.max(G.flash, 0.1); }
-      hapticLight();
+      G.score += 40 + G.level * 10;   // silent skill reward — no slow-mo / flash / popup
+      // (the time-stop felt jarring, and the player already knows it was close).
     }
   }
 }

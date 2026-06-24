@@ -42,6 +42,7 @@ export interface DiffConfig {
   heroBase: number;
   heroRamp: number;
   heroCap: number;
+  heroLevelCap: number;     // level past which hero speed STOPS rising (holds this level's speed)
   // economy
   pickupFreq: number;       // pickup frequency multiplier (interval is divided by this)
   riftScale: number;        // multiplier on rift (hazard) count
@@ -54,7 +55,7 @@ const medium: DiffConfig = {
   fuse: true, fuseScale: 1, clock: true, clockScale: 1, lives: 3,
   targetDelta: 0, targetFloor: 0,
   speedBase: 1, speedRamp: 1, speedCap: 240, countDelta: 0, chaserFromLevel: 0, cutterFromLevel: 0, invulnScale: 1,
-  heroBase: 13.5, heroRamp: 0.5, heroCap: 20,   // today's hero-speed curve
+  heroBase: 13.5, heroRamp: 0.5, heroCap: 20, heroLevelCap: 999,   // today's hero-speed curve (no level clamp)
   pickupFreq: 1, riftScale: 1, scoreMult: 1,
 };
 
@@ -69,7 +70,7 @@ const easy: DiffConfig = {
   // speed is intentionally near-flat: a low ramp + a low cap so deeper Bloom
   // floors escalate via the other levers, never twitch.
   speedBase: 0.7, speedRamp: 0.15, speedCap: 120, countDelta: 0, chaserFromLevel: 0, cutterFromLevel: 0, invulnScale: 1.5,
-  heroBase: 11, heroRamp: 0.06, heroCap: 12,   // nearly flat hero speed — barely rises with depth
+  heroBase: 11, heroRamp: 0.06, heroCap: 12, heroLevelCap: 10,   // ramps over L1-10, then HOLDS (L10 speed forever)
   pickupFreq: 1.5, riftScale: 1, scoreMult: 0.75,   // rifts controlled by bloomBlueprint, so no extra scale
 };
 
@@ -79,7 +80,7 @@ const hard: DiffConfig = {
   fuse: true, fuseScale: 0.8, clock: true, clockScale: 0.8, lives: 2,
   targetDelta: 0, targetFloor: 0,
   speedBase: 1.1, speedRamp: 1.1, speedCap: 240, countDelta: 1, chaserFromLevel: 0, cutterFromLevel: 0, invulnScale: 0.7,
-  heroBase: 13.5, heroRamp: 0.5, heroCap: 20,   // hero speed as today (Hard's bite is enemies/clock/fuse)
+  heroBase: 13.5, heroRamp: 0.5, heroCap: 20, heroLevelCap: 999,   // hero speed as today (Hard's bite is enemies/clock/fuse)
   pickupFreq: 0.6, riftScale: 1, scoreMult: 1.5,
 };
 
@@ -132,7 +133,8 @@ export function enemySpeed(level: number, cfg: DiffConfig): number {
 // ramps far gentler (cap 15) so the player stays in control on deep floors —
 // difficulty there comes from the rising enemy count, not twitch movement.
 export function playerSpeed(level: number, cfg: DiffConfig): number {
-  return Math.min(cfg.heroBase + cfg.heroRamp * (level - 1), cfg.heroCap);
+  const L = Math.min(level, cfg.heroLevelCap);   // freeze the ramp past heroLevelCap (Easy: L10 onward)
+  return Math.min(cfg.heroBase + cfg.heroRamp * (L - 1), cfg.heroCap);
 }
 
 // Spawn invulnerability scaled per mode (Easy more, Hard less).

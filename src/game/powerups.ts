@@ -12,6 +12,7 @@ import { centerPx, cellOfPx } from '../core/grid';
 import { spawnPopup } from './particles';
 import { sfxPickup, sfxBomb, sfxSurge } from '../audio/audio';
 import { hapticLight } from '../platform/haptics';
+import { effectiveDiff } from './difficulty';
 
 // Kept deliberately legible (Airxonix-style): each is one obvious, immediate
 // effect. SCORE/FREEZE/SLOW/SHIELD/LIFE/BOMB are direct; TIME tops up the clock.
@@ -26,10 +27,16 @@ const PU_TYPES = [
   // daily-only (The Rift): a score surge
   { type: 'surge',  w: 16, col: '#ffce5c', label: 'surge', daily: true },
 ];
+// Easy/Bloom runs a tight set of FIVE direct, obvious power-ups (no time — there's
+// no clock; no slow — freeze is the clearer "stop the enemies"; no daily surge).
+const EASY_PU = new Set(['score', 'freeze', 'shield', 'bomb', 'life']);
 function pickPU() {
-  // hide daily-only pickups outside the daily, and the TIME pickup when there's
-  // no clock to top up (Easy/Bloom) — it would do nothing.
-  const pool = PU_TYPES.filter((p) => (!(p as any).daily || G.isDaily) && !(p.type === 'time' && !isFinite(G.levelTimeMax)));
+  const easy = effectiveDiff().key === 'easy';
+  const pool = easy
+    ? PU_TYPES.filter((p) => EASY_PU.has(p.type))
+    // otherwise: hide daily-only pickups outside the daily, and the TIME pickup
+    // when there's no clock to top up — it would do nothing.
+    : PU_TYPES.filter((p) => (!(p as any).daily || G.isDaily) && !(p.type === 'time' && !isFinite(G.levelTimeMax)));
   const total = pool.reduce((s, p) => s + p.w, 0);
   let r = G.rng.next() * total;
   for (const p of pool) { if ((r -= p.w) <= 0) return p; }
