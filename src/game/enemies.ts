@@ -102,7 +102,8 @@ export function genEnemies(lv, counts: EnemyCounts = enemyCounts(lv)) {
   for (let i = 0; i < (n.qix || 0); i++) {
     const p = spawnCell(9, false), s = spd * 0.45, r = CELL * 1.15;   // a slow roamer (moderate size)
     out.push({ x: p.x, y: p.y, vx: (G.rng.next() < 0.5 ? -1 : 1) * s * 0.7071, vy: (G.rng.next() < 0.5 ? -1 : 1) * s * 0.7071,
-      r, baseR: r, type: 'qix', speed: s, comp: s * 0.7071, steerT: G.rng.range(0.8, 1.4) });
+      r, baseR: r, type: 'qix', speed: s, comp: s * 0.7071, steerT: G.rng.range(0.8, 1.4),
+      emitT: 10, emitSpd: spd });   // boss power: spits out a drifter on a 10s timer (Bloom only)
   }
   for (let i = 0; i < n.sleeper; i++) placeSleeper(spd * 0.95);
   return out;
@@ -180,6 +181,23 @@ export function moveEnemy(e, dt) {
       const dx = G.player.px.x - e.x, dy = G.player.px.y - e.y, d = Math.hypot(dx, dy) || 1;
       e.vx = e.vx * 0.6 + (dx / d) * e.comp * 0.4;
       e.vy = e.vy * 0.6 + (dy / d) * e.comp * 0.4;
+    }
+    // BOSS POWER — emit a drifter every 10s (Bloom/Easy only: Easy never runs the
+    // seeded daily, so the Math.random spawn carries no fairness cost; capped so it
+    // can't snowball). A readable, telegraphed "the boss spat one out" beat.
+    if (e.emitT != null && effectiveDiff().key === 'easy') {
+      e.emitT -= dt;
+      if (e.emitT <= 0) {
+        e.emitT = 10;
+        const drifters = G.enemies.reduce((c, q) => c + (q.type === 'drifter' ? 1 : 0), 0);
+        if (drifters < 5) {
+          const s = e.emitSpd || 140, comp = s * 0.7071, ang = Math.random() * TAU;
+          G.enemies.push({ x: e.x, y: e.y, vx: Math.cos(ang) * s, vy: Math.sin(ang) * s,
+            r: CELL * 0.42, type: 'drifter', speed: s, comp, steerT: 0 });
+          spawnPopup(e.x, e.y - e.r, 'SPAWN', '#ff8a6a', 14);
+          if (!G.reduceMotion) G.flash = Math.max(G.flash, 0.12);
+        }
+      }
     }
   }
   // cutter: while you draw, beeline to the BASE of your line (a fixed point) to cut you

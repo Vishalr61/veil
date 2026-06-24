@@ -239,7 +239,9 @@ export function bloomRoster(lv: number): EnemyCounts {
     case 1: z.sprite = base + 1; break;                         // sprite hollow (all sprites)
     case 2: z.drifter = 1 + tier; z.firefly = base; break;      // drifters + fireflies
     case 3: z.drifter = 1; z.sprite = base; break;              // drifters + sprites
-    default: z.drifter = 1 + tier; z.firefly = 1 + tier; z.sprite = 1 + tier;   // summit: a full mix
+    // summit: the Qix boss carries it (and emits its own drifters), so the base
+    // roster is lighter — just a few fireflies + sprites around the boss.
+    default: z.firefly = 1 + tier; z.sprite = 1 + tier;
   }
   return z;
 }

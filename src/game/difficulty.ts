@@ -69,7 +69,7 @@ const easy: DiffConfig = {
   // speed is intentionally near-flat: a low ramp + a low cap so deeper Bloom
   // floors escalate via the other levers, never twitch.
   speedBase: 0.7, speedRamp: 0.15, speedCap: 120, countDelta: 0, chaserFromLevel: 0, cutterFromLevel: 0, invulnScale: 1.5,
-  heroBase: 11, heroRamp: 0.12, heroCap: 13,   // calm, controllable hero speed even deep in (L13+)
+  heroBase: 11, heroRamp: 0.06, heroCap: 12,   // nearly flat hero speed — barely rises with depth
   pickupFreq: 1.5, riftScale: 1, scoreMult: 0.75,   // rifts controlled by bloomBlueprint, so no extra scale
 };
 

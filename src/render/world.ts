@@ -593,13 +593,13 @@ function drawQixBody(e, o) {
     const a = -t * 0.6 + i * TAU / 3, rr = r * 0.66;
     molNode(e.x + Math.cos(a) * rr, e.y + Math.sin(a) * rr, r * 0.13, '#fff5ee', o.glow);
   }
-  // luminous core + a hot white heart that breathes
+  // luminous core + a softly-breathing warm heart (kept restrained — not blinding)
   molNode(e.x, e.y, r * 0.52, o.col, o.glow);
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  const cg = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, r * 0.42);
-  cg.addColorStop(0, '#ffffff'); cg.addColorStop(1, hexA(o.glow, 0));
-  ctx.globalAlpha = rm ? 0.7 : 0.6 + 0.2 * Math.sin(t * 2); ctx.fillStyle = cg;
-  ctx.beginPath(); ctx.arc(e.x, e.y, r * 0.42, 0, TAU); ctx.fill();
+  const cg = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, r * 0.4);
+  cg.addColorStop(0, '#ffe0d6'); cg.addColorStop(1, hexA(o.glow, 0));
+  ctx.globalAlpha = rm ? 0.42 : 0.38 + 0.12 * Math.sin(t * 2); ctx.fillStyle = cg;
+  ctx.beginPath(); ctx.arc(e.x, e.y, r * 0.4, 0, TAU); ctx.fill();
   ctx.restore();
 }
 // Wraith — an unstable isotope: a faint trembling nucleus; it solidifies and
@@ -732,18 +732,25 @@ export function drawWorld() {
     ctx.restore();
   }
 
-  // power-ups
+  // power-ups — each labelled so it's clear BEFORE you grab it (like the enemy cards)
+  const PU_LABEL: Record<string, string> = {
+    score: 'POINTS', freeze: 'FREEZE', slow: 'SLOW', shield: 'SHIELD',
+    bomb: 'BOMB', life: '+1 LIFE', time: '+TIME', surge: '2× SCORE',
+  };
   for (const p of G.pickups) {
-    const bob = Math.sin(p.bob) * 2.5;
+    const bob = (G.reduceMotion ? 0 : Math.sin(p.bob) * 2.5);
     const fade = clamp(p.life / 2, 0, 1);
+    const ringPulse = G.reduceMotion ? 0.5 : 0.5 + 0.4 * Math.sin(G.time * 6);
     ctx.save();
     ctx.globalAlpha = fade;
     drawGlowOrb(p.x, p.y + bob, 5.5, '#fff', p.col, 20);
     ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = p.col; ctx.globalAlpha = fade * (0.5 + 0.4 * Math.sin(G.time * 6));
-    ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(p.x, p.y + bob, 9 + Math.sin(G.time * 6) * 1.5, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = p.col; ctx.globalAlpha = fade * ringPulse;
+    ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(p.x, p.y + bob, 9 + (G.reduceMotion ? 0 : Math.sin(G.time * 6) * 1.5), 0, TAU); ctx.stroke();
     ctx.restore();
     drawPUGlyph(p.type, p.x, p.y + bob, p.col, fade);
+    glowText(PU_LABEL[p.type] || p.type.toUpperCase(), p.x, p.y + bob + 17, 7.5, p.col,
+      { weight: 800, spacing: 1, blur: 3, alpha: fade });
   }
 
   // trail
@@ -759,11 +766,12 @@ export function drawWorld() {
     ctx.globalAlpha = 0.5; ctx.lineWidth = 6 * ls; ctx.stroke();
     ctx.strokeStyle = G.pal.trail; ctx.globalAlpha = 1; ctx.shadowBlur = 8; ctx.lineWidth = 2.4 * ls; ctx.stroke();
     let total = 0; for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
-    // live energy pulse running along the wire (decorative — off in reduce-motion)
+    // live energy pulse running along the wire — subtle (decorative; off in reduce-motion)
     if (!G.reduceMotion && total > 4) {
-      const pos = pointAlong(pts, (G.time * 220) % total);
-      ctx.globalCompositeOperation = 'lighter';
-      drawGlowOrb(pos.x, pos.y, 2.4 * ls, '#fff', G.pal.edge2, 12 * ls);
+      const pos = pointAlong(pts, (G.time * 150) % total);
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.55;
+      drawGlowOrb(pos.x, pos.y, 1.5 * ls, '#fff', G.pal.edge2, 6 * ls);
+      ctx.globalAlpha = 1;
     }
     // the FUSE spark — crawls the line from its base; reddens + grows as it nears you
     const f = clamp(G.fuseT / G.fuseMax, 0, 1);
@@ -808,8 +816,8 @@ export function drawWorld() {
     const isFf = e.type === 'firefly', isSp = e.type === 'sprite';
     let prox = 0;
     if (G.player && G.player.px && G.state === 'playing') prox = clamp(1 - Math.hypot(G.player.px.x - e.x, G.player.px.y - e.y) / (CELL * 6), 0, 1);
-    const col = frozen ? '#bfe9ff' : isFf ? '#ffe69a' : isSp ? '#bff5c8' : isCut ? '#ffe93b' : isSent ? '#ffb14a' : isWr ? '#c89cff' : isQix ? ENEMY_COL : isCh ? CHASER_COL : ENEMY_COL;
-    const glow = frozen ? '#bfe9ff' : isFf ? '#ffd45c' : isSp ? '#6ff0a0' : isCut ? '#fff07a' : isSent ? '#ffd07a' : isWr ? '#5cf0ff' : isQix ? ENEMY_GLOW : isCh ? CHASER_GLOW : ENEMY_GLOW;
+    const col = frozen ? '#bfe9ff' : isFf ? '#ffe69a' : isSp ? '#cdeeff' : isCut ? '#ffe93b' : isSent ? '#ffb14a' : isWr ? '#c89cff' : isQix ? '#d8404e' : isCh ? CHASER_COL : ENEMY_COL;
+    const glow = frozen ? '#bfe9ff' : isFf ? '#ffd45c' : isSp ? '#4fd4ff' : isCut ? '#fff07a' : isSent ? '#ffd07a' : isWr ? '#5cf0ff' : isQix ? '#ef5a4e' : isCh ? CHASER_GLOW : ENEMY_GLOW;
     const o = { col, glow, frozen };
     // distinct silhouette per type (each telegraphs its behaviour)
     if (isCh) drawChaserBody(e, o);

@@ -27,7 +27,9 @@ const PU_TYPES = [
   { type: 'surge',  w: 16, col: '#ffce5c', label: 'surge', daily: true },
 ];
 function pickPU() {
-  const pool = PU_TYPES.filter((p) => !(p as any).daily || G.isDaily);
+  // hide daily-only pickups outside the daily, and the TIME pickup when there's
+  // no clock to top up (Easy/Bloom) — it would do nothing.
+  const pool = PU_TYPES.filter((p) => (!(p as any).daily || G.isDaily) && !(p.type === 'time' && !isFinite(G.levelTimeMax)));
   const total = pool.reduce((s, p) => s + p.w, 0);
   let r = G.rng.next() * total;
   for (const p of pool) { if ((r -= p.w) <= 0) return p; }
