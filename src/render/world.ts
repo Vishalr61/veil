@@ -825,14 +825,6 @@ export function drawWorld() {
   drawShootingStars();
   drawObstacles();
 
-  // Bloom garden decor — flora that blooms on the land you've claimed (FILLED cells)
-  if (G.pal.style === 'bloom' && G.bloomDecor.length) {
-    const dt2 = G.reduceMotion ? 0 : G.time;
-    ctx.save();
-    for (const d of G.bloomDecor) { if (G.grid[d.cell] === FILLED) drawBloomDecor(d, dt2); }
-    ctx.restore();
-  }
-
   // coastline glow
   if (G.borderPath) {
     ctx.save();
@@ -1010,6 +1002,17 @@ export function drawWorld() {
     core.addColorStop(0, '#ffffff'); core.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.globalAlpha = 0.8 * blink; ctx.fillStyle = core; ctx.beginPath(); ctx.arc(cs * 0.45, 0, cs * 0.95, 0, TAU); ctx.fill();
     ctx.restore();
+    ctx.restore();
+  }
+
+  // Bloom garden decor — flora on claimed land. Drawn AFTER the player (mostly
+  // additive glow) so the hero passes THROUGH it: it never blanks out under the
+  // hero, which made it read as a failed collectible. Purely background; the hero
+  // does not interact with it.
+  if (G.pal.style === 'bloom' && G.bloomDecor.length) {
+    const dt2 = G.reduceMotion ? 0 : G.time;
+    ctx.save();
+    for (const d of G.bloomDecor) { if (G.grid[d.cell] === FILLED) drawBloomDecor(d, dt2); }
     ctx.restore();
   }
 
