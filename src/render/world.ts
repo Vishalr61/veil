@@ -583,6 +583,39 @@ function drawWraithBody(e, o) {
     ctx.restore();
   }
 }
+// Firefly (Bloom) — a warm glowing nucleus with a soft trailing spark, and a
+// faint ring tracing its orbit so the path it follows is readable at a glance.
+function drawFireflyBody(e, o) {
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  ctx.strokeStyle = o.glow; ctx.globalAlpha = 0.10; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(e.ax, e.ay, e.orad, 0, TAU); ctx.stroke(); ctx.restore();   // orbit hint
+  const flick = G.reduceMotion ? 1 : 0.85 + 0.15 * Math.sin(G.time * 8 + e.x);
+  // a small spark trailing behind along the direction of travel
+  const tx = e.x - Math.sin(e.oang) * Math.sign(e.ow) * e.r * 1.1;
+  const ty = e.y + Math.cos(e.oang) * Math.sign(e.ow) * e.r * 1.1;
+  molNode(tx, ty, e.r * 0.22, '#fff7d6', o.glow);
+  molNode(e.x, e.y, e.r * 0.6 * flick, o.col, o.glow);
+}
+// Sprite (Bloom) — a curled bud: a calm core ringed by petals that swell and
+// brighten while it charges, telegraphing the coming hop.
+function drawSpriteBody(e, o) {
+  const charging = e.charging > 0;
+  const k = charging ? 1 - e.charging / 0.6 : 0;     // 0 -> 1 over the tell
+  const swell = 1 + k * 0.5;
+  molNode(e.x, e.y, e.r * 0.46 * swell, o.col, o.glow);
+  const petals = 5, spin = G.reduceMotion ? 0 : G.time * 0.6;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = charging ? 0.5 + 0.4 * k : 0.32;
+  for (let i = 0; i < petals; i++) {
+    const ang = spin + i * TAU / petals, rr = e.r * (0.85 + k * 0.5);
+    molNode(e.x + Math.cos(ang) * rr, e.y + Math.sin(ang) * rr, e.r * 0.2, '#eafff0', o.glow);
+  }
+  ctx.restore();
+  if (charging) {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = o.glow; ctx.globalAlpha = 0.3 + 0.5 * Math.abs(Math.sin(G.time * 26)); ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(e.x, e.y, e.r * (1.2 + k * 1.0), 0, TAU); ctx.stroke(); ctx.restore();
+  }
+}
 
 export function drawWorld() {
   const sx = (G.shakeAmt && !G.reduceMotion) ? rand(-G.shakeAmt, G.shakeAmt) : 0;
@@ -719,10 +752,11 @@ export function drawWorld() {
       continue;
     }
     const isCh = e.type === 'chaser', isSent = e.type === 'sentinel', isCut = e.type === 'cutter', isWr = e.type === 'wraith', isQix = e.type === 'qix';
+    const isFf = e.type === 'firefly', isSp = e.type === 'sprite';
     let prox = 0;
     if (G.player && G.player.px && G.state === 'playing') prox = clamp(1 - Math.hypot(G.player.px.x - e.x, G.player.px.y - e.y) / (CELL * 6), 0, 1);
-    const col = frozen ? '#bfe9ff' : isCut ? '#ffe93b' : isSent ? '#ffb14a' : isWr ? '#c89cff' : isQix ? '#d08cff' : isCh ? CHASER_COL : ENEMY_COL;
-    const glow = frozen ? '#bfe9ff' : isCut ? '#fff07a' : isSent ? '#ffd07a' : isWr ? '#5cf0ff' : isQix ? '#b85cff' : isCh ? CHASER_GLOW : ENEMY_GLOW;
+    const col = frozen ? '#bfe9ff' : isFf ? '#ffe69a' : isSp ? '#bff5c8' : isCut ? '#ffe93b' : isSent ? '#ffb14a' : isWr ? '#c89cff' : isQix ? '#d08cff' : isCh ? CHASER_COL : ENEMY_COL;
+    const glow = frozen ? '#bfe9ff' : isFf ? '#ffd45c' : isSp ? '#6ff0a0' : isCut ? '#fff07a' : isSent ? '#ffd07a' : isWr ? '#5cf0ff' : isQix ? '#b85cff' : isCh ? CHASER_GLOW : ENEMY_GLOW;
     const o = { col, glow, frozen };
     // distinct silhouette per type (each telegraphs its behaviour)
     if (isCh) drawChaserBody(e, o);
@@ -730,6 +764,8 @@ export function drawWorld() {
     else if (isSent) drawSentinelBody(e, o);
     else if (isWr) drawWraithBody(e, o);
     else if (isQix) drawQixBody(e, o);
+    else if (isFf) drawFireflyBody(e, o);
+    else if (isSp) drawSpriteBody(e, o);
     else drawDrifterBody(e, o, pulse);
     // shared close-range danger ring
     if (prox > 0.35 && !frozen) {
@@ -814,10 +850,11 @@ export function drawWorld() {
   if (G.banner.t > 0) {
     const a = clamp(G.banner.t * 1.6, 0, 1);   // pop in, fade out over the last ~0.6s
     if (G.banner.enemy) {
-      const ec = G.banner.enemy === 'chaser' ? CHASER_COL : G.banner.enemy === 'cutter' ? '#ffe93b' : G.banner.enemy === 'sentinel' ? '#ffb14a' : '#ff3a4e';
-      const eg = G.banner.enemy === 'chaser' ? CHASER_GLOW : G.banner.enemy === 'cutter' ? '#fff07a' : G.banner.enemy === 'sentinel' ? '#ffd07a' : '#ff6a4a';
+      const bloom = G.banner.enemy === 'firefly' || G.banner.enemy === 'sprite';
+      const ec = G.banner.enemy === 'chaser' ? CHASER_COL : G.banner.enemy === 'cutter' ? '#ffe93b' : G.banner.enemy === 'sentinel' ? '#ffb14a' : G.banner.enemy === 'firefly' ? '#ffe69a' : G.banner.enemy === 'sprite' ? '#bff5c8' : '#ff3a4e';
+      const eg = G.banner.enemy === 'chaser' ? CHASER_GLOW : G.banner.enemy === 'cutter' ? '#fff07a' : G.banner.enemy === 'sentinel' ? '#ffd07a' : G.banner.enemy === 'firefly' ? '#ffd45c' : G.banner.enemy === 'sprite' ? '#6ff0a0' : '#ff6a4a';
       ctx.save(); ctx.globalAlpha = a; drawGlowOrb(PW / 2, PH / 2 - 62, CELL * 0.5, ec, eg, CELL * 2); ctx.restore();
-      glowText('NEW THREAT', PW / 2, PH / 2 - 30, 9, eg, { blur: 6, weight: 800, spacing: 3, alpha: a * 0.8 });
+      glowText(bloom ? 'NEW BLOOM' : 'NEW THREAT', PW / 2, PH / 2 - 30, 9, eg, { blur: 6, weight: 800, spacing: 3, alpha: a * 0.8 });
     }
     glowText(G.banner.text, PW / 2, PH / 2 - 12, G.banner.enemy ? 20 : 25, G.pal.edge2, { blur: 20, weight: 800, spacing: 3, core: '#fff', alpha: a });
     glowText(G.banner.sub, PW / 2, PH / 2 + 22, 15, '#cfe6ff', { blur: 6, font: 'mono', spacing: 1, alpha: a });

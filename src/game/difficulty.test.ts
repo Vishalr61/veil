@@ -8,6 +8,7 @@ import {
   DIFFS, effectiveDiff, fuseWindow, levelClock, clearTarget, enemySpeed,
   applyDiffCounts, riftCount, invulnFor,
 } from './difficulty';
+import { bloomRoster, bloomBlueprint, bloomNewEnemy, blueprintForLevel } from './blueprints';
 
 const EASY = DIFFS.easy, MED = DIFFS.medium, HARD = DIFFS.hard;
 const counts = (o: any = {}) => ({ drifter: 2, chaser: 1, cutter: 1, sentinel: 0, sleeper: 0, ...o });
@@ -41,27 +42,42 @@ describe('Easy = no time pressure', () => {
     expect(clearTarget(0.58, EASY)).toBeCloseTo(0.50, 5);    // 0.48 -> floored
     expect(clearTarget(0.55, EASY)).toBe(0.50);              // 0.45 -> floored
   });
-  it('is forgiving: more lives, slower + capped enemies, more invuln', () => {
-    expect(EASY.lives).toBe(5);
+  it('is forgiving: a life cushion, near-flat + capped enemies, more invuln', () => {
+    expect(EASY.lives).toBe(3);
     expect(enemySpeed(1, EASY)).toBeCloseTo(98, 5);          // 140 * 0.7
-    expect(enemySpeed(99, EASY)).toBe(140);                  // low cap
+    expect(enemySpeed(99, EASY)).toBe(120);                  // low cap, flattened ramp
     expect(invulnFor(1.0, EASY)).toBeCloseTo(1.5, 5);
   });
 });
 
-describe('Easy enemy-schedule delays', () => {
-  it('zeros the chaser before L6 and the cutter before L11', () => {
-    const l3 = applyDiffCounts(counts(), 3, false, EASY);
-    expect(l3.chaser).toBe(0); expect(l3.cutter).toBe(0);
-    const l7 = applyDiffCounts(counts(), 7, false, EASY);
-    expect(l7.chaser).toBe(1);                               // L7 >= 6 -> allowed
-    expect(l7.cutter).toBe(0);                               // L7 < 11 -> still held
-    const l11 = applyDiffCounts(counts(), 11, false, EASY);
-    expect(l11.chaser).toBe(1); expect(l11.cutter).toBe(1);
+describe('Easy = the Bloom garden roster + map transform', () => {
+  it('has only drifters + the Bloom critters — never chaser/cutter', () => {
+    for (const lv of [1, 2, 4, 8, 20]) {
+      const r = bloomRoster(lv);
+      expect(r.chaser).toBe(0); expect(r.cutter).toBe(0); expect(r.sentinel).toBe(0);
+      expect(r.drifter).toBeGreaterThanOrEqual(1);
+    }
   });
-  it('drops one enemy but never below a single one', () => {
-    expect(applyDiffCounts(counts({ drifter: 3, chaser: 0, cutter: 0 }), 2, false, EASY).drifter).toBe(2);
-    expect(applyDiffCounts(counts({ drifter: 1, chaser: 0, cutter: 0 }), 1, false, EASY).drifter).toBe(1);
+  it('introduces the firefly at L2 and the sprite at L4', () => {
+    expect(bloomRoster(1).firefly).toBe(0); expect(bloomRoster(1).sprite).toBe(0);
+    expect(bloomRoster(2).firefly).toBe(1); expect(bloomRoster(3).sprite).toBe(0);
+    expect(bloomRoster(4).sprite).toBe(1);
+    expect(bloomNewEnemy(1)).toBe(null);
+    expect(bloomNewEnemy(2)).toBe('firefly');
+    expect(bloomNewEnemy(3)).toBe(null);                     // firefly already present
+    expect(bloomNewEnemy(4)).toBe('sprite');
+  });
+  it('escalates count + rifts deeper, but stays bounded', () => {
+    expect(bloomRoster(2).firefly).toBeLessThan(bloomRoster(10).firefly!);
+    const base = blueprintForLevel(3);
+    expect(bloomBlueprint(base, 1).rifts).toBe(0);           // no rifts on the first floors
+    expect(bloomBlueprint(base, 2).rifts).toBe(0);
+    expect(bloomBlueprint(base, 3).rifts).toBe(1);           // rifts begin, then ramp
+    expect(bloomBlueprint(base, 99).rifts).toBeLessThanOrEqual(5);
+  });
+  it('keeps Bloom richer on rewards (more caches than the base)', () => {
+    const base = blueprintForLevel(4);
+    expect(bloomBlueprint(base, 4).caches).toBe(base.caches + 2);
   });
 });
 
@@ -81,9 +97,9 @@ describe('Hard turns the screws', () => {
 });
 
 describe('rift density', () => {
-  it('Easy halves rifts; Medium/Hard unchanged', () => {
-    expect(riftCount(3, EASY)).toBe(2);                      // round(1.5)
-    expect(riftCount(4, EASY)).toBe(2);
+  it('Easy passes rifts through (bloomBlueprint controls them); Medium/Hard unchanged', () => {
+    expect(riftCount(3, EASY)).toBe(3);                      // riftScale 1 — no extra scaling
+    expect(riftCount(4, EASY)).toBe(4);
     expect(riftCount(3, MED)).toBe(3);
     expect(riftCount(3, HARD)).toBe(3);
   });
