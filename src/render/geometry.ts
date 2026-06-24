@@ -8,18 +8,17 @@
 import { CW, CH, safeTop } from '../core/dims';
 
 export function menuBtnW() { return Math.min(300, CW - 48); }
-// PLAY is the dominant primary; DAILY + SCORES share a row beneath it.
-export function playBtnRect() { const w = menuBtnW(); return { x: CW / 2 - w / 2, y: CH * 0.58, w, h: 58 }; }
-export function dailyBtnRect() { const w = menuBtnW(), hw = (w - 14) / 2; return { x: CW / 2 - w / 2, y: CH * 0.58 + 74, w: hw, h: 50 }; }
-export function scoresBtnRect() { const w = menuBtnW(), hw = (w - 14) / 2; return { x: CW / 2 - w / 2 + hw + 14, y: CH * 0.58 + 74, w: hw, h: 50 }; }
-// EASY / MED / HARD — a quiet three-up row beneath the DAILY/SCORES row.
+// Bottom-anchored title bar (Horizon reference): PLAY primary, DAILY + SCORES a
+// row below, then the difficulty chips at the very bottom — over the teal frontier.
+export function playBtnRect() { const w = menuBtnW(); return { x: CW / 2 - w / 2, y: CH - 206, w, h: 58 }; }
+export function dailyBtnRect() { const w = menuBtnW(), hw = (w - 14) / 2; return { x: CW / 2 - w / 2, y: CH - 134, w: hw, h: 50 }; }
+export function scoresBtnRect() { const w = menuBtnW(), hw = (w - 14) / 2; return { x: CW / 2 - w / 2 + hw + 14, y: CH - 134, w: hw, h: 50 }; }
+// EASY / MED / HARD — a three-up row at the very bottom.
 export function diffBtnRects(): { x: number; y: number; w: number; h: number; key: 'easy' | 'medium' | 'hard' }[] {
-  const w = menuBtnW(), gap = 10, cw = (w - gap * 2) / 3, x0 = CW / 2 - w / 2, y = CH * 0.58 + 142, h = 40;
+  const w = menuBtnW(), gap = 10, cw = (w - gap * 2) / 3, x0 = CW / 2 - w / 2, y = CH - 70, h = 40;
   const keys: ('easy' | 'medium' | 'hard')[] = ['easy', 'medium', 'hard'];
   return keys.map((key, i) => ({ x: x0 + i * (cw + gap), y, w: cw, h, key }));
 }
-// REPLAY the home intro — a small text button bottom-right of the title screen.
-export function replayBtnRect() { return { x: CW - 112, y: CH - 42, w: 96, h: 30 }; }
 export function pauseBtnRect() { return { x: CW - 56, y: safeTop + 8, w: 46, h: 46 }; }
 // tappable mute glyph in the HUD (so phones can mute without a keyboard)
 export function muteBtnRect() { return { x: CW - 104, y: safeTop + 8, w: 42, h: 46 }; }

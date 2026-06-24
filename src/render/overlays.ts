@@ -9,7 +9,7 @@ import { G } from '../game/state';
 import { CW, CH, OFF_X, OFF_Y, PW, PH } from '../core/dims';
 import { TAU, clamp } from '../core/math';
 import { glowText, fmtScore, roundRectPath } from './primitives';
-import { playBtnRect, dailyBtnRect, scoresBtnRect, diffBtnRects, replayBtnRect, pauseHomeRect, pauseControlRect, pauseMuteRect, pauseMotionRect, goBtnRects } from './geometry';
+import { playBtnRect, dailyBtnRect, scoresBtnRect, diffBtnRects, pauseHomeRect, pauseControlRect, pauseMuteRect, pauseMotionRect, goBtnRects } from './geometry';
 import { isMuted } from '../audio/audio';
 import { todayKey, isConsecutive } from '../daily/daily';
 import { getScores, justSetEntry } from '../game/leaderboard';
@@ -76,7 +76,6 @@ export function drawMenu() {
   // (The daily ignores this and always runs Medium — see effectiveDiff.)
   const diffLabels: Record<string, string> = { easy: 'EASY', medium: 'MEDIUM', hard: 'HARD' };
   const chips = diffBtnRects();
-  glowText('DIFFICULTY', cx, chips[0].y - 18, 9, MUTED, { font: 'mono', spacing: 3, weight: 600, blur: 0, alpha: A });
   for (const r of chips) {
     const on = G.diff === r.key, rad = r.h / 2;
     ctx.save(); ctx.globalAlpha = A;
@@ -91,10 +90,6 @@ export function drawMenu() {
     glowText(diffLabels[r.key], r.x + r.w / 2, r.y + r.h / 2 + 0.5, on ? 13 : 11.5, on ? '#0a0e16' : MUTED,
       { weight: on ? 800 : 600, spacing: 2, blur: 0, alpha: A });
   }
-
-  // REPLAY the intro — quiet text button, bottom-right
-  const rb = replayBtnRect();
-  glowText('↻ REPLAY', rb.x + rb.w / 2, rb.y + rb.h / 2, 10, '#5a708c', { font: 'mono', spacing: 2, weight: 700, blur: 0, alpha: A });
 
   const liveStreak = (G.dailyStreakDate === tk || isConsecutive(G.dailyStreakDate, tk)) ? G.dailyStreak : 0;
   if (liveStreak > 1) glowText(liveStreak + ' DAY STREAK', cx, CH * 0.9, 11, MUTED, { font: 'mono', spacing: 2, weight: 600, blur: 0, alpha: A });
@@ -296,12 +291,12 @@ export function drawAttractWorld() {
     if (!G.reduceMotion) { const k = (t * 0.5) % 1; ctx.globalAlpha = (1 - k) * 0.5 * revealA; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(pxp, pyp, 4 + k * 18, 0, TAU); ctx.stroke(); }
     ctx.globalAlpha = revealA; ctx.shadowColor = '#aafff2'; ctx.shadowBlur = 14; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(pxp, pyp, 4, 0, TAU); ctx.fill();
     ctx.restore();
-    // Qix diamond (slow spin), upper-right
-    const qr = Math.min(22, PW * 0.055);
-    ctx.save(); ctx.globalAlpha = revealA; ctx.translate(0.82 * PW, 0.17 * PH); ctx.rotate((G.reduceMotion ? 0.5 : t * 0.22) + Math.PI / 4);
-    ctx.globalCompositeOperation = 'lighter'; ctx.shadowColor = '#ff5ad0'; ctx.shadowBlur = 8;
-    ctx.strokeStyle = '#ff5ad0'; ctx.lineWidth = 2.5; ctx.strokeRect(-qr, -qr, qr * 2, qr * 2);
-    ctx.strokeStyle = '#ff9ae4'; ctx.lineWidth = 2; ctx.strokeRect(-qr * 0.5, -qr * 0.5, qr, qr);
+    // Qix diamond (slow spin), upper-right — a bigger, bolder landmark
+    const qr = Math.min(42, PW * 0.11);
+    ctx.save(); ctx.globalAlpha = revealA; ctx.translate(0.79 * PW, 0.18 * PH); ctx.rotate((G.reduceMotion ? 0.5 : t * 0.22) + Math.PI / 4);
+    ctx.globalCompositeOperation = 'lighter'; ctx.shadowColor = '#ff5ad0'; ctx.shadowBlur = 11;
+    ctx.strokeStyle = '#ff5ad0'; ctx.lineWidth = 3; ctx.strokeRect(-qr, -qr, qr * 2, qr * 2);
+    ctx.strokeStyle = '#ff9ae4'; ctx.lineWidth = 2.4; ctx.strokeRect(-qr * 0.5, -qr * 0.5, qr, qr);
     ctx.restore();
   }
   ctx.restore();

@@ -29,7 +29,7 @@ import { spawnPopup, updatePopups, updateParticles, updateRings, initMotes, upda
 import { ENEMY_INFO, genEnemies, moveEnemy } from './game/enemies';
 import { blueprintForLevel, newEnemyAtLevel, dailyBlueprint, dailyNewEnemy, DAILY_FLOORS, levelTimeBudget, bloomBlueprint, bloomNewEnemy } from './game/blueprints';
 import { effectiveDiff, loadDiff, setDiff, clearTarget, levelClock, invulnFor, riftCount, applyDiffCounts, playerSpeed } from './game/difficulty';
-import { diffBtnRects, replayBtnRect } from './render/geometry';
+import { diffBtnRects } from './render/geometry';
 import { recomputeBorderPath, recomputePercent, boldClearBonus } from './game/capture';
 import { submitScore } from './game/leaderboard';
 import { recordRun } from './game/stats';
@@ -540,7 +540,6 @@ function pointerDown(p) {
   if (G.state === 'levelclear') { anyKeyAction(); return; }
   // menu — a tap while the intro is still running skips it to the finished title.
   if (G.menuIntroT < MENU_INTRO_DONE) { G.menuIntroT = 999; return; }
-  if (inRect(p.x, p.y, replayBtnRect())) { G.menuIntroT = 0; sfxBlip(); return; }   // replay the intro
   // start a run ONLY from the PLAY button; clicking empty space does nothing.
   for (const r of diffBtnRects()) if (inRect(p.x, p.y, r)) { setDiff(r.key); sfxBlip(); return; }   // EASY/MED/HARD
   if (inRect(p.x, p.y, dailyBtnRect())) { startDaily(); sfxBlip(); return; }
