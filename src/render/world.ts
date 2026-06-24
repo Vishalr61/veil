@@ -501,16 +501,31 @@ function bond(x1, y1, x2, y2, col) {
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.25;
   ctx.strokeStyle = col; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.restore();
 }
-// Drifter — a calm little atom: a nucleus with two electrons on a smooth
-// circular orbit (no tumbling, so it reads cleanly while it bounces). Inert.
+// Drifter — a calm drifting CELL: a bright core inside a softly-breathing,
+// slightly irregular membrane, trailing a short comet smear opposite its travel
+// so its direction reads. No orbiting satellites. Inert, just bounces.
 function drawDrifterBody(e, o, pulse) {
-  const a = G.reduceMotion ? 0.3 : G.time * 0.28 + e.x * 0.3;
-  const rad = e.r * 1.05;
-  molNode(e.x, e.y, e.r * 0.55 * (pulse || 1), o.col, o.glow);
-  for (let i = 0; i < 2; i++) {
-    const ang = a + i * Math.PI;
-    molNode(e.x + Math.cos(ang) * rad, e.y + Math.sin(ang) * rad, e.r * 0.26, '#dfeaf5', o.glow);
+  const t = G.reduceMotion ? 0 : G.time;
+  const sp = Math.hypot(e.vx || 0, e.vy || 0) || 1;
+  const ux = (e.vx || 0) / sp, uy = (e.vy || 1) / sp;   // travel direction
+  // comet smear behind the cell (a soft tapered glow opposite velocity)
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const tx = e.x - ux * e.r * 1.5, ty = e.y - uy * e.r * 1.5;
+  const sm = ctx.createRadialGradient(tx, ty, 0, tx, ty, e.r * 1.6);
+  sm.addColorStop(0, o.glow); sm.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.globalAlpha = 0.22; ctx.fillStyle = sm; ctx.beginPath(); ctx.arc(tx, ty, e.r * 1.6, 0, TAU); ctx.fill();
+  // breathing membrane — a wobbling near-circle that reads as a living cell
+  const mr = e.r * (0.92 + 0.06 * Math.sin(t * 2 + e.x));
+  ctx.globalAlpha = 0.5; ctx.strokeStyle = o.glow; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  for (let i = 0; i <= 16; i++) {
+    const ang = i / 16 * TAU, wob = 1 + 0.08 * Math.sin(ang * 3 + t * 1.6 + e.y);
+    const x = e.x + Math.cos(ang) * mr * wob, y = e.y + Math.sin(ang) * mr * wob;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
   }
+  ctx.closePath(); ctx.stroke(); ctx.restore();
+  // the bright nucleus
+  molNode(e.x, e.y, e.r * 0.5 * (pulse || 1), o.col, o.glow);
 }
 // Chaser — a polar molecule whose lobe points where it's hunting (at you).
 function drawChaserBody(e, o) {
@@ -545,21 +560,44 @@ function drawSentinelBody(e, o) {
     molNode(e.x + ux * rr, e.y + uy * rr, e.r * 0.34, '#dfeaf5', o.glow);
   }
 }
-// The Qix (boss) — a vast, slow molecular mass: a big glowing core wreathed in
-// chaotic prism electrons. Shrinks (via e.r) as you claim the board.
+// The Qix (boss) — a SINGULARITY: a dark, dense void core ringed by a bright
+// swirling accretion disc and a few jagged shards dragged around it. Imposing,
+// not a calm molecule. Shrinks (via e.r) as you claim the board.
 function drawQixBody(e, o) {
   const r = e.r, t = G.reduceMotion ? 0 : G.time;
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  const g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, r * 1.7);
-  g.addColorStop(0, o.glow); g.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.globalAlpha = 0.24 + 0.05 * Math.sin(t * 2); ctx.fillStyle = g;     // restrained halo
-  ctx.beginPath(); ctx.arc(e.x, e.y, r * 1.7, 0, TAU); ctx.fill();
-  ctx.restore();
-  molNode(e.x, e.y, r * 0.46, o.col, o.glow);
-  for (let i = 0; i < 4; i++) {                                           // fewer, calmer electrons
-    const a = t * (0.5 + i * 0.12) + i * 1.57, rr = r * (0.9 + 0.14 * Math.sin(t * 0.6 + i));
-    molNode(e.x + Math.cos(a) * rr, e.y + Math.sin(a) * rr * 0.82, r * 0.12, i % 2 ? '#7fd0ff' : '#d09cff', o.glow);
+  ctx.save();
+  // outer halo (additive)
+  ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, r * 1.8);
+  g.addColorStop(0, o.glow); g.addColorStop(0.55, hexA(o.glow, 0.12)); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.globalAlpha = 0.26 + 0.06 * Math.sin(t * 2); ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(e.x, e.y, r * 1.8, 0, TAU); ctx.fill();
+  // bright swirling accretion ring — two offset elliptical arcs, slowly spun
+  for (let k = 0; k < 2; k++) {
+    ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(t * (0.6 - k * 0.25) + k * 0.7);
+    ctx.globalAlpha = 0.5 - k * 0.18; ctx.lineWidth = 2 - k * 0.6;
+    ctx.strokeStyle = k ? '#d09cff' : o.glow; ctx.shadowColor = o.glow; ctx.shadowBlur = 10;
+    ctx.beginPath(); ctx.ellipse(0, 0, r * (1.05 + k * 0.18), r * (0.62 + k * 0.12), 0, 0.2, TAU - 0.2); ctx.stroke();
+    ctx.restore();
   }
+  // jagged shards dragged around the core
+  ctx.globalAlpha = 0.85; ctx.fillStyle = o.col; ctx.shadowColor = o.glow; ctx.shadowBlur = 8;
+  for (let i = 0; i < 5; i++) {
+    const a = -t * 0.8 + i * TAU / 5, rr = r * (1.0 + 0.12 * Math.sin(t + i)), sx = e.x + Math.cos(a) * rr, sy = e.y + Math.sin(a) * rr;
+    ctx.save(); ctx.translate(sx, sy); ctx.rotate(a + 1.57);
+    ctx.beginPath(); ctx.moveTo(0, -r * 0.22); ctx.lineTo(r * 0.1, 0); ctx.lineTo(0, r * 0.22); ctx.lineTo(-r * 0.1, 0); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+  // the dark void core with a hot rim (drawn over, so it reads as a hole)
+  ctx.save();
+  const cg = ctx.createRadialGradient(e.x, e.y, r * 0.12, e.x, e.y, r * 0.62);
+  cg.addColorStop(0, '#05060c'); cg.addColorStop(0.7, '#0a0a16'); cg.addColorStop(1, hexA(o.glow, 0.0));
+  ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(e.x, e.y, r * 0.62, 0, TAU); ctx.fill();
+  ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = '#fff'; ctx.globalAlpha = 0.5 + 0.2 * Math.sin(t * 3);
+  ctx.lineWidth = 1.3; ctx.shadowColor = o.glow; ctx.shadowBlur = 12;
+  ctx.beginPath(); ctx.arc(e.x, e.y, r * 0.6, 0, TAU); ctx.stroke();
+  ctx.restore();
 }
 // Wraith — an unstable isotope: a faint trembling nucleus; it solidifies and
 // telegraphs (charge ring + aim line) before it blinks at you.
@@ -586,9 +624,7 @@ function drawWraithBody(e, o) {
 // Firefly (Bloom) — a warm glowing nucleus with a soft trailing spark, and a
 // faint ring tracing its orbit so the path it follows is readable at a glance.
 function drawFireflyBody(e, o) {
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  ctx.strokeStyle = o.glow; ctx.globalAlpha = 0.10; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.arc(e.ax, e.ay, e.orad, 0, TAU); ctx.stroke(); ctx.restore();   // orbit hint
+  // (no orbit-ring hint — the path should be read from the firefly itself)
   const flick = G.reduceMotion ? 1 : 0.85 + 0.15 * Math.sin(G.time * 8 + e.x);
   // a small spark trailing behind along the direction of travel
   const tx = e.x - Math.sin(e.oang) * Math.sign(e.ow) * e.r * 1.1;
@@ -799,19 +835,34 @@ export function drawWorld() {
     }
     ctx.globalAlpha = blink; ctx.globalCompositeOperation = 'source-over';
     const px = G.player.px.x, py = G.player.px.y;
-    // molecular hero, kept simple + restrained: a nucleus + a single electron shell.
-    drawGlowOrb(px, py, 3.1 * hs, '#dfe8f5', G.pal.player, 7 * hs);
+    // shield bubble (kept)
     ctx.globalCompositeOperation = 'lighter';
     if (G.shield) {
       ctx.strokeStyle = '#7dffc4'; ctx.globalAlpha = (0.5 + 0.25 * Math.sin(G.time * 6)) * blink;
       ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 17 * hs, 0, TAU); ctx.stroke();
     }
-    const oR = 13 * hs, oMin = 5 * hs, tilt = -0.5, spin = G.reduceMotion ? 0.6 : G.time * 2.2;
-    ctx.strokeStyle = G.pal.edge2; ctx.globalAlpha = 0.26 * blink; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.ellipse(px, py, oR, oMin, tilt, 0, TAU); ctx.stroke();
-    const ox = Math.cos(spin) * oR, oy = Math.sin(spin) * oMin;
-    const ex = px + ox * Math.cos(tilt) - oy * Math.sin(tilt), ey = py + ox * Math.sin(tilt) + oy * Math.cos(tilt);
-    ctx.globalAlpha = 0.85 * blink; drawGlowOrb(ex, ey, 1.3 * hs, '#cfe0f0', G.pal.edge2, 4 * hs);
+    // directional CRYSTAL hero — a faceted diamond that points the way you travel,
+    // so heading + identity read instantly (no enemy is a sharp directional shape).
+    let ha = G.player.heroAng != null ? G.player.heroAng : -Math.PI / 2;
+    if (G.player.dir && (G.player.dir.x || G.player.dir.y)) { ha = Math.atan2(G.player.dir.y, G.player.dir.x); G.player.heroAng = ha; }
+    const cs = 5 * hs;
+    ctx.save(); ctx.translate(px, py); ctx.rotate(ha);
+    // soft halo
+    ctx.globalCompositeOperation = 'lighter';
+    const hgrad = ctx.createRadialGradient(0, 0, 0, 0, 0, cs * 2.2);
+    hgrad.addColorStop(0, G.pal.player); hgrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalAlpha = 0.5 * blink; ctx.fillStyle = hgrad; ctx.beginPath(); ctx.arc(0, 0, cs * 2.2, 0, TAU); ctx.fill();
+    // crystal body (a kite elongated forward): white-hot fill + a tinted rim
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.beginPath(); ctx.moveTo(cs * 1.7, 0); ctx.lineTo(0, cs * 0.85); ctx.lineTo(-cs * 0.9, 0); ctx.lineTo(0, -cs * 0.85); ctx.closePath();
+    const cgrad = ctx.createLinearGradient(-cs, 0, cs * 1.7, 0);
+    cgrad.addColorStop(0, G.pal.player); cgrad.addColorStop(0.6, '#eaf2ff'); cgrad.addColorStop(1, '#ffffff');
+    ctx.globalAlpha = blink; ctx.fillStyle = cgrad; ctx.fill();
+    ctx.lineJoin = 'round'; ctx.lineWidth = 1.2; ctx.strokeStyle = G.pal.edge2; ctx.globalAlpha = 0.85 * blink; ctx.stroke();
+    // bright center facet ridge
+    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.7 * blink;
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-cs * 0.9, 0); ctx.lineTo(cs * 1.7, 0); ctx.stroke();
+    ctx.restore();
     ctx.restore();
   }
 
