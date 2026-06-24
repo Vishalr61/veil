@@ -64,6 +64,9 @@ function hasEscape(idx) {
   return false;
 }
 export function updatePlayer(dt) {
+  // The moment the player steers, dismiss any lingering intro/zone banner so the
+  // card + text never block the view while you're moving (quick fade, not a pop).
+  if (G.banner.t > 0.3 && (G.buffered || !G.player.stopped)) G.banner.t = 0.3;
   // The FUSE: while a line is open, a spark crawls it; close (capture) or get
   // back to safe ground before it runs out, or it catches you. Punishes long,
   // greedy single draws — the genre's core tension.

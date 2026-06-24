@@ -10,7 +10,7 @@
 import { TAU, rand } from './core/math';
 import { SeededRng } from './core/rng';
 import { genVeilBoard } from './sim/veil';
-import { genObstacles, openInteriorCount } from './sim/terrain';
+import { genObstacles, openInteriorCount, assignObstacleKinds } from './sim/terrain';
 import { todayKey, seedFromDateKey, shareText, isConsecutive } from './daily/daily';
 import { shareResult } from './platform/share';
 import { EMPTY, FILLED, OBSTACLE, SS } from './core/constants';
@@ -177,6 +177,8 @@ function initLevel(lv) {
   const obst = genObstacles(G.rng.fork('terrain'), { cols: COLS, rows: ROWS, level: lv, startIdx: COLS >> 1, motif: bp.motif, density: bp.density });
   for (let i = 0; i < G.grid.length; i++) if (obst[i]) G.grid[i] = OBSTACLE;
   setInteriorTotal(openInteriorCount(obst, COLS, ROWS));   // target denominator excludes rock
+  // Bloom: label each obstacle cluster a garden-object kind (boulder/log/bush/…) for varied terrain
+  G.obstacleKind = isBloom ? assignObstacleKinds(G.grid, COLS, ROWS) : new Uint8Array(0);
   G.veilBoard = genVeilBoard(G.rng.fork('veil'), { cols: COLS, rows: ROWS, level: lv, isOpen: (i) => G.grid[i] === EMPTY, caches: bp.caches, rifts: riftCount(bp.rifts, diff) });
 
   G.nebula = genNebula(G.pal, lv, PW, PH, bp.depth); G.fog = genFog(G.pal, PW, PH, bp.depth); genTwinkles();
