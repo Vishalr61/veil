@@ -1070,7 +1070,10 @@ export function drawWorld() {
       glowText(bloom ? 'NEW BLOOM' : 'NEW THREAT', PW / 2, PH / 2 - 46, 9, eg, { blur: 6, weight: 800, spacing: 3, alpha: a * 0.8 });
     }
     glowText(G.banner.text, PW / 2, PH / 2 - 12, G.banner.enemy ? 20 : 25, G.pal.edge2, { blur: 20, weight: 800, spacing: 3, core: '#fff', alpha: a });
-    glowText(G.banner.sub, PW / 2, PH / 2 + 22, 15, '#cfe6ff', { blur: 6, font: 'mono', spacing: 1, alpha: a });
+    // shrink the desc to fit the board width (mono advance ~0.6*size + 1px spacing),
+    // so long copy never overflows the screen on a narrow phone.
+    const subSize = Math.max(9, Math.min(15, (PW * 0.9 / Math.max(1, G.banner.sub.length) - 1) / 0.6));
+    glowText(G.banner.sub, PW / 2, PH / 2 + 22, subSize, '#cfe6ff', { blur: 6, font: 'mono', spacing: 1, alpha: a });
   }
 
   ctx.restore(); // world
