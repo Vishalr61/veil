@@ -46,7 +46,7 @@ export const ENEMY_INFO = {
   sentinel: { name: 'SENTINEL', desc: 'attacks while you rest on land' },
   sleeper: { name: 'VEIL-SLEEPER', desc: 'reveals in the dark — wake it' },
   wraith: { name: 'WRAITH', desc: 'blinks through the rift toward you' },
-  qix: { name: 'THE QIX', desc: 'a vast roamer — claim the board to shrink it' },
+  qix: { name: 'THE NUCLEUS', desc: 'a vast roamer — claim the board to shrink it' },
   // Bloom (Easy) garden critters — gentle, telegraphed, never hunters.
   firefly: { name: 'FIREFLY', desc: 'drifts in a gentle ring — time your crossing' },
   sprite: { name: 'SPRITE', desc: 'gathers light, then hops — watch the tell' },
@@ -103,7 +103,7 @@ export function genEnemies(lv, counts: EnemyCounts = enemyCounts(lv)) {
     const p = spawnCell(9, false), s = spd * 0.45, r = CELL * 1.15;   // a slow roamer (moderate size)
     out.push({ x: p.x, y: p.y, vx: (G.rng.next() < 0.5 ? -1 : 1) * s * 0.7071, vy: (G.rng.next() < 0.5 ? -1 : 1) * s * 0.7071,
       r, baseR: r, type: 'qix', speed: s, comp: s * 0.7071, steerT: G.rng.range(0.8, 1.4),
-      emitT: 10, emitSpd: spd });   // boss power: spits out a drifter on a 10s timer (Bloom only)
+      emitT: 5, emitSpd: spd });   // boss power: first drifter at 5s, then every 10s (Bloom only)
   }
   for (let i = 0; i < n.sleeper; i++) placeSleeper(spd * 0.95);
   return out;
@@ -167,7 +167,14 @@ export function moveEnemy(e, dt) {
       return;
     }
     e.hopT -= dt;
-    if (e.hopT <= 0) e.charging = 0.6;
+    if (e.hopT <= 0) {
+      // tie the tell length to the hop distance: a longer wind-up telegraphs a
+      // bigger jump. Mostly medium, with rare short/long hops for variety.
+      const roll = Math.random();
+      if (roll < 0.18) { e.charging = e.chargeMax = 0.4; e.hopDist = CELL * 1.5; }        // rare short
+      else if (roll > 0.85) { e.charging = e.chargeMax = 0.95; e.hopDist = CELL * 3.6; }  // rare long
+      else { e.charging = e.chargeMax = 0.6; e.hopDist = CELL * 2.4; }                    // common medium
+    }
     return;   // holds still between hops
   }
   // qix (boss): a vast, slow roamer. It shrinks as you claim the board, and

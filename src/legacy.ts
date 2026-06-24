@@ -225,7 +225,9 @@ function initLevel(lv) {
   // a level that introduces a new enemy always teaches what it does (wins over the title)
   const newType = G.isDaily ? dailyNewEnemy(lv) : diff.key === 'easy' ? bloomNewEnemy(lv) : newEnemyAtLevel(lv);
   if (newType) G.banner = { text: ENEMY_INFO[newType].name, sub: ENEMY_INFO[newType].desc, t: 3.4, enemy: newType };
-  if (summit) G.banner = { text: ENEMY_INFO.qix.name, sub: ENEMY_INFO.qix.desc, t: 3.2, enemy: 'qix' };   // boss floor
+  // Introduce the boss only the FIRST time it appears (first summit), not on every
+  // summit — it's the same boss with the same mechanics. (Daily has one summit.)
+  if (summit && (G.isDaily || lv === LEVELS_PER_BAND)) G.banner = { text: ENEMY_INFO.qix.name, sub: ENEMY_INFO.qix.desc, t: 3.2, enemy: 'qix' };
   G.hintActive = (lv === 1 && !G.isDaily);
   setMusicTheme(G.isDaily ? 'rift' : G.pal.style);   // soundtrack key/tempo follows the zone
   G.introT = G.reduceMotion ? 0 : 1;   // fade the level up + settle the zoom (covers the hard cut)

@@ -648,7 +648,7 @@ function drawSpriteBody(e, o) {
     ctx.restore();
   }
   const charging = e.charging > 0;
-  const k = charging ? 1 - e.charging / 0.6 : 0;     // 0 -> 1 over the tell
+  const k = charging ? 1 - e.charging / (e.chargeMax || 0.6) : 0;     // 0 -> 1 over the tell
   const swell = 1 + k * 0.5;
   molNode(e.x, e.y, e.r * 0.46 * swell, o.col, o.glow);
   const petals = 5, spin = G.reduceMotion ? 0 : G.time * 0.6;
@@ -816,8 +816,8 @@ export function drawWorld() {
     const isFf = e.type === 'firefly', isSp = e.type === 'sprite';
     let prox = 0;
     if (G.player && G.player.px && G.state === 'playing') prox = clamp(1 - Math.hypot(G.player.px.x - e.x, G.player.px.y - e.y) / (CELL * 6), 0, 1);
-    const col = frozen ? '#bfe9ff' : isFf ? '#ffe69a' : isSp ? '#cdeeff' : isCut ? '#ffe93b' : isSent ? '#ffb14a' : isWr ? '#c89cff' : isQix ? '#d8404e' : isCh ? CHASER_COL : ENEMY_COL;
-    const glow = frozen ? '#bfe9ff' : isFf ? '#ffd45c' : isSp ? '#4fd4ff' : isCut ? '#fff07a' : isSent ? '#ffd07a' : isWr ? '#5cf0ff' : isQix ? '#ef5a4e' : isCh ? CHASER_GLOW : ENEMY_GLOW;
+    const col = frozen ? '#bfe9ff' : isFf ? '#ffe69a' : isSp ? '#c98cff' : isCut ? '#ffe93b' : isSent ? '#ffb14a' : isWr ? '#c89cff' : isQix ? '#d8404e' : isCh ? CHASER_COL : ENEMY_COL;
+    const glow = frozen ? '#bfe9ff' : isFf ? '#ffd45c' : isSp ? '#9a4cff' : isCut ? '#fff07a' : isSent ? '#ffd07a' : isWr ? '#5cf0ff' : isQix ? '#ef5a4e' : isCh ? CHASER_GLOW : ENEMY_GLOW;
     const o = { col, glow, frozen };
     // distinct silhouette per type (each telegraphs its behaviour)
     if (isCh) drawChaserBody(e, o);
@@ -936,9 +936,23 @@ export function drawWorld() {
     const a = clamp(G.banner.t * 1.6, 0, 1);   // pop in, fade out over the last ~0.6s
     if (G.banner.enemy) {
       const bloom = G.banner.enemy === 'firefly' || G.banner.enemy === 'sprite';
-      const ec = G.banner.enemy === 'chaser' ? CHASER_COL : G.banner.enemy === 'cutter' ? '#ffe93b' : G.banner.enemy === 'sentinel' ? '#ffb14a' : G.banner.enemy === 'firefly' ? '#ffe69a' : G.banner.enemy === 'sprite' ? '#bff5c8' : '#ff3a4e';
-      const eg = G.banner.enemy === 'chaser' ? CHASER_GLOW : G.banner.enemy === 'cutter' ? '#fff07a' : G.banner.enemy === 'sentinel' ? '#ffd07a' : G.banner.enemy === 'firefly' ? '#ffd45c' : G.banner.enemy === 'sprite' ? '#6ff0a0' : '#ff6a4a';
-      ctx.save(); ctx.globalAlpha = a; drawGlowOrb(PW / 2, PH / 2 - 62, CELL * 0.5, ec, eg, CELL * 2); ctx.restore();
+      const be = G.banner.enemy;
+      const ec = be === 'chaser' ? CHASER_COL : be === 'cutter' ? '#ffe93b' : be === 'sentinel' ? '#ffb14a' : be === 'firefly' ? '#ffe69a' : be === 'sprite' ? '#c98cff' : be === 'qix' ? '#d8404e' : '#ff3a4e';
+      const eg = be === 'chaser' ? CHASER_GLOW : be === 'cutter' ? '#fff07a' : be === 'sentinel' ? '#ffd07a' : be === 'firefly' ? '#ffd45c' : be === 'sprite' ? '#9a4cff' : be === 'qix' ? '#ef5a4e' : '#ff6a4a';
+      // preview the ACTUAL creature design (not a generic orb), drawn small + centered
+      const bx = PW / 2, by = PH / 2 - 64, br = CELL * 0.85;
+      const fe: any = { x: bx, y: by, r: br, ax: bx, ay: by, orad: 0, oang: 0, ow: 1, charging: 0, baseR: br, vx: br, vy: 0 };
+      const bo = { col: ec, glow: eg };
+      ctx.save(); ctx.globalAlpha = a;
+      if (be === 'firefly') drawFireflyBody(fe, bo);
+      else if (be === 'sprite') drawSpriteBody(fe, bo);
+      else if (be === 'qix') drawQixBody(fe, bo);
+      else if (be === 'chaser') drawChaserBody(fe, bo);
+      else if (be === 'cutter') drawCutterBody(fe, bo);
+      else if (be === 'sentinel') drawSentinelBody(fe, bo);
+      else if (be === 'wraith') drawWraithBody(fe, bo);
+      else drawGlowOrb(bx, by, CELL * 0.5, ec, eg, CELL * 2);
+      ctx.restore();
       glowText(bloom ? 'NEW BLOOM' : 'NEW THREAT', PW / 2, PH / 2 - 30, 9, eg, { blur: 6, weight: 800, spacing: 3, alpha: a * 0.8 });
     }
     glowText(G.banner.text, PW / 2, PH / 2 - 12, G.banner.enemy ? 20 : 25, G.pal.edge2, { blur: 20, weight: 800, spacing: 3, core: '#fff', alpha: a });
