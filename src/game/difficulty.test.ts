@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { G } from '../game/state';
 import {
   DIFFS, effectiveDiff, fuseWindow, levelClock, clearTarget, enemySpeed,
-  applyDiffCounts, riftCount, invulnFor,
+  applyDiffCounts, riftCount, invulnFor, playerSpeed,
 } from './difficulty';
 import { bloomRoster, bloomBlueprint, bloomNewEnemy, blueprintForLevel } from './blueprints';
 
@@ -78,6 +78,16 @@ describe('Easy = the Bloom garden roster + map transform', () => {
   it('keeps Bloom richer on rewards (more caches than the base)', () => {
     const base = blueprintForLevel(4);
     expect(bloomBlueprint(base, 4).caches).toBe(base.caches + 2);
+  });
+});
+
+describe('hero move speed', () => {
+  it('Medium/Hard reproduce today; Easy ramps gentler and caps lower', () => {
+    expect(playerSpeed(1, MED)).toBeCloseTo(13.5, 5);        // 13.5 + 0.5*(lv-1)
+    expect(playerSpeed(50, MED)).toBe(20);                   // cap
+    expect(playerSpeed(1, HARD)).toBeCloseTo(13.5, 5);
+    expect(playerSpeed(6, EASY)).toBeLessThan(playerSpeed(6, MED));   // L6+ is the gripe — calmer on Easy
+    expect(playerSpeed(99, EASY)).toBe(15);                  // low cap so deep floors stay controllable
   });
 });
 

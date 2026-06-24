@@ -776,7 +776,7 @@ export function drawWorld() {
 
   // enemies (danger glow scales with proximity to player)
   for (const e of G.enemies) {
-    const pulse = 1 + Math.sin(G.time * 6 + e.x) * 0.08;
+    const pulse = G.reduceMotion ? 1 : 1 + Math.sin(G.time * 6 + e.x) * 0.08;   // core breathing (calm in reduce-motion)
     const frozen = G.enemyFreezeT > 0;
     // dormant veil-sleeper: a faint tell under the dark, not a full threat glow
     if (e.type === 'sleeper' && e.asleep) {
@@ -806,14 +806,15 @@ export function drawWorld() {
     // shared close-range danger ring
     if (prox > 0.35 && !frozen) {
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
-      ctx.strokeStyle = glow; ctx.globalAlpha = (prox - 0.35) * 1.2 * (0.6 + 0.4 * Math.sin(G.time * 14));
+      ctx.strokeStyle = glow; ctx.globalAlpha = (prox - 0.35) * 1.2 * (0.6 + 0.4 * (G.reduceMotion ? 0 : Math.sin(G.time * 14)));
       ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 2.1, 0, TAU); ctx.stroke(); ctx.restore();
     }
   }
 
   // player
   if (G.player && G.player.px && G.state === 'playing') {
-    const blink = G.player.invuln > 0 ? (Math.sin(G.time * 30) > 0 ? 0.35 : 1) : 1;
+    // invuln feedback: a strobe normally, but a steady dim in reduce-motion (no flashing)
+    const blink = G.player.invuln > 0 ? (G.reduceMotion ? 0.6 : (Math.sin(G.time * 30) > 0 ? 0.35 : 1)) : 1;
     ctx.save();
     ctx.globalAlpha = blink;
     ctx.globalCompositeOperation = 'lighter';
@@ -823,7 +824,7 @@ export function drawWorld() {
     // a flowing speed streak through the recent positions — tapered + brightest
     // near the hero — so motion reads as fast/alive instead of a faint bead trail.
     const tl = G.player.tail;
-    if (tl.length > 1) {
+    if (tl.length > 1 && !G.reduceMotion) {   // the motion streak is decorative — drop it in reduce-motion
       ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = G.pal.trail;
       ctx.shadowColor = G.pal.trail; ctx.shadowBlur = 6 * hs;
       for (let i = 1; i < tl.length; i++) {
@@ -838,7 +839,7 @@ export function drawWorld() {
     // shield bubble (kept)
     ctx.globalCompositeOperation = 'lighter';
     if (G.shield) {
-      ctx.strokeStyle = '#7dffc4'; ctx.globalAlpha = (0.5 + 0.25 * Math.sin(G.time * 6)) * blink;
+      ctx.strokeStyle = '#7dffc4'; ctx.globalAlpha = (0.5 + 0.25 * (G.reduceMotion ? 0 : Math.sin(G.time * 6))) * blink;
       ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 17 * hs, 0, TAU); ctx.stroke();
     }
     // directional CRYSTAL hero — a faceted diamond that points the way you travel,

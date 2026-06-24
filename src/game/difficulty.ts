@@ -37,6 +37,11 @@ export interface DiffConfig {
   chaserFromLevel: number;  // suppress chasers before this level (0 = never suppress)
   cutterFromLevel: number;  // suppress cutters before this level
   invulnScale: number;      // multiplier on spawn invulnerability
+  // hero movement (cells/s-ish): Easy ramps far gentler so deep floors stay
+  // controllable — its difficulty comes from enemy count, not hero speed.
+  heroBase: number;
+  heroRamp: number;
+  heroCap: number;
   // economy
   pickupFreq: number;       // pickup frequency multiplier (interval is divided by this)
   riftScale: number;        // multiplier on rift (hazard) count
@@ -49,6 +54,7 @@ const medium: DiffConfig = {
   fuse: true, fuseScale: 1, clock: true, clockScale: 1, lives: 3,
   targetDelta: 0, targetFloor: 0,
   speedBase: 1, speedRamp: 1, speedCap: 240, countDelta: 0, chaserFromLevel: 0, cutterFromLevel: 0, invulnScale: 1,
+  heroBase: 13.5, heroRamp: 0.5, heroCap: 20,   // today's hero-speed curve
   pickupFreq: 1, riftScale: 1, scoreMult: 1,
 };
 
@@ -63,6 +69,7 @@ const easy: DiffConfig = {
   // speed is intentionally near-flat: a low ramp + a low cap so deeper Bloom
   // floors escalate via the other levers, never twitch.
   speedBase: 0.7, speedRamp: 0.15, speedCap: 120, countDelta: 0, chaserFromLevel: 0, cutterFromLevel: 0, invulnScale: 1.5,
+  heroBase: 12.5, heroRamp: 0.2, heroCap: 15,   // near-flat hero speed: stays controllable deep in
   pickupFreq: 1.5, riftScale: 1, scoreMult: 0.75,   // rifts controlled by bloomBlueprint, so no extra scale
 };
 
@@ -72,6 +79,7 @@ const hard: DiffConfig = {
   fuse: true, fuseScale: 0.8, clock: true, clockScale: 0.8, lives: 2,
   targetDelta: 0, targetFloor: 0,
   speedBase: 1.1, speedRamp: 1.1, speedCap: 240, countDelta: 1, chaserFromLevel: 0, cutterFromLevel: 0, invulnScale: 0.7,
+  heroBase: 13.5, heroRamp: 0.5, heroCap: 20,   // hero speed as today (Hard's bite is enemies/clock/fuse)
   pickupFreq: 0.6, riftScale: 1, scoreMult: 1.5,
 };
 
@@ -118,6 +126,13 @@ export function levelClock(budget: number, cfg: DiffConfig): number {
 // Enemy speed; Medium reproduces enemies.ts' min(140 + 9*(lv-1), 240).
 export function enemySpeed(level: number, cfg: DiffConfig): number {
   return Math.min(140 * cfg.speedBase + 9 * cfg.speedRamp * (level - 1), cfg.speedCap);
+}
+
+// Hero move speed; Medium/Hard reproduce today's min(13.5 + 0.5*(lv-1), 20). Easy
+// ramps far gentler (cap 15) so the player stays in control on deep floors —
+// difficulty there comes from the rising enemy count, not twitch movement.
+export function playerSpeed(level: number, cfg: DiffConfig): number {
+  return Math.min(cfg.heroBase + cfg.heroRamp * (level - 1), cfg.heroCap);
 }
 
 // Spawn invulnerability scaled per mode (Easy more, Hard less).

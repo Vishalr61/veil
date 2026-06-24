@@ -28,7 +28,7 @@ import { drawWorld, tickShootingStars } from './render/world';
 import { spawnPopup, updatePopups, updateParticles, updateRings, initMotes, updateMotes } from './game/particles';
 import { ENEMY_INFO, genEnemies, moveEnemy } from './game/enemies';
 import { blueprintForLevel, newEnemyAtLevel, dailyBlueprint, dailyNewEnemy, DAILY_FLOORS, levelTimeBudget, bloomBlueprint, bloomNewEnemy } from './game/blueprints';
-import { effectiveDiff, loadDiff, setDiff, clearTarget, levelClock, invulnFor, riftCount, applyDiffCounts } from './game/difficulty';
+import { effectiveDiff, loadDiff, setDiff, clearTarget, levelClock, invulnFor, riftCount, applyDiffCounts, playerSpeed } from './game/difficulty';
 import { diffBtnRects } from './render/geometry';
 import { recomputeBorderPath, recomputePercent, boldClearBonus } from './game/capture';
 import { submitScore } from './game/leaderboard';
@@ -192,7 +192,7 @@ function initLevel(lv) {
 
   // gentler ramp + a lower cap so high levels stay controllable (was 11 + 0.6*lv, cap 18,
   // which hit max ~L12 and felt twitchy/buggy to steer).
-  G.baseSpeed = Math.min(13.5 + 0.5 * (lv - 1), 20);   // snappier — quick from L1, faster ramp + higher cap
+  G.baseSpeed = playerSpeed(lv, diff);   // per-difficulty hero speed (Easy near-flat; Medium/Hard = today's curve)
   // cap the reveal target ~74%: the last ~15-20% of a board was a slow, grindy
   // chip-away against the most crowded enemies. Early levels (<0.74) are
   // unchanged; the curve now climbs to 0.74 and holds, with difficulty carried
@@ -230,8 +230,10 @@ function startGame(seed?: number) {
 }
 function winLevel() {
   const pctBonus = Math.round(G.percent * 100) * G.level * 6, lifeBonus = G.lives * 350;
-  // speed bonus: reward the time you had left on the clock
-  G.lastTimeBonus = Math.max(0, Math.round((G.levelTimeMax - G.levelT) * (8 + G.level)));
+  // speed bonus: reward the time you had left on the clock. With no clock (Easy,
+  // levelTimeMax = Infinity) there's nothing to beat, so no speed bonus — and this
+  // avoids Infinity*… leaking into the score.
+  G.lastTimeBonus = isFinite(G.levelTimeMax) ? Math.max(0, Math.round((G.levelTimeMax - G.levelT) * (8 + G.level))) : 0;
   // bold clear: reward overshooting the target in one daring sweep (Qix/Xonix risk-reward)
   G.lastOverBonus = boldClearBonus(G.percent, G.target, G.level);
   G.lastBonus = pctBonus + lifeBonus + G.lastTimeBonus + G.lastOverBonus; G.score += G.lastBonus;
