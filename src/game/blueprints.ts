@@ -225,23 +225,31 @@ export function newEnemyAtLevel(lv: number): string | null {
 // single creature (a firefly meadow, a sprite hollow), some are mixes, and the
 // summit (every 5th) is a full mix + the Qix. The featured count grows slowly
 // with depth. No hunters (chaser/cutter/sentinel always 0).
+// Per-floor non-boss enemy BUDGET: ramps +1 every 2 floors and CAPS at 10. Past
+// the cap (~floor 17) the count holds — only the map + enemy type keep changing,
+// so deeper play is an endurance run, not an ever-denser screen. The Nucleus boss
+// and the drifters it emits are extra and do NOT count toward this 10.
+export const BLOOM_ENEMY_CAP = 10;
+function bloomBudget(lv: number): number {
+  return Math.min(2 + Math.floor((lv - 1) / 2), BLOOM_ENEMY_CAP);
+}
 export function bloomRoster(lv: number): EnemyCounts {
   const z: EnemyCounts = { drifter: 0, firefly: 0, sprite: 0, chaser: 0, cutter: 0, sentinel: 0, sleeper: 0 };
-  const tier = Math.floor((lv - 1) / 5);   // +1 to featured counts every 5 floors
-  const base = 2 + tier;
-  if (lv === 1) { z.drifter = 2; return z; }                    // teach: drifters only
-  if (lv === 2) { z.firefly = base; return z; }                 // FIREFLY debut — fireflies only
-  if (lv === 3) { z.drifter = 1; z.firefly = base; return z; }  // drifters + fireflies
-  if (lv === 4) { z.sprite = base; return z; }                  // SPRITE debut — sprites only
-  // L5+: a rotating set of themed floors within each 5-floor band
+  const b = bloomBudget(lv);
+  if (lv === 1) { z.drifter = b; return z; }                                  // teach: drifters only
+  if (lv === 2) { z.firefly = b; return z; }                                  // FIREFLY debut — fireflies only
+  if (lv === 3) { z.drifter = Math.ceil(b / 2); z.firefly = Math.floor(b / 2); return z; }
+  if (lv === 4) { z.sprite = b; return z; }                                   // SPRITE debut — sprites only
+  // L5+: a rotating set of themed floors within each 5-floor band — a single-type
+  // floor for each creature (Airxonix-style), a mix, then the boss summit.
   switch ((lv - 1) % 5) {
-    case 0: z.firefly = base + 1; break;                        // firefly meadow (all fireflies)
-    case 1: z.sprite = base + 1; break;                         // sprite hollow (all sprites)
-    case 2: z.drifter = 1 + tier; z.firefly = base; break;      // drifters + fireflies
-    case 3: z.drifter = 1; z.sprite = base; break;              // drifters + sprites
-    // summit: the Qix boss carries it (and emits its own drifters), so the base
-    // roster is lighter — just a few fireflies + sprites around the boss.
-    default: z.firefly = 1 + tier; z.sprite = 1 + tier;
+    case 0: z.firefly = b; break;                                             // firefly meadow (all fireflies)
+    case 1: z.sprite = b; break;                                              // sprite hollow (all sprites)
+    case 2: z.drifter = b; break;                                             // drifter swarm (all drifters)
+    case 3: z.firefly = Math.ceil(b / 2); z.sprite = Math.floor(b / 2); break; // fae mix (firefly + sprite)
+    // summit: THE NUCLEUS carries it (and emits drifters), so the base roster is a
+    // light mix around the boss — capped low so the floor never gets out of hand.
+    default: z.firefly = Math.min(Math.ceil(b / 3), 3); z.sprite = Math.min(Math.ceil(b / 3), 3);
   }
   return z;
 }

@@ -71,17 +71,21 @@ describe('Easy = the Bloom garden roster + map transform', () => {
     expect(bloomNewEnemy(4)).toBe('sprite');
     expect(bloomNewEnemy(7)).toBe(null);                             // sprite reappears but isn't "new"
   });
-  it('has Airxonix-style single-type themed floors deeper in', () => {
+  it('has Airxonix-style single-type themed floors for EACH creature deeper in', () => {
     expect(bloomRoster(6).drifter + bloomRoster(6).sprite!).toBe(0); // L6 = firefly meadow
     expect(bloomRoster(6).firefly).toBeGreaterThan(0);
     expect(bloomRoster(7).drifter + bloomRoster(7).firefly!).toBe(0);// L7 = sprite hollow
     expect(bloomRoster(7).sprite).toBeGreaterThan(0);
+    expect(bloomRoster(8).firefly! + bloomRoster(8).sprite!).toBe(0);// L8 = drifter swarm
+    expect(bloomRoster(8).drifter).toBeGreaterThan(0);
   });
-  it('escalates the featured count + rifts deeper, but stays bounded', () => {
+  it('escalates count deeper, then CAPS total non-boss enemies at 10', () => {
     expect(bloomRoster(6).firefly!).toBeGreaterThan(bloomRoster(2).firefly!);   // deeper firefly floor has more
+    const total = (r: any) => r.drifter + (r.firefly || 0) + (r.sprite || 0);
+    expect(total(bloomRoster(8))).toBeLessThan(total(bloomRoster(18)));         // still rising mid-game (both drifter swarms)
+    for (const lv of [20, 40, 99]) expect(total(bloomRoster(lv))).toBeLessThanOrEqual(10);   // hard cap
     const base = blueprintForLevel(3);
     expect(bloomBlueprint(base, 1).rifts).toBe(0);
-    expect(bloomBlueprint(base, 2).rifts).toBe(0);
     expect(bloomBlueprint(base, 3).rifts).toBe(1);
     expect(bloomBlueprint(base, 99).rifts).toBeLessThanOrEqual(5);
   });

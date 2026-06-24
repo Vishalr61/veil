@@ -939,8 +939,9 @@ export function drawWorld() {
       const be = G.banner.enemy;
       const ec = be === 'chaser' ? CHASER_COL : be === 'cutter' ? '#ffe93b' : be === 'sentinel' ? '#ffb14a' : be === 'firefly' ? '#ffe69a' : be === 'sprite' ? '#c98cff' : be === 'qix' ? '#d8404e' : '#ff3a4e';
       const eg = be === 'chaser' ? CHASER_GLOW : be === 'cutter' ? '#fff07a' : be === 'sentinel' ? '#ffd07a' : be === 'firefly' ? '#ffd45c' : be === 'sprite' ? '#9a4cff' : be === 'qix' ? '#ef5a4e' : '#ff6a4a';
-      // preview the ACTUAL creature design (not a generic orb), drawn small + centered
-      const bx = PW / 2, by = PH / 2 - 64, br = CELL * 0.85;
+      // preview the ACTUAL creature design (not a generic orb) — kept high + small
+      // so its glow/electrons never crowd the "NEW BLOOM/THREAT" label below it
+      const bx = PW / 2, by = PH / 2 - 96, br = CELL * 0.66;
       const fe: any = { x: bx, y: by, r: br, ax: bx, ay: by, orad: 0, oang: 0, ow: 1, charging: 0, baseR: br, vx: br, vy: 0 };
       const bo = { col: ec, glow: eg };
       ctx.save(); ctx.globalAlpha = a;
@@ -953,7 +954,7 @@ export function drawWorld() {
       else if (be === 'wraith') drawWraithBody(fe, bo);
       else drawGlowOrb(bx, by, CELL * 0.5, ec, eg, CELL * 2);
       ctx.restore();
-      glowText(bloom ? 'NEW BLOOM' : 'NEW THREAT', PW / 2, PH / 2 - 30, 9, eg, { blur: 6, weight: 800, spacing: 3, alpha: a * 0.8 });
+      glowText(bloom ? 'NEW BLOOM' : 'NEW THREAT', PW / 2, PH / 2 - 46, 9, eg, { blur: 6, weight: 800, spacing: 3, alpha: a * 0.8 });
     }
     glowText(G.banner.text, PW / 2, PH / 2 - 12, G.banner.enemy ? 20 : 25, G.pal.edge2, { blur: 20, weight: 800, spacing: 3, core: '#fff', alpha: a });
     glowText(G.banner.sub, PW / 2, PH / 2 + 22, 15, '#cfe6ff', { blur: 6, font: 'mono', spacing: 1, alpha: a });

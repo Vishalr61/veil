@@ -117,7 +117,10 @@ export function checkCollisions() {
     if (e.type === 'sleeper' && e.asleep) continue;   // dormant: harmless until woken
     const ec = eCell(e);
     if (G.grid[ec] === TRAIL) { triggerDeath(); return; }
-    if (!safe && G.player.invuln <= 0 && Math.hypot(G.player.px.x - e.x, G.player.px.y - e.y) < CELL * 0.78) { triggerDeath(); return; }
+    // the firefly flies into your claimed land, so it's the one mob that can hit
+    // you even on safe ground (it's predictable, so this is fair, not cheap).
+    const ignoresSafe = e.type === 'firefly';
+    if ((!safe || ignoresSafe) && G.player.invuln <= 0 && Math.hypot(G.player.px.x - e.x, G.player.px.y - e.y) < CELL * 0.78) { triggerDeath(); return; }
   }
 }
 // Near-miss: while drawing (vulnerable), slipping past an enemy by a hair — it
