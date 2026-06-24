@@ -37,18 +37,16 @@ function minBtn(r: any, label: string, primary: boolean, tint?: string) {
 }
 export function drawMenu() {
   const cx = CW / 2;
-  // a whisper of a scrim for legibility (the backdrop is already calm)
-  ctx.save(); ctx.fillStyle = 'rgba(5,8,14,0.28)'; ctx.fillRect(0, 0, CW, CH); ctx.restore();
+  // a light scrim — just enough for text legibility over the Horizon backdrop
+  ctx.save(); ctx.fillStyle = 'rgba(5,8,14,0.16)'; ctx.fillRect(0, 0, CW, CH); ctx.restore();
 
-  // BEST — tiny, restrained, only when there's a score
-  if (G.highScore > 0) glowText('BEST  ' + fmtScore(G.highScore), cx, CH * 0.12, 12, MUTED, { font: 'mono', spacing: 3, weight: 600, blur: 0 });
+  // BEST — top-left, mono, only when there's a score
+  if (G.highScore > 0) glowText('BEST  ' + fmtScore(G.highScore), 22, 40, 12, '#8fa6c8', { font: 'mono', spacing: 4, weight: 700, blur: 0, align: 'left' });
 
-  // wordmark — large, crisp, light, generously tracked; only a whisper of glow
-  const titleY = CH * 0.37;
-  glowText('VEIL', cx, titleY, 86, INK, { weight: 700, spacing: 28, blur: 6, core: '#fff' });
-  // a single thin accent rule + the tagline, with room to breathe
-  ctx.save(); ctx.globalAlpha = 0.55; ctx.fillStyle = ACCENT; ctx.fillRect(cx - 26, titleY + 42, 52, 1.5); ctx.restore();
-  glowText('draw light into the dark', cx, titleY + 64, 13, MUTED, { weight: 500, spacing: 4, blur: 0 });
+  // wordmark — large, crisp, light, generously tracked, with a soft glow
+  const titleY = CH * 0.34;
+  glowText('VEIL', cx, titleY, 86, INK, { weight: 700, spacing: 28, blur: 8, core: '#fff' });
+  glowText('draw light into the dark', cx, titleY + 60, 12, '#8fa6c8', { font: 'mono', weight: 400, spacing: 5, blur: 0 });
 
   // a confident light PLAY + quiet outlined DAILY / SCORES
   minBtn(playBtnRect(), 'PLAY', true);
@@ -167,19 +165,73 @@ export function drawPaused() {
   minBtn(pauseHomeRect(), 'QUIT TO HOME', false, '#e08a96');
 }
 
+// Seeded, stable menu star positions (built once).
+let menuStars: { x: number; y: number; r: number; spd: number; ph: number }[] | null = null;
+function buildMenuStars() {
+  let seed = 7; const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  const out: any[] = [];
+  for (let i = 0; i < 26; i++) out.push({ x: rnd() * 0.96 + 0.02, y: rnd() * 0.5 + 0.02, r: rnd() * 1.7 + 1, spd: rnd() * 2 + 1.2, ph: rnd() * TAU });
+  return out;
+}
+// The "Horizon" home backdrop (per the design reference): a dark field + faint grid +
+// twinkling stars, the glowing jagged TEAL FRONTIER you claim along the lower third,
+// the player dot + trail rising from it, and a slow spinning Qix diamond. Portrait-fit.
+const FRONTIER = [[0, 0.12, 0.70], [0.12, 0.26, 0.63], [0.26, 0.40, 0.72], [0.40, 0.50, 0.66], [0.50, 0.66, 0.60], [0.66, 0.80, 0.69], [0.80, 0.92, 0.64], [0.92, 1.0, 0.68]];
+function frontierPath() {
+  ctx.beginPath();
+  ctx.moveTo(0, FRONTIER[0][2] * PH);
+  for (let i = 0; i < FRONTIER.length; i++) {
+    const xe = FRONTIER[i][1] * PW, yf = FRONTIER[i][2] * PH;
+    ctx.lineTo(xe, yf);                                                  // horizontal run
+    if (i < FRONTIER.length - 1) ctx.lineTo(xe, FRONTIER[i + 1][2] * PH); // vertical step
+  }
+}
 export function drawAttractWorld() {
-  // Premium-minimal backdrop: near-black with a faint vertical gradient, a single
-  // soft glow behind the wordmark, and a sparse calm starfield. No vivid nebula —
-  // the quiet is the point.
+  if (!menuStars) menuStars = buildMenuStars();
+  const t = G.reduceMotion ? 0 : G.time;
   ctx.save();
   ctx.translate(OFF_X, OFF_Y);
+  // dark field
   const vg = ctx.createLinearGradient(0, 0, 0, PH);
-  vg.addColorStop(0, '#080b13'); vg.addColorStop(0.45, '#0a0e1a'); vg.addColorStop(1, '#06080e');
+  vg.addColorStop(0, '#05060c'); vg.addColorStop(0.55, '#070913'); vg.addColorStop(1, '#04050b');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, PW, PH);
-  const gx = PW / 2, gy = PH * 0.34, glow = ctx.createRadialGradient(gx, gy, 0, gx, gy, PW * 0.78);
-  glow.addColorStop(0, 'rgba(80,130,190,0.10)'); glow.addColorStop(0.6, 'rgba(50,80,130,0.035)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = glow; ctx.fillRect(0, 0, PW, PH);
-  ctx.globalCompositeOperation = 'lighter';
-  for (const m of G.motes) { ctx.globalAlpha = m.a * 0.32; ctx.fillStyle = '#9fb0cc'; ctx.beginPath(); ctx.arc(m.x, m.y, m.r * 0.7, 0, TAU); ctx.fill(); }
+  // faint grid
+  ctx.strokeStyle = 'rgba(70,90,150,0.055)'; ctx.lineWidth = 1; ctx.beginPath();
+  for (let x = 0; x <= PW; x += 44) { ctx.moveTo(x, 0); ctx.lineTo(x, PH); }
+  for (let y = 0; y <= PH; y += 44) { ctx.moveTo(0, y); ctx.lineTo(PW, y); }
+  ctx.stroke();
+  // twinkling stars (upper band)
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (const s of menuStars) {
+    ctx.globalAlpha = (G.reduceMotion ? 0.4 : 0.15 + 0.85 * (0.5 + 0.5 * Math.sin(t * s.spd + s.ph))) * 0.6;
+    ctx.fillStyle = '#cdd9f0'; ctx.beginPath(); ctx.arc(s.x * PW, s.y * PH, s.r, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+  // the FRONTIER — teal fill below the jagged edge
+  frontierPath(); ctx.lineTo(PW, PH); ctx.lineTo(0, PH); ctx.closePath();
+  const fg = ctx.createLinearGradient(0, PH * 0.56, 0, PH);
+  fg.addColorStop(0, 'rgba(46,230,207,0.34)'); fg.addColorStop(0.55, 'rgba(17,136,170,0.2)'); fg.addColorStop(1, 'rgba(10,58,90,0.42)');
+  ctx.fillStyle = fg; ctx.fill();
+  // glowing top edge (pulses)
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  ctx.shadowColor = '#39f0e0'; ctx.shadowBlur = 11 * (G.reduceMotion ? 1 : 0.85 + 0.15 * Math.sin(t * 2));
+  ctx.strokeStyle = '#aafff2'; ctx.lineWidth = 1.6; ctx.globalAlpha = 0.85; frontierPath(); ctx.stroke();
+  ctx.restore();
+  // player dot + trail, at the frontier peak (x ~ 0.50)
+  const pxp = 0.5 * PW, pyp = 0.6 * PH;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const tg = ctx.createLinearGradient(pxp, pyp - PH * 0.17, pxp, pyp);
+  tg.addColorStop(0, 'rgba(234,255,251,0)'); tg.addColorStop(1, 'rgba(234,255,251,0.6)');
+  ctx.strokeStyle = tg; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(pxp, pyp - PH * 0.17); ctx.lineTo(pxp, pyp); ctx.stroke();
+  if (!G.reduceMotion) { const k = (t * 0.5) % 1; ctx.globalAlpha = (1 - k) * 0.5; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(pxp, pyp, 4 + k * 18, 0, TAU); ctx.stroke(); }
+  ctx.globalAlpha = 1; ctx.shadowColor = '#aafff2'; ctx.shadowBlur = 14; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(pxp, pyp, 4, 0, TAU); ctx.fill();
+  ctx.restore();
+  // Qix diamond (slow spin), upper-right
+  const qr = Math.min(22, PW * 0.055);
+  ctx.save(); ctx.translate(0.82 * PW, 0.17 * PH); ctx.rotate((G.reduceMotion ? 0.5 : t * 0.22) + Math.PI / 4);
+  ctx.globalCompositeOperation = 'lighter'; ctx.shadowColor = '#ff5ad0'; ctx.shadowBlur = 8;
+  ctx.strokeStyle = '#ff5ad0'; ctx.lineWidth = 2.5; ctx.strokeRect(-qr, -qr, qr * 2, qr * 2);
+  ctx.strokeStyle = '#ff9ae4'; ctx.lineWidth = 2; ctx.strokeRect(-qr * 0.5, -qr * 0.5, qr, qr);
+  ctx.restore();
   ctx.restore();
 }
