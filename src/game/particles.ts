@@ -82,6 +82,7 @@ export function initMotes() {
     });
 }
 export function updateMotes(dt) {
+  if (G.reduceMotion) return;   // motion off: ambient motes hold still
   for (const m of G.motes) {
     m.x += m.vx * dt; m.y += m.vy * dt;
     if (m.x < 0) m.x += PW; else if (m.x > PW) m.x -= PW;

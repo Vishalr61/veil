@@ -46,7 +46,7 @@ export const ENEMY_INFO = {
   sentinel: { name: 'SENTINEL', desc: 'attacks while you rest on land' },
   sleeper: { name: 'VEIL-SLEEPER', desc: 'reveals in the dark — wake it' },
   wraith: { name: 'WRAITH', desc: 'blinks through the rift toward you' },
-  qix: { name: 'THE QIX', desc: 'a vast roamer — claim the board to shrink it' },
+  qix: { name: 'THE NUCLEUS', desc: 'a vast roamer — claim the board to shrink it' },
   // Bloom (Easy) garden critters — gentle, telegraphed, never hunters.
   firefly: { name: 'FIREFLY', desc: 'drifts in a gentle ring — time your crossing' },
   sprite: { name: 'SPRITE', desc: 'gathers light, then hops — watch the tell' },
@@ -97,12 +97,13 @@ export function genEnemies(lv, counts: EnemyCounts = enemyCounts(lv)) {
   for (let i = 0; i < n.cutter; i++) place('cutter', spd * 0.8);
   for (let i = 0; i < n.sentinel; i++) place('sentinel', spd * 0.82);
   for (let i = 0; i < (n.wraith || 0); i++) place('wraith', spd * 0.7);
-  for (let i = 0; i < (n.firefly || 0); i++) placeFirefly(spd * 0.6);
+  for (let i = 0; i < (n.firefly || 0); i++) placeFirefly(spd * 0.8);   // a touch livelier than before
   for (let i = 0; i < (n.sprite || 0); i++) placeSprite(spd * 0.9);
   for (let i = 0; i < (n.qix || 0); i++) {
     const p = spawnCell(9, false), s = spd * 0.45, r = CELL * 1.15;   // a slow roamer (moderate size)
     out.push({ x: p.x, y: p.y, vx: (G.rng.next() < 0.5 ? -1 : 1) * s * 0.7071, vy: (G.rng.next() < 0.5 ? -1 : 1) * s * 0.7071,
-      r, baseR: r, type: 'qix', speed: s, comp: s * 0.7071, steerT: G.rng.range(0.8, 1.4) });
+      r, baseR: r, type: 'qix', speed: s, comp: s * 0.7071, steerT: G.rng.range(0.8, 1.4),
+      emitT: 5, emitSpd: spd });   // boss power: first drifter at 5s, then every 10s (Bloom only)
   }
   for (let i = 0; i < n.sleeper; i++) placeSleeper(spd * 0.95);
   return out;
@@ -147,6 +148,7 @@ export function moveEnemy(e, dt) {
   // sprite (Bloom): holds still, telegraphs (~0.6s glow-swell), then hops a fixed
   // distance in a RANDOM cardinal direction (not aimed at you), pauses, repeats.
   if (e.type === 'sprite') {
+    if (e.zipT > 0) e.zipT -= dt;   // fade the post-hop zip trail
     if (e.charging > 0) {
       e.charging -= dt;
       if (e.charging <= 0) {
@@ -155,15 +157,26 @@ export function moveEnemy(e, dt) {
         const tx = e.x + d[0] * e.hopDist, ty = e.y + d[1] * e.hopDist;
         const cc = clamp(Math.floor(ty / CELL), 1, ROWS - 2) * COLS + clamp(Math.floor(tx / CELL), 1, COLS - 2);
         if (G.grid[cc] !== OBSTACLE && G.grid[cc] !== FILLED) {
+          const ox = e.x, oy = e.y;
           e.x = clamp(tx, CELL * 1.5, (COLS - 1.5) * CELL);
           e.y = clamp(ty, CELL * 1.5, (ROWS - 1.5) * CELL);
+          // keep the zip streak even in reduce-motion: it reads as ZOOMING to the
+          // target rather than teleporting (the one bit of motion worth showing).
+          e.zipFrom = { x: ox, y: oy }; e.zipT = 0.22;
         }
         e.hopT = Math.max(0.5, 1.4 - G.level * 0.02);   // shorter pauses deeper (gentle escalation)
       }
       return;
     }
     e.hopT -= dt;
-    if (e.hopT <= 0) e.charging = 0.6;
+    if (e.hopT <= 0) {
+      // tie the tell length to the hop distance: a longer wind-up telegraphs a
+      // bigger jump. Mostly medium, with rare short/long hops for variety.
+      const roll = Math.random();
+      if (roll < 0.18) { e.charging = e.chargeMax = 0.4; e.hopDist = CELL * 1.5; }        // rare short
+      else if (roll > 0.85) { e.charging = e.chargeMax = 0.95; e.hopDist = CELL * 3.6; }  // rare long
+      else { e.charging = e.chargeMax = 0.6; e.hopDist = CELL * 2.4; }                    // common medium
+    }
     return;   // holds still between hops
   }
   // qix (boss): a vast, slow roamer. It shrinks as you claim the board, and
@@ -177,6 +190,23 @@ export function moveEnemy(e, dt) {
       const dx = G.player.px.x - e.x, dy = G.player.px.y - e.y, d = Math.hypot(dx, dy) || 1;
       e.vx = e.vx * 0.6 + (dx / d) * e.comp * 0.4;
       e.vy = e.vy * 0.6 + (dy / d) * e.comp * 0.4;
+    }
+    // BOSS POWER — emit a drifter every 10s (Bloom/Easy only: Easy never runs the
+    // seeded daily, so the Math.random spawn carries no fairness cost; capped so it
+    // can't snowball). A readable, telegraphed "the boss spat one out" beat.
+    if (e.emitT != null && effectiveDiff().key === 'easy') {
+      e.emitT -= dt;
+      if (e.emitT <= 0) {
+        e.emitT = 10;
+        const drifters = G.enemies.reduce((c, q) => c + (q.type === 'drifter' ? 1 : 0), 0);
+        if (drifters < 5) {
+          const s = e.emitSpd || 140, comp = s * 0.7071, ang = Math.random() * TAU;
+          G.enemies.push({ x: e.x, y: e.y, vx: Math.cos(ang) * s, vy: Math.sin(ang) * s,
+            r: CELL * 0.42, type: 'drifter', speed: s, comp, steerT: 0 });
+          spawnPopup(e.x, e.y - e.r, 'SPAWN', '#ff8a6a', 14);
+          if (!G.reduceMotion) G.flash = Math.max(G.flash, 0.12);
+        }
+      }
     }
   }
   // cutter: while you draw, beeline to the BASE of your line (a fixed point) to cut you

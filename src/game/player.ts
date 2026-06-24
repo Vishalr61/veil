@@ -95,7 +95,7 @@ export function updatePlayer(dt) {
   G.player.px = { x: lerp(a.x, b.x, G.player.t), y: lerp(a.y, b.y, G.player.t) };
   G.player.tail.push({ x: G.player.px.x, y: G.player.px.y });
   if (G.player.tail.length > 14) G.player.tail.shift();
-  if (G.hasTrail && Math.random() < 0.5)
+  if (G.hasTrail && !G.reduceMotion && Math.random() < 0.5)   // no trail sparkle in reduce-motion
     G.particles.push({ x: G.player.px.x, y: G.player.px.y, vx: rand(-12, 12), vy: rand(-12, 12), life: rand(0.25, 0.5), max: 0.5, r: rand(0.8, 1.8), col: G.pal.trail });
 }
 function nearestFilled(idx) {
@@ -117,7 +117,10 @@ export function checkCollisions() {
     if (e.type === 'sleeper' && e.asleep) continue;   // dormant: harmless until woken
     const ec = eCell(e);
     if (G.grid[ec] === TRAIL) { triggerDeath(); return; }
-    if (!safe && G.player.invuln <= 0 && Math.hypot(G.player.px.x - e.x, G.player.px.y - e.y) < CELL * 0.78) { triggerDeath(); return; }
+    // the firefly flies into your claimed land, so it's the one mob that can hit
+    // you even on safe ground (it's predictable, so this is fair, not cheap).
+    const ignoresSafe = e.type === 'firefly';
+    if ((!safe || ignoresSafe) && G.player.invuln <= 0 && Math.hypot(G.player.px.x - e.x, G.player.px.y - e.y) < CELL * 0.78) { triggerDeath(); return; }
   }
 }
 // Near-miss: while drawing (vulnerable), slipping past an enemy by a hair — it
@@ -133,10 +136,8 @@ export function checkNearMiss(dt) {
     // in the danger band, just past the closest point (receding), not on cooldown
     if (e.nmCool <= 0 && d > prev && d > CELL * 0.82 && d < CELL * 1.55) {
       e.nmCool = 1.6;
-      const bonus = 40 + G.level * 10; G.score += bonus;
-      spawnPopup(px.x, px.y - 16, 'CLOSE +' + bonus, '#bfe9ff', 14);
-      if (!G.reduceMotion) { G.hitstop = Math.max(G.hitstop, 0.06); G.flash = Math.max(G.flash, 0.1); }
-      hapticLight();
+      G.score += 40 + G.level * 10;   // silent skill reward — no slow-mo / flash / popup
+      // (the time-stop felt jarring, and the player already knows it was close).
     }
   }
 }
@@ -157,7 +158,7 @@ function triggerDeath() {
   }
   G.lives--; G.combo = 0; G.comboT = 0;
   G.shakeAmt = G.reduceMotion ? 0 : 16; G.flash = G.reduceMotion ? 0.25 : 0.8; G.deathFreeze = 0.5;
-  if (!G.reduceMotion) G.timeScaleTarget = 0.22;
+  // (no death slow-mo — the world keeps full speed; removed, it felt jarring)
   sfxDeath(); hapticHeavy();
   for (let i = 0; i < 46; i++) {
     const ang = Math.random() * TAU, sp = rand(40, 220);

@@ -501,16 +501,40 @@ function bond(x1, y1, x2, y2, col) {
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.25;
   ctx.strokeStyle = col; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.restore();
 }
-// Drifter — a calm little atom: a nucleus with two electrons on a smooth
-// circular orbit (no tumbling, so it reads cleanly while it bounces). Inert.
+// Drifter — a calm drifting CELL: a bright core inside a softly-breathing,
+// slightly irregular membrane, trailing a short comet smear opposite its travel
+// so its direction reads. No orbiting satellites. Inert, just bounces.
 function drawDrifterBody(e, o, pulse) {
-  const a = G.reduceMotion ? 0.3 : G.time * 0.28 + e.x * 0.3;
-  const rad = e.r * 1.05;
-  molNode(e.x, e.y, e.r * 0.55 * (pulse || 1), o.col, o.glow);
-  for (let i = 0; i < 2; i++) {
-    const ang = a + i * Math.PI;
-    molNode(e.x + Math.cos(ang) * rad, e.y + Math.sin(ang) * rad, e.r * 0.26, '#dfeaf5', o.glow);
+  // REDUCE-MOTION: a clean, simple glowing cell — a core + one tidy membrane ring.
+  // Zero animation (like the firefly's off-motion look).
+  if (G.reduceMotion) {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.5; ctx.strokeStyle = o.glow; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 0.92, 0, TAU); ctx.stroke(); ctx.restore();
+    molNode(e.x, e.y, e.r * 0.5, o.col, o.glow);
+    return;
   }
+  const t = G.time;
+  const sp = Math.hypot(e.vx || 0, e.vy || 0) || 1;
+  const ux = (e.vx || 0) / sp, uy = (e.vy || 1) / sp;   // travel direction
+  // comet smear behind the cell (a soft tapered glow opposite velocity)
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const tx = e.x - ux * e.r * 1.5, ty = e.y - uy * e.r * 1.5;
+  const sm = ctx.createRadialGradient(tx, ty, 0, tx, ty, e.r * 1.6);
+  sm.addColorStop(0, o.glow); sm.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.globalAlpha = 0.22; ctx.fillStyle = sm; ctx.beginPath(); ctx.arc(tx, ty, e.r * 1.6, 0, TAU); ctx.fill();
+  // breathing membrane — a wobbling near-circle that reads as a living cell
+  const mr = e.r * (0.92 + 0.06 * Math.sin(t * 2 + e.x));
+  ctx.globalAlpha = 0.5; ctx.strokeStyle = o.glow; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  for (let i = 0; i <= 16; i++) {
+    const ang = i / 16 * TAU, wob = 1 + 0.08 * Math.sin(ang * 3 + t * 1.6 + e.y);
+    const x = e.x + Math.cos(ang) * mr * wob, y = e.y + Math.sin(ang) * mr * wob;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.closePath(); ctx.stroke(); ctx.restore();
+  // the bright nucleus
+  molNode(e.x, e.y, e.r * 0.5 * (pulse || 1), o.col, o.glow);
 }
 // Chaser — a polar molecule whose lobe points where it's hunting (at you).
 function drawChaserBody(e, o) {
@@ -545,21 +569,38 @@ function drawSentinelBody(e, o) {
     molNode(e.x + ux * rr, e.y + uy * rr, e.r * 0.34, '#dfeaf5', o.glow);
   }
 }
-// The Qix (boss) — a vast, slow molecular mass: a big glowing core wreathed in
-// chaotic prism electrons. Shrinks (via e.r) as you claim the board.
+// The Qix (boss) — a grand luminous mass: a bright core with a hot white heart,
+// wreathed in two smooth, symmetric rings of orbiting electrons (the molecular
+// look, refined). Pleasant + imposing, not jittery. REDUCE-MOTION freezes it to
+// a clean static molecule. Shrinks (via e.r) as you claim the board.
 function drawQixBody(e, o) {
-  const r = e.r, t = G.reduceMotion ? 0 : G.time;
+  const r = e.r, rm = G.reduceMotion, t = rm ? 0 : G.time;
+  // grand soft halo
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  const g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, r * 1.7);
-  g.addColorStop(0, o.glow); g.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.globalAlpha = 0.24 + 0.05 * Math.sin(t * 2); ctx.fillStyle = g;     // restrained halo
-  ctx.beginPath(); ctx.arc(e.x, e.y, r * 1.7, 0, TAU); ctx.fill();
+  const g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, r * 1.9);
+  g.addColorStop(0, o.glow); g.addColorStop(0.5, hexA(o.glow, 0.14)); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.globalAlpha = rm ? 0.26 : 0.24 + 0.06 * Math.sin(t * 1.5); ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(e.x, e.y, r * 1.9, 0, TAU); ctx.fill();
   ctx.restore();
-  molNode(e.x, e.y, r * 0.46, o.col, o.glow);
-  for (let i = 0; i < 4; i++) {                                           // fewer, calmer electrons
-    const a = t * (0.5 + i * 0.12) + i * 1.57, rr = r * (0.9 + 0.14 * Math.sin(t * 0.6 + i));
-    molNode(e.x + Math.cos(a) * rr, e.y + Math.sin(a) * rr * 0.82, r * 0.12, i % 2 ? '#7fd0ff' : '#d09cff', o.glow);
+  // outer ring — 6 electrons on a clean circular orbit, slowly turning
+  const N = 6;
+  for (let i = 0; i < N; i++) {
+    const a = t * 0.4 + i * TAU / N, rr = r * 1.06;
+    molNode(e.x + Math.cos(a) * rr, e.y + Math.sin(a) * rr, r * 0.16, i % 2 ? '#ffd9c0' : '#fff2ea', o.glow);
   }
+  // inner ring — 3 electrons counter-rotating closer in (depth)
+  for (let i = 0; i < 3; i++) {
+    const a = -t * 0.6 + i * TAU / 3, rr = r * 0.66;
+    molNode(e.x + Math.cos(a) * rr, e.y + Math.sin(a) * rr, r * 0.13, '#fff5ee', o.glow);
+  }
+  // luminous core + a softly-breathing warm heart (kept restrained — not blinding)
+  molNode(e.x, e.y, r * 0.52, o.col, o.glow);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const cg = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, r * 0.4);
+  cg.addColorStop(0, '#ffe0d6'); cg.addColorStop(1, hexA(o.glow, 0));
+  ctx.globalAlpha = rm ? 0.42 : 0.38 + 0.12 * Math.sin(t * 2); ctx.fillStyle = cg;
+  ctx.beginPath(); ctx.arc(e.x, e.y, r * 0.4, 0, TAU); ctx.fill();
+  ctx.restore();
 }
 // Wraith — an unstable isotope: a faint trembling nucleus; it solidifies and
 // telegraphs (charge ring + aim line) before it blinks at you.
@@ -586,9 +627,7 @@ function drawWraithBody(e, o) {
 // Firefly (Bloom) — a warm glowing nucleus with a soft trailing spark, and a
 // faint ring tracing its orbit so the path it follows is readable at a glance.
 function drawFireflyBody(e, o) {
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  ctx.strokeStyle = o.glow; ctx.globalAlpha = 0.10; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.arc(e.ax, e.ay, e.orad, 0, TAU); ctx.stroke(); ctx.restore();   // orbit hint
+  // (no orbit-ring hint — the path should be read from the firefly itself)
   const flick = G.reduceMotion ? 1 : 0.85 + 0.15 * Math.sin(G.time * 8 + e.x);
   // a small spark trailing behind along the direction of travel
   const tx = e.x - Math.sin(e.oang) * Math.sign(e.ow) * e.r * 1.1;
@@ -599,8 +638,17 @@ function drawFireflyBody(e, o) {
 // Sprite (Bloom) — a curled bud: a calm core ringed by petals that swell and
 // brighten while it charges, telegraphing the coming hop.
 function drawSpriteBody(e, o) {
+  // brief green zip streak from where it just hopped (motion-on only)
+  if (e.zipT > 0 && e.zipFrom) {
+    const k = e.zipT / 0.22;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round'; ctx.strokeStyle = o.glow; ctx.shadowColor = o.glow; ctx.shadowBlur = 8;
+    ctx.globalAlpha = 0.55 * k; ctx.lineWidth = e.r * 0.6 * k;
+    ctx.beginPath(); ctx.moveTo(e.zipFrom.x, e.zipFrom.y); ctx.lineTo(e.x, e.y); ctx.stroke();
+    ctx.restore();
+  }
   const charging = e.charging > 0;
-  const k = charging ? 1 - e.charging / 0.6 : 0;     // 0 -> 1 over the tell
+  const k = charging ? 1 - e.charging / (e.chargeMax || 0.6) : 0;     // 0 -> 1 over the tell
   const swell = 1 + k * 0.5;
   molNode(e.x, e.y, e.r * 0.46 * swell, o.col, o.glow);
   const petals = 5, spin = G.reduceMotion ? 0 : G.time * 0.6;
@@ -612,7 +660,7 @@ function drawSpriteBody(e, o) {
   ctx.restore();
   if (charging) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = o.glow; ctx.globalAlpha = 0.3 + 0.5 * Math.abs(Math.sin(G.time * 26)); ctx.lineWidth = 1.4;
+    ctx.strokeStyle = o.glow; ctx.globalAlpha = G.reduceMotion ? 0.45 : 0.3 + 0.5 * Math.abs(Math.sin(G.time * 26)); ctx.lineWidth = 1.4;
     ctx.beginPath(); ctx.arc(e.x, e.y, e.r * (1.2 + k * 1.0), 0, TAU); ctx.stroke(); ctx.restore();
   }
 }
@@ -639,7 +687,7 @@ export function drawWorld() {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   for (const t of G.twinkles) {
-    ctx.globalAlpha = 0.25 + 0.55 * (0.5 + 0.5 * Math.sin(G.time * t.spd + t.phase));
+    ctx.globalAlpha = G.reduceMotion ? 0.5 : 0.25 + 0.55 * (0.5 + 0.5 * Math.sin(G.time * t.spd + t.phase));
     ctx.fillStyle = G.pal.star;
     ctx.beginPath(); ctx.arc(t.x, t.y, t.r, 0, TAU); ctx.fill();
   }
@@ -649,6 +697,11 @@ export function drawWorld() {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   for (const m of G.motes) {
+    if (G.reduceMotion) {   // motion off: steady, no flicker
+      ctx.globalAlpha = m.a * 0.6;
+      ctx.fillStyle = m.pr ? '#7fd0ff' : (m.em || m.du) ? G.pal.blobs[3] : m.sn ? G.pal.star : G.pal.blobs[4];
+      ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, TAU); ctx.fill(); continue;
+    }
     if (m.em) { ctx.globalAlpha = m.a * (0.55 + 0.45 * Math.sin(G.time * 8 + m.x)); ctx.fillStyle = G.pal.blobs[3]; }
     else if (m.cr) { ctx.globalAlpha = m.a * (0.35 + 0.65 * Math.abs(Math.sin(G.time * 3 + m.x * 0.5))); ctx.fillStyle = G.pal.blobs[4]; }
     else if (m.bu) { ctx.globalAlpha = m.a * 0.8; ctx.fillStyle = G.pal.blobs[4]; }   // rising bubble
@@ -679,18 +732,25 @@ export function drawWorld() {
     ctx.restore();
   }
 
-  // power-ups
+  // power-ups — each labelled so it's clear BEFORE you grab it (like the enemy cards)
+  const PU_LABEL: Record<string, string> = {
+    score: 'POINTS', freeze: 'FREEZE', slow: 'SLOW', shield: 'SHIELD',
+    bomb: 'BOMB', life: '+1 LIFE', time: '+TIME', surge: '2× SCORE',
+  };
   for (const p of G.pickups) {
-    const bob = Math.sin(p.bob) * 2.5;
+    const bob = (G.reduceMotion ? 0 : Math.sin(p.bob) * 2.5);
     const fade = clamp(p.life / 2, 0, 1);
+    const ringPulse = G.reduceMotion ? 0.5 : 0.5 + 0.4 * Math.sin(G.time * 6);
     ctx.save();
     ctx.globalAlpha = fade;
     drawGlowOrb(p.x, p.y + bob, 5.5, '#fff', p.col, 20);
     ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = p.col; ctx.globalAlpha = fade * (0.5 + 0.4 * Math.sin(G.time * 6));
-    ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(p.x, p.y + bob, 9 + Math.sin(G.time * 6) * 1.5, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = p.col; ctx.globalAlpha = fade * ringPulse;
+    ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(p.x, p.y + bob, 9 + (G.reduceMotion ? 0 : Math.sin(G.time * 6) * 1.5), 0, TAU); ctx.stroke();
     ctx.restore();
     drawPUGlyph(p.type, p.x, p.y + bob, p.col, fade);
+    glowText(PU_LABEL[p.type] || p.type.toUpperCase(), p.x, p.y + bob + 17, 7.5, p.col,
+      { weight: 800, spacing: 1, blur: 3, alpha: fade });
   }
 
   // trail
@@ -705,12 +765,13 @@ export function drawWorld() {
     ctx.shadowColor = G.pal.accent; ctx.shadowBlur = 18; ctx.strokeStyle = G.pal.accent;
     ctx.globalAlpha = 0.5; ctx.lineWidth = 6 * ls; ctx.stroke();
     ctx.strokeStyle = G.pal.trail; ctx.globalAlpha = 1; ctx.shadowBlur = 8; ctx.lineWidth = 2.4 * ls; ctx.stroke();
-    // live energy pulse running along the wire
     let total = 0; for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
-    if (total > 4) {
-      const pos = pointAlong(pts, (G.time * 220) % total);
-      ctx.globalCompositeOperation = 'lighter';
-      drawGlowOrb(pos.x, pos.y, 2.4 * ls, '#fff', G.pal.edge2, 12 * ls);
+    // live energy pulse running along the wire — subtle (decorative; off in reduce-motion)
+    if (!G.reduceMotion && total > 4) {
+      const pos = pointAlong(pts, (G.time * 150) % total);
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.55;
+      drawGlowOrb(pos.x, pos.y, 1.5 * ls, '#fff', G.pal.edge2, 6 * ls);
+      ctx.globalAlpha = 1;
     }
     // the FUSE spark — crawls the line from its base; reddens + grows as it nears you
     const f = clamp(G.fuseT / G.fuseMax, 0, 1);
@@ -740,7 +801,7 @@ export function drawWorld() {
 
   // enemies (danger glow scales with proximity to player)
   for (const e of G.enemies) {
-    const pulse = 1 + Math.sin(G.time * 6 + e.x) * 0.08;
+    const pulse = G.reduceMotion ? 1 : 1 + Math.sin(G.time * 6 + e.x) * 0.08;   // core breathing (calm in reduce-motion)
     const frozen = G.enemyFreezeT > 0;
     // dormant veil-sleeper: a faint tell under the dark, not a full threat glow
     if (e.type === 'sleeper' && e.asleep) {
@@ -755,8 +816,8 @@ export function drawWorld() {
     const isFf = e.type === 'firefly', isSp = e.type === 'sprite';
     let prox = 0;
     if (G.player && G.player.px && G.state === 'playing') prox = clamp(1 - Math.hypot(G.player.px.x - e.x, G.player.px.y - e.y) / (CELL * 6), 0, 1);
-    const col = frozen ? '#bfe9ff' : isFf ? '#ffe69a' : isSp ? '#bff5c8' : isCut ? '#ffe93b' : isSent ? '#ffb14a' : isWr ? '#c89cff' : isQix ? '#d08cff' : isCh ? CHASER_COL : ENEMY_COL;
-    const glow = frozen ? '#bfe9ff' : isFf ? '#ffd45c' : isSp ? '#6ff0a0' : isCut ? '#fff07a' : isSent ? '#ffd07a' : isWr ? '#5cf0ff' : isQix ? '#b85cff' : isCh ? CHASER_GLOW : ENEMY_GLOW;
+    const col = frozen ? '#bfe9ff' : isFf ? '#ffe69a' : isSp ? '#c98cff' : isCut ? '#ffe93b' : isSent ? '#ffb14a' : isWr ? '#c89cff' : isQix ? '#d8404e' : isCh ? CHASER_COL : ENEMY_COL;
+    const glow = frozen ? '#bfe9ff' : isFf ? '#ffd45c' : isSp ? '#9a4cff' : isCut ? '#fff07a' : isSent ? '#ffd07a' : isWr ? '#5cf0ff' : isQix ? '#ef5a4e' : isCh ? CHASER_GLOW : ENEMY_GLOW;
     const o = { col, glow, frozen };
     // distinct silhouette per type (each telegraphs its behaviour)
     if (isCh) drawChaserBody(e, o);
@@ -770,14 +831,15 @@ export function drawWorld() {
     // shared close-range danger ring
     if (prox > 0.35 && !frozen) {
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
-      ctx.strokeStyle = glow; ctx.globalAlpha = (prox - 0.35) * 1.2 * (0.6 + 0.4 * Math.sin(G.time * 14));
+      ctx.strokeStyle = glow; ctx.globalAlpha = (prox - 0.35) * 1.2 * (0.6 + 0.4 * (G.reduceMotion ? 0 : Math.sin(G.time * 14)));
       ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 2.1, 0, TAU); ctx.stroke(); ctx.restore();
     }
   }
 
   // player
   if (G.player && G.player.px && G.state === 'playing') {
-    const blink = G.player.invuln > 0 ? (Math.sin(G.time * 30) > 0 ? 0.35 : 1) : 1;
+    // invuln feedback: a strobe normally, but a steady dim in reduce-motion (no flashing)
+    const blink = G.player.invuln > 0 ? (G.reduceMotion ? 0.6 : (Math.sin(G.time * 30) > 0 ? 0.35 : 1)) : 1;
     ctx.save();
     ctx.globalAlpha = blink;
     ctx.globalCompositeOperation = 'lighter';
@@ -787,7 +849,7 @@ export function drawWorld() {
     // a flowing speed streak through the recent positions — tapered + brightest
     // near the hero — so motion reads as fast/alive instead of a faint bead trail.
     const tl = G.player.tail;
-    if (tl.length > 1) {
+    if (tl.length > 1 && !G.reduceMotion) {   // the motion streak is decorative — drop it in reduce-motion
       ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = G.pal.trail;
       ctx.shadowColor = G.pal.trail; ctx.shadowBlur = 6 * hs;
       for (let i = 1; i < tl.length; i++) {
@@ -799,19 +861,42 @@ export function drawWorld() {
     }
     ctx.globalAlpha = blink; ctx.globalCompositeOperation = 'source-over';
     const px = G.player.px.x, py = G.player.px.y;
-    // molecular hero, kept simple + restrained: a nucleus + a single electron shell.
-    drawGlowOrb(px, py, 3.1 * hs, '#dfe8f5', G.pal.player, 7 * hs);
+    // shield bubble (kept)
     ctx.globalCompositeOperation = 'lighter';
     if (G.shield) {
-      ctx.strokeStyle = '#7dffc4'; ctx.globalAlpha = (0.5 + 0.25 * Math.sin(G.time * 6)) * blink;
+      ctx.strokeStyle = '#7dffc4'; ctx.globalAlpha = (0.5 + 0.25 * (G.reduceMotion ? 0 : Math.sin(G.time * 6))) * blink;
       ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 17 * hs, 0, TAU); ctx.stroke();
     }
-    const oR = 13 * hs, oMin = 5 * hs, tilt = -0.5, spin = G.reduceMotion ? 0.6 : G.time * 2.2;
-    ctx.strokeStyle = G.pal.edge2; ctx.globalAlpha = 0.26 * blink; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.ellipse(px, py, oR, oMin, tilt, 0, TAU); ctx.stroke();
-    const ox = Math.cos(spin) * oR, oy = Math.sin(spin) * oMin;
-    const ex = px + ox * Math.cos(tilt) - oy * Math.sin(tilt), ey = py + ox * Math.sin(tilt) + oy * Math.cos(tilt);
-    ctx.globalAlpha = 0.85 * blink; drawGlowOrb(ex, ey, 1.3 * hs, '#cfe0f0', G.pal.edge2, 4 * hs);
+    // directional CRYSTAL hero — a cut gem (two facets + a center ridge + a hot
+    // core) that points the way you travel, so heading + identity read instantly.
+    let ha = G.player.heroAng != null ? G.player.heroAng : -Math.PI / 2;
+    if (G.player.dir && (G.player.dir.x || G.player.dir.y)) { ha = Math.atan2(G.player.dir.y, G.player.dir.x); G.player.heroAng = ha; }
+    const cs = 5.5 * hs, F = cs * 1.7, T = cs * 0.9, Bk = cs * 0.95;
+    ctx.save(); ctx.translate(px, py); ctx.rotate(ha);
+    // soft halo
+    ctx.globalCompositeOperation = 'lighter';
+    const hgrad = ctx.createRadialGradient(0, 0, 0, 0, 0, cs * 2.3);
+    hgrad.addColorStop(0, G.pal.player); hgrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalAlpha = 0.5 * blink; ctx.fillStyle = hgrad; ctx.beginPath(); ctx.arc(0, 0, cs * 2.3, 0, TAU); ctx.fill();
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = blink;
+    // upper facet — bright white
+    ctx.beginPath(); ctx.moveTo(F, 0); ctx.lineTo(0, -T); ctx.lineTo(-Bk, 0); ctx.closePath();
+    ctx.fillStyle = '#ffffff'; ctx.fill();
+    // lower facet — tinted, for a cut-gem dimension
+    ctx.beginPath(); ctx.moveTo(F, 0); ctx.lineTo(0, T); ctx.lineTo(-Bk, 0); ctx.closePath();
+    const lg = ctx.createLinearGradient(F, 0, -Bk, 0);
+    lg.addColorStop(0, '#eef4ff'); lg.addColorStop(1, G.pal.player);
+    ctx.fillStyle = lg; ctx.fill();
+    // crisp rim
+    ctx.beginPath(); ctx.moveTo(F, 0); ctx.lineTo(0, -T); ctx.lineTo(-Bk, 0); ctx.lineTo(0, T); ctx.closePath();
+    ctx.lineJoin = 'round'; ctx.lineWidth = 1.3; ctx.strokeStyle = G.pal.edge2; ctx.globalAlpha = 0.9 * blink; ctx.stroke();
+    // center ridge + a hot core glint toward the front
+    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.85 * blink;
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-Bk, 0); ctx.lineTo(F, 0); ctx.stroke();
+    const core = ctx.createRadialGradient(cs * 0.45, 0, 0, cs * 0.45, 0, cs * 0.95);
+    core.addColorStop(0, '#ffffff'); core.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.globalAlpha = 0.8 * blink; ctx.fillStyle = core; ctx.beginPath(); ctx.arc(cs * 0.45, 0, cs * 0.95, 0, TAU); ctx.fill();
+    ctx.restore();
     ctx.restore();
   }
 
@@ -851,10 +936,25 @@ export function drawWorld() {
     const a = clamp(G.banner.t * 1.6, 0, 1);   // pop in, fade out over the last ~0.6s
     if (G.banner.enemy) {
       const bloom = G.banner.enemy === 'firefly' || G.banner.enemy === 'sprite';
-      const ec = G.banner.enemy === 'chaser' ? CHASER_COL : G.banner.enemy === 'cutter' ? '#ffe93b' : G.banner.enemy === 'sentinel' ? '#ffb14a' : G.banner.enemy === 'firefly' ? '#ffe69a' : G.banner.enemy === 'sprite' ? '#bff5c8' : '#ff3a4e';
-      const eg = G.banner.enemy === 'chaser' ? CHASER_GLOW : G.banner.enemy === 'cutter' ? '#fff07a' : G.banner.enemy === 'sentinel' ? '#ffd07a' : G.banner.enemy === 'firefly' ? '#ffd45c' : G.banner.enemy === 'sprite' ? '#6ff0a0' : '#ff6a4a';
-      ctx.save(); ctx.globalAlpha = a; drawGlowOrb(PW / 2, PH / 2 - 62, CELL * 0.5, ec, eg, CELL * 2); ctx.restore();
-      glowText(bloom ? 'NEW BLOOM' : 'NEW THREAT', PW / 2, PH / 2 - 30, 9, eg, { blur: 6, weight: 800, spacing: 3, alpha: a * 0.8 });
+      const be = G.banner.enemy;
+      const ec = be === 'chaser' ? CHASER_COL : be === 'cutter' ? '#ffe93b' : be === 'sentinel' ? '#ffb14a' : be === 'firefly' ? '#ffe69a' : be === 'sprite' ? '#c98cff' : be === 'qix' ? '#d8404e' : '#ff3a4e';
+      const eg = be === 'chaser' ? CHASER_GLOW : be === 'cutter' ? '#fff07a' : be === 'sentinel' ? '#ffd07a' : be === 'firefly' ? '#ffd45c' : be === 'sprite' ? '#9a4cff' : be === 'qix' ? '#ef5a4e' : '#ff6a4a';
+      // preview the ACTUAL creature design (not a generic orb) — kept high + small
+      // so its glow/electrons never crowd the "NEW BLOOM/THREAT" label below it
+      const bx = PW / 2, by = PH / 2 - 96, br = CELL * 0.66;
+      const fe: any = { x: bx, y: by, r: br, ax: bx, ay: by, orad: 0, oang: 0, ow: 1, charging: 0, baseR: br, vx: br, vy: 0 };
+      const bo = { col: ec, glow: eg };
+      ctx.save(); ctx.globalAlpha = a;
+      if (be === 'firefly') drawFireflyBody(fe, bo);
+      else if (be === 'sprite') drawSpriteBody(fe, bo);
+      else if (be === 'qix') drawQixBody(fe, bo);
+      else if (be === 'chaser') drawChaserBody(fe, bo);
+      else if (be === 'cutter') drawCutterBody(fe, bo);
+      else if (be === 'sentinel') drawSentinelBody(fe, bo);
+      else if (be === 'wraith') drawWraithBody(fe, bo);
+      else drawGlowOrb(bx, by, CELL * 0.5, ec, eg, CELL * 2);
+      ctx.restore();
+      glowText(bloom ? 'NEW BLOOM' : 'NEW THREAT', PW / 2, PH / 2 - 46, 9, eg, { blur: 6, weight: 800, spacing: 3, alpha: a * 0.8 });
     }
     glowText(G.banner.text, PW / 2, PH / 2 - 12, G.banner.enemy ? 20 : 25, G.pal.edge2, { blur: 20, weight: 800, spacing: 3, core: '#fff', alpha: a });
     glowText(G.banner.sub, PW / 2, PH / 2 + 22, 15, '#cfe6ff', { blur: 6, font: 'mono', spacing: 1, alpha: a });

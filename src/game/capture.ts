@@ -96,13 +96,12 @@ export function doCapture() {
       sfxBold(); hapticHeavy();
       G.flash = G.reduceMotion ? 0.2 : 0.55;
       G.zoom = G.reduceMotion ? 1 : 1 + Math.min(0.05, area * 0.0006);
-      G.hitstop = G.reduceMotion ? 0 : 0.12;                   // a satisfying slow-mo "savor" beat
     } else {
       if (area < 14) hapticLight(); else hapticMedium();       // tactile tier by cut size
       G.flash = G.reduceMotion ? 0.08 : Math.min(0.35, 0.1 + area * 0.003);
       G.zoom = G.reduceMotion ? 1 : 1 + Math.min(0.025, area * 0.0004);
-      G.hitstop = (G.reduceMotion || area < 18) ? 0 : 0.06;    // no pause on quick nibbles (stay responsive)
     }
+    // (no capture hitstop/slow-mo — removed; the world never crawls)
     G.shakeAmt = G.reduceMotion ? 0 : Math.min(10, 2.5 + area * 0.04);
     captureBurst(origin.x, origin.y, G.pal.edge2, area, G.reduceMotion);
     if (!G.reduceMotion) spawnRing(origin.x, origin.y, G.pal.edge2, area);   // detonation shockwave

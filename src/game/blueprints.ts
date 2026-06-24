@@ -221,15 +221,37 @@ export function newEnemyAtLevel(lv: number): string | null {
 // carried by enemy count, maze complexity, hazards, and reward. Formula-based so
 // it stays endless-safe. Never runs in the daily (the daily forces Medium).
 
-// The Bloom roster for an Easy floor: a few gentle bouncers + escalating
-// fireflies (from L2) and sprites (from L4). No hunters.
+// The Bloom roster for an Easy floor — Airxonix-style THEMED floors: some are a
+// single creature (a firefly meadow, a sprite hollow), some are mixes, and the
+// summit (every 5th) is a full mix + the Qix. The featured count grows slowly
+// with depth. No hunters (chaser/cutter/sentinel always 0).
+// Per-floor non-boss enemy BUDGET: ramps +1 every 2 floors and CAPS at 10. Past
+// the cap (~floor 17) the count holds — only the map + enemy type keep changing,
+// so deeper play is an endurance run, not an ever-denser screen. The Nucleus boss
+// and the drifters it emits are extra and do NOT count toward this 10.
+export const BLOOM_ENEMY_CAP = 10;
+function bloomBudget(lv: number): number {
+  return Math.min(2 + Math.floor((lv - 1) / 2), BLOOM_ENEMY_CAP);
+}
 export function bloomRoster(lv: number): EnemyCounts {
-  return {
-    drifter: Math.min(1 + Math.floor(lv / 3), 3),
-    firefly: lv >= 2 ? Math.min(1 + Math.floor((lv - 2) / 2), 4) : 0,
-    sprite: lv >= 4 ? Math.min(1 + Math.floor((lv - 4) / 3), 3) : 0,
-    chaser: 0, cutter: 0, sentinel: 0, sleeper: 0,
-  };
+  const z: EnemyCounts = { drifter: 0, firefly: 0, sprite: 0, chaser: 0, cutter: 0, sentinel: 0, sleeper: 0 };
+  const b = bloomBudget(lv);
+  if (lv === 1) { z.drifter = b; return z; }                                  // teach: drifters only
+  if (lv === 2) { z.firefly = b; return z; }                                  // FIREFLY debut — fireflies only
+  if (lv === 3) { z.drifter = Math.ceil(b / 2); z.firefly = Math.floor(b / 2); return z; }
+  if (lv === 4) { z.sprite = b; return z; }                                   // SPRITE debut — sprites only
+  // L5+: a rotating set of themed floors within each 5-floor band — a single-type
+  // floor for each creature (Airxonix-style), a mix, then the boss summit.
+  switch ((lv - 1) % 5) {
+    case 0: z.firefly = b; break;                                             // firefly meadow (all fireflies)
+    case 1: z.sprite = b; break;                                              // sprite hollow (all sprites)
+    case 2: z.drifter = b; break;                                             // drifter swarm (all drifters)
+    case 3: z.firefly = Math.ceil(b / 2); z.sprite = Math.floor(b / 2); break; // fae mix (firefly + sprite)
+    // summit: THE NUCLEUS carries it (and emits drifters), so the base roster is a
+    // light mix around the boss — capped low so the floor never gets out of hand.
+    default: z.firefly = Math.min(Math.ceil(b / 3), 3); z.sprite = Math.min(Math.ceil(b / 3), 3);
+  }
+  return z;
 }
 export function bloomBlueprint(base: LevelBlueprint, lv: number): LevelBlueprint {
   // gentler early, mazier deeper (board-complexity lever); the target is left to
@@ -244,10 +266,12 @@ export function bloomBlueprint(base: LevelBlueprint, lv: number): LevelBlueprint
     enemies: bloomRoster(lv),
   };
 }
-// The new Bloom critter introduced at this Easy floor (drives the "NEW BLOOM" card).
+// The new Bloom critter introduced at this Easy floor (drives the "NEW BLOOM"
+// card). Fixed debut floors — themed floors make types come and go, so we can't
+// infer "new" from the previous floor (it would re-fire on every reappearance).
 export function bloomNewEnemy(lv: number): string | null {
-  const cur = bloomRoster(lv) as any, prev = bloomRoster(lv - 1) as any;
-  for (const t of ['firefly', 'sprite']) if (cur[t] > 0 && !(prev[t] > 0)) return t;
+  if (lv === 2) return 'firefly';
+  if (lv === 4) return 'sprite';
   return null;
 }
 

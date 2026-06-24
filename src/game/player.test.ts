@@ -17,10 +17,10 @@ describe('near-miss (while drawing, slip past an enemy that then recedes)', () =
     G.enemies = [e];
     const before = G.score;
     checkNearMiss(0.016);
-    expect(G.score).toBeGreaterThan(before);
-    expect(hasPopup('CLOSE')).toBe(true);
+    expect(G.score).toBeGreaterThan(before);     // silent score reward
+    expect(hasPopup('CLOSE')).toBe(false);       // no popup / slow-mo (removed: it felt jarring)
     // debounced — an immediate second pass doesn't double-reward
-    const after = G.score; G.popups = []; e.x = 200 + CELL * 1.3;   // still receding/in-band
+    const after = G.score; e.x = 200 + CELL * 1.3;   // still receding/in-band
     checkNearMiss(0.016);
     expect(G.score).toBe(after);
   });
@@ -28,12 +28,12 @@ describe('near-miss (while drawing, slip past an enemy that then recedes)', () =
     G.player = freshPlayer(); G.player.px = { x: 200, y: 200 };
     G.hasTrail = false;                                                       // safe — not vulnerable
     G.enemies = [{ x: 200 + CELL * 1.2, y: 200, type: 'drifter', nmPrevD: CELL * 1.0 } as any];
-    checkNearMiss(0.016);
-    expect(hasPopup('CLOSE')).toBe(false);
+    let before = G.score; checkNearMiss(0.016);
+    expect(G.score).toBe(before);                                            // no reward when not drawing
     G.hasTrail = true;                                                        // drawing, but approaching (d < prev)
     G.enemies = [{ x: 200 + CELL * 1.2, y: 200, type: 'drifter', nmPrevD: CELL * 1.4 } as any];
-    checkNearMiss(0.016);
-    expect(hasPopup('CLOSE')).toBe(false);
+    before = G.score; checkNearMiss(0.016);
+    expect(G.score).toBe(before);                                            // no reward when approaching
   });
 });
 
