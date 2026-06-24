@@ -53,7 +53,7 @@ export const RIFT_BAND: Band = {
 // every floor instead of riding the campaign zones.
 export const BLOOM_BAND: Band = {
   name: 'the bloom', style: 'flora', blobs: ['#04140f', '#083020', '#0e7058', '#2fe0b0', '#a6ffe0'],
-  star: '#e2fff4', edge: '#3fe8c0', edge2: '#bafff0', trail: '#ecfff8', player: '#ffffff', accent: '#ff9ad8',
+  star: '#e2fff4', edge: '#3fe8c0', edge2: '#bafff0', trail: '#eef6f2', player: '#ffffff', accent: '#dde8e4',
 };
 
 export const LEVELS_PER_BAND = 5;

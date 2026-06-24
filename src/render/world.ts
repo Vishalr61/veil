@@ -586,12 +586,12 @@ function drawQixBody(e, o) {
   const N = 6;
   for (let i = 0; i < N; i++) {
     const a = t * 0.4 + i * TAU / N, rr = r * 1.06;
-    molNode(e.x + Math.cos(a) * rr, e.y + Math.sin(a) * rr, r * 0.16, i % 2 ? '#bfe9ff' : '#d9b8ff', o.glow);
+    molNode(e.x + Math.cos(a) * rr, e.y + Math.sin(a) * rr, r * 0.16, i % 2 ? '#ffd9c0' : '#fff2ea', o.glow);
   }
   // inner ring — 3 electrons counter-rotating closer in (depth)
   for (let i = 0; i < 3; i++) {
     const a = -t * 0.6 + i * TAU / 3, rr = r * 0.66;
-    molNode(e.x + Math.cos(a) * rr, e.y + Math.sin(a) * rr, r * 0.13, '#eaf2ff', o.glow);
+    molNode(e.x + Math.cos(a) * rr, e.y + Math.sin(a) * rr, r * 0.13, '#fff5ee', o.glow);
   }
   // luminous core + a hot white heart that breathes
   molNode(e.x, e.y, r * 0.52, o.col, o.glow);
@@ -758,9 +758,9 @@ export function drawWorld() {
     ctx.shadowColor = G.pal.accent; ctx.shadowBlur = 18; ctx.strokeStyle = G.pal.accent;
     ctx.globalAlpha = 0.5; ctx.lineWidth = 6 * ls; ctx.stroke();
     ctx.strokeStyle = G.pal.trail; ctx.globalAlpha = 1; ctx.shadowBlur = 8; ctx.lineWidth = 2.4 * ls; ctx.stroke();
-    // live energy pulse running along the wire
     let total = 0; for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
-    if (total > 4) {
+    // live energy pulse running along the wire (decorative — off in reduce-motion)
+    if (!G.reduceMotion && total > 4) {
       const pos = pointAlong(pts, (G.time * 220) % total);
       ctx.globalCompositeOperation = 'lighter';
       drawGlowOrb(pos.x, pos.y, 2.4 * ls, '#fff', G.pal.edge2, 12 * ls);
@@ -808,8 +808,8 @@ export function drawWorld() {
     const isFf = e.type === 'firefly', isSp = e.type === 'sprite';
     let prox = 0;
     if (G.player && G.player.px && G.state === 'playing') prox = clamp(1 - Math.hypot(G.player.px.x - e.x, G.player.px.y - e.y) / (CELL * 6), 0, 1);
-    const col = frozen ? '#bfe9ff' : isFf ? '#ffe69a' : isSp ? '#bff5c8' : isCut ? '#ffe93b' : isSent ? '#ffb14a' : isWr ? '#c89cff' : isQix ? '#d08cff' : isCh ? CHASER_COL : ENEMY_COL;
-    const glow = frozen ? '#bfe9ff' : isFf ? '#ffd45c' : isSp ? '#6ff0a0' : isCut ? '#fff07a' : isSent ? '#ffd07a' : isWr ? '#5cf0ff' : isQix ? '#b85cff' : isCh ? CHASER_GLOW : ENEMY_GLOW;
+    const col = frozen ? '#bfe9ff' : isFf ? '#ffe69a' : isSp ? '#bff5c8' : isCut ? '#ffe93b' : isSent ? '#ffb14a' : isWr ? '#c89cff' : isQix ? ENEMY_COL : isCh ? CHASER_COL : ENEMY_COL;
+    const glow = frozen ? '#bfe9ff' : isFf ? '#ffd45c' : isSp ? '#6ff0a0' : isCut ? '#fff07a' : isSent ? '#ffd07a' : isWr ? '#5cf0ff' : isQix ? ENEMY_GLOW : isCh ? CHASER_GLOW : ENEMY_GLOW;
     const o = { col, glow, frozen };
     // distinct silhouette per type (each telegraphs its behaviour)
     if (isCh) drawChaserBody(e, o);
@@ -859,27 +859,35 @@ export function drawWorld() {
       ctx.strokeStyle = '#7dffc4'; ctx.globalAlpha = (0.5 + 0.25 * (G.reduceMotion ? 0 : Math.sin(G.time * 6))) * blink;
       ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 17 * hs, 0, TAU); ctx.stroke();
     }
-    // directional CRYSTAL hero — a faceted diamond that points the way you travel,
-    // so heading + identity read instantly (no enemy is a sharp directional shape).
+    // directional CRYSTAL hero — a cut gem (two facets + a center ridge + a hot
+    // core) that points the way you travel, so heading + identity read instantly.
     let ha = G.player.heroAng != null ? G.player.heroAng : -Math.PI / 2;
     if (G.player.dir && (G.player.dir.x || G.player.dir.y)) { ha = Math.atan2(G.player.dir.y, G.player.dir.x); G.player.heroAng = ha; }
-    const cs = 5 * hs;
+    const cs = 5.5 * hs, F = cs * 1.7, T = cs * 0.9, Bk = cs * 0.95;
     ctx.save(); ctx.translate(px, py); ctx.rotate(ha);
     // soft halo
     ctx.globalCompositeOperation = 'lighter';
-    const hgrad = ctx.createRadialGradient(0, 0, 0, 0, 0, cs * 2.2);
+    const hgrad = ctx.createRadialGradient(0, 0, 0, 0, 0, cs * 2.3);
     hgrad.addColorStop(0, G.pal.player); hgrad.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.globalAlpha = 0.5 * blink; ctx.fillStyle = hgrad; ctx.beginPath(); ctx.arc(0, 0, cs * 2.2, 0, TAU); ctx.fill();
-    // crystal body (a kite elongated forward): white-hot fill + a tinted rim
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.beginPath(); ctx.moveTo(cs * 1.7, 0); ctx.lineTo(0, cs * 0.85); ctx.lineTo(-cs * 0.9, 0); ctx.lineTo(0, -cs * 0.85); ctx.closePath();
-    const cgrad = ctx.createLinearGradient(-cs, 0, cs * 1.7, 0);
-    cgrad.addColorStop(0, G.pal.player); cgrad.addColorStop(0.6, '#eaf2ff'); cgrad.addColorStop(1, '#ffffff');
-    ctx.globalAlpha = blink; ctx.fillStyle = cgrad; ctx.fill();
-    ctx.lineJoin = 'round'; ctx.lineWidth = 1.2; ctx.strokeStyle = G.pal.edge2; ctx.globalAlpha = 0.85 * blink; ctx.stroke();
-    // bright center facet ridge
-    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.7 * blink;
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-cs * 0.9, 0); ctx.lineTo(cs * 1.7, 0); ctx.stroke();
+    ctx.globalAlpha = 0.5 * blink; ctx.fillStyle = hgrad; ctx.beginPath(); ctx.arc(0, 0, cs * 2.3, 0, TAU); ctx.fill();
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = blink;
+    // upper facet — bright white
+    ctx.beginPath(); ctx.moveTo(F, 0); ctx.lineTo(0, -T); ctx.lineTo(-Bk, 0); ctx.closePath();
+    ctx.fillStyle = '#ffffff'; ctx.fill();
+    // lower facet — tinted, for a cut-gem dimension
+    ctx.beginPath(); ctx.moveTo(F, 0); ctx.lineTo(0, T); ctx.lineTo(-Bk, 0); ctx.closePath();
+    const lg = ctx.createLinearGradient(F, 0, -Bk, 0);
+    lg.addColorStop(0, '#eef4ff'); lg.addColorStop(1, G.pal.player);
+    ctx.fillStyle = lg; ctx.fill();
+    // crisp rim
+    ctx.beginPath(); ctx.moveTo(F, 0); ctx.lineTo(0, -T); ctx.lineTo(-Bk, 0); ctx.lineTo(0, T); ctx.closePath();
+    ctx.lineJoin = 'round'; ctx.lineWidth = 1.3; ctx.strokeStyle = G.pal.edge2; ctx.globalAlpha = 0.9 * blink; ctx.stroke();
+    // center ridge + a hot core glint toward the front
+    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.85 * blink;
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-Bk, 0); ctx.lineTo(F, 0); ctx.stroke();
+    const core = ctx.createRadialGradient(cs * 0.45, 0, 0, cs * 0.45, 0, cs * 0.95);
+    core.addColorStop(0, '#ffffff'); core.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.globalAlpha = 0.8 * blink; ctx.fillStyle = core; ctx.beginPath(); ctx.arc(cs * 0.45, 0, cs * 0.95, 0, TAU); ctx.fill();
     ctx.restore();
     ctx.restore();
   }

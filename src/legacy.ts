@@ -209,14 +209,19 @@ function initLevel(lv) {
   G.pickups.length = 0; G.popups.length = 0; G.particles.length = 0; G.rings.length = 0; G.revealQueue.length = 0;
   G.pickupSpawnT = G.rng.range(5, 8);
   recomputeBorderPath(); recomputePercent(); G.dispPercent = G.percent;
-  const floors = G.isDaily ? DAILY_FLOORS : LEVELS_PER_BAND;
-  const floor = G.isDaily ? lv : ((lv - 1) % LEVELS_PER_BAND) + 1;   // which floor of the band / daily run
-  // Easy/Bloom is one continuous run, so it numbers progressively (floor 6, not
-  // "1/5"); the campaign + daily keep their banded "n/N" floor indicator.
-  const floorLabel = (diff.key === 'easy' && !G.isDaily) ? 'floor ' + lv : 'floor ' + floor + '/' + floors;
-  // just the zone name (no per-level titles) — keep the banner simple
-  G.banner = { text: G.pal.name.toUpperCase(),
-    sub: floorLabel + '  ·  reveal ' + Math.round(G.target * 100) + '%', t: 2.0 };
+  const revealSub = 'reveal ' + Math.round(G.target * 100) + '%';
+  if (isBloom) {
+    // Bloom is one continuous garden: name it once on floor 1, then just show the
+    // progressing floor number (repeating "THE BLOOM" every level reads as a bug).
+    G.banner = lv === 1
+      ? { text: G.pal.name.toUpperCase(), sub: revealSub, t: 2.0 }
+      : { text: 'FLOOR ' + lv, sub: revealSub, t: 1.4 };
+  } else {
+    const floors = G.isDaily ? DAILY_FLOORS : LEVELS_PER_BAND;
+    const floor = G.isDaily ? lv : ((lv - 1) % LEVELS_PER_BAND) + 1;   // floor of the band / daily run
+    G.banner = { text: G.pal.name.toUpperCase(),
+      sub: 'floor ' + floor + '/' + floors + '  ·  ' + revealSub, t: 2.0 };
+  }
   // a level that introduces a new enemy always teaches what it does (wins over the title)
   const newType = G.isDaily ? dailyNewEnemy(lv) : diff.key === 'easy' ? bloomNewEnemy(lv) : newEnemyAtLevel(lv);
   if (newType) G.banner = { text: ENEMY_INFO[newType].name, sub: ENEMY_INFO[newType].desc, t: 3.4, enemy: newType };
