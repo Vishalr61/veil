@@ -34,22 +34,22 @@ function menuPhase() {
   };
 }
 
-// A restrained menu button: a confident light fill for the primary, a quiet
-// hairline outline for the rest. `alpha` lets the intro fade it in.
+// A sharp-cornered title button (Horizon reference): a solid WHITE primary with
+// black text, a dark fill + crisp light hairline for the rest. `alpha` fades it in.
 function minBtn(r: any, label: string, primary: boolean, tint?: string, alpha = 1) {
-  const bx = r.x + r.w / 2, by = r.y + r.h / 2, rad = r.h / 2;
+  const bx = r.x + r.w / 2, by = r.y + r.h / 2, rad = 3;   // sharp (no pill)
   ctx.save();
   ctx.globalAlpha = alpha;
   roundRectPath(r.x, r.y, r.w, r.h, rad);
-  if (primary) { ctx.fillStyle = INK; ctx.fill(); }
+  if (primary) { ctx.fillStyle = '#ffffff'; ctx.fill(); }
   else {
-    ctx.fillStyle = 'rgba(255,255,255,0.025)'; ctx.fill();
-    roundRectPath(r.x + 0.75, r.y + 0.75, r.w - 1.5, r.h - 1.5, rad - 0.75);
-    ctx.strokeStyle = tint ? tint + '55' : 'rgba(255,255,255,0.16)'; ctx.lineWidth = 1.25; ctx.stroke();
+    ctx.fillStyle = 'rgba(8,16,24,0.45)'; ctx.fill();
+    roundRectPath(r.x + 0.75, r.y + 0.75, r.w - 1.5, r.h - 1.5, rad);
+    ctx.strokeStyle = tint ? tint + '88' : 'rgba(185,205,230,0.42)'; ctx.lineWidth = 1.4; ctx.stroke();
   }
   ctx.restore();
-  glowText(label, bx, by + 0.5, primary ? 16 : 14, primary ? '#0a0e16' : (tint || '#b3bdd0'),
-    { weight: primary ? 800 : 600, spacing: primary ? 3 : 2.5, blur: 0, alpha });
+  glowText(label, bx, by + 0.5, primary ? 16 : 14, primary ? '#06070d' : (tint || '#e6eef7'),
+    { weight: primary ? 800 : 700, spacing: primary ? 3 : 2.5, blur: 0, alpha });
 }
 export function drawMenu() {
   const cx = CW / 2;
@@ -62,9 +62,9 @@ export function drawMenu() {
   if (G.highScore > 0) glowText('BEST  ' + fmtScore(G.highScore), 22, 40, 12, '#8fa6c8', { font: 'mono', spacing: 4, weight: 700, blur: 0, align: 'left', alpha: A });
 
   // wordmark — large, crisp, light, generously tracked, with a soft glow
-  const titleY = CH * 0.34;
-  glowText('VEIL', cx, titleY, 86, INK, { weight: 700, spacing: 28, blur: 8, core: '#fff', alpha: A });
-  glowText('draw light into the dark', cx, titleY + 60, 12, '#8fa6c8', { font: 'mono', weight: 400, spacing: 5, blur: 0, alpha: A });
+  const titleY = CH * 0.33;
+  glowText('VEIL', cx, titleY, 104, INK, { weight: 700, spacing: 26, blur: 10, core: '#fff', alpha: A });
+  glowText('draw light into the dark', cx, titleY + 70, 15, '#8fa6c8', { font: 'mono', weight: 400, spacing: 6, blur: 0, alpha: A });
 
   // a confident light PLAY + quiet outlined DAILY / SCORES
   minBtn(playBtnRect(), 'PLAY', true, undefined, A);
@@ -77,18 +77,18 @@ export function drawMenu() {
   const diffLabels: Record<string, string> = { easy: 'EASY', medium: 'MEDIUM', hard: 'HARD' };
   const chips = diffBtnRects();
   for (const r of chips) {
-    const on = G.diff === r.key, rad = r.h / 2;
+    const on = G.diff === r.key, rad = 3;
     ctx.save(); ctx.globalAlpha = A;
     roundRectPath(r.x, r.y, r.w, r.h, rad);
-    if (on) { ctx.fillStyle = INK; ctx.fill(); }
+    if (on) { ctx.fillStyle = '#ffffff'; ctx.fill(); }
     else {
-      ctx.fillStyle = 'rgba(255,255,255,0.02)'; ctx.fill();
-      roundRectPath(r.x + 0.75, r.y + 0.75, r.w - 1.5, r.h - 1.5, rad - 0.75);
-      ctx.strokeStyle = 'rgba(255,255,255,0.14)'; ctx.lineWidth = 1.25; ctx.stroke();
+      ctx.fillStyle = 'rgba(8,16,24,0.4)'; ctx.fill();
+      roundRectPath(r.x + 0.75, r.y + 0.75, r.w - 1.5, r.h - 1.5, rad);
+      ctx.strokeStyle = 'rgba(185,205,230,0.34)'; ctx.lineWidth = 1.3; ctx.stroke();
     }
     ctx.restore();
-    glowText(diffLabels[r.key], r.x + r.w / 2, r.y + r.h / 2 + 0.5, on ? 13 : 11.5, on ? '#0a0e16' : MUTED,
-      { weight: on ? 800 : 600, spacing: 2, blur: 0, alpha: A });
+    glowText(diffLabels[r.key], r.x + r.w / 2, r.y + r.h / 2 + 0.5, on ? 12.5 : 11.5, on ? '#06070d' : '#cfdaea',
+      { weight: on ? 800 : 700, spacing: 2, blur: 0, alpha: A });
   }
 
   const liveStreak = (G.dailyStreakDate === tk || isConsecutive(G.dailyStreakDate, tk)) ? G.dailyStreak : 0;
@@ -281,19 +281,11 @@ export function drawAttractWorld() {
     ctx.beginPath(); ctx.arc(penX, penY, 6 * fl, 0, TAU); ctx.fill();
     ctx.restore();
   }
-  // canonical idle player dot + trail — fades in with the reveal
+  // (no center player dot/trail — it read as a stray marker)
   if (revealA > 0.01) {
-    const pxp = 0.5 * PW, pyp = 0.6 * PH;
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    const tg = ctx.createLinearGradient(pxp, pyp - PH * 0.17, pxp, pyp);
-    tg.addColorStop(0, 'rgba(234,255,251,0)'); tg.addColorStop(1, 'rgba(234,255,251,0.6)');
-    ctx.globalAlpha = revealA; ctx.strokeStyle = tg; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(pxp, pyp - PH * 0.17); ctx.lineTo(pxp, pyp); ctx.stroke();
-    if (!G.reduceMotion) { const k = (t * 0.5) % 1; ctx.globalAlpha = (1 - k) * 0.5 * revealA; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(pxp, pyp, 4 + k * 18, 0, TAU); ctx.stroke(); }
-    ctx.globalAlpha = revealA; ctx.shadowColor = '#aafff2'; ctx.shadowBlur = 14; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(pxp, pyp, 4, 0, TAU); ctx.fill();
-    ctx.restore();
     // Qix diamond (slow spin), upper-right — a bigger, bolder landmark
     const qr = Math.min(42, PW * 0.11);
-    ctx.save(); ctx.globalAlpha = revealA; ctx.translate(0.79 * PW, 0.18 * PH); ctx.rotate((G.reduceMotion ? 0.5 : t * 0.22) + Math.PI / 4);
+    ctx.save(); ctx.globalAlpha = revealA; ctx.translate(0.81 * PW, 0.135 * PH); ctx.rotate((G.reduceMotion ? 0.5 : t * 0.22) + Math.PI / 4);
     ctx.globalCompositeOperation = 'lighter'; ctx.shadowColor = '#ff5ad0'; ctx.shadowBlur = 11;
     ctx.strokeStyle = '#ff5ad0'; ctx.lineWidth = 3; ctx.strokeRect(-qr, -qr, qr * 2, qr * 2);
     ctx.strokeStyle = '#ff9ae4'; ctx.lineWidth = 2.4; ctx.strokeRect(-qr * 0.5, -qr * 0.5, qr, qr);
