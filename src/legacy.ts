@@ -24,7 +24,7 @@ import {
 } from './core/dims';
 import { G } from './game/state';
 import { centerPx } from './core/grid';
-import { drawWorld, tickShootingStars } from './render/world';
+import { drawWorld, tickShootingStars, genBloomDecor } from './render/world';
 import { spawnPopup, updatePopups, updateParticles, updateRings, initMotes, updateMotes } from './game/particles';
 import { ENEMY_INFO, genEnemies, moveEnemy } from './game/enemies';
 import { blueprintForLevel, newEnemyAtLevel, dailyBlueprint, dailyNewEnemy, DAILY_FLOORS, levelTimeBudget, bloomBlueprint, bloomNewEnemy } from './game/blueprints';
@@ -180,6 +180,7 @@ function initLevel(lv) {
   G.veilBoard = genVeilBoard(G.rng.fork('veil'), { cols: COLS, rows: ROWS, level: lv, isOpen: (i) => G.grid[i] === EMPTY, caches: bp.caches, rifts: riftCount(bp.rifts, diff) });
 
   G.nebula = genNebula(G.pal, lv, PW, PH, bp.depth); G.fog = genFog(G.pal, PW, PH, bp.depth); genTwinkles();
+  genBloomDecor();   // garden flora to bloom on claimed land (Bloom only; clears otherwise)
   for (let i = 0; i < G.grid.length; i++) if (G.grid[i] === FILLED || G.grid[i] === OBSTACLE) clearFogCell(i);
 
   const start = (COLS >> 1);

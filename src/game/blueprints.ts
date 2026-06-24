@@ -255,8 +255,9 @@ export function bloomRoster(lv: number): EnemyCounts {
 }
 export function bloomBlueprint(base: LevelBlueprint, lv: number): LevelBlueprint {
   // gentler early, mazier deeper (board-complexity lever); the target is left to
-  // the base — Easy's clearTarget delta lowers it in initLevel.
-  const motif: ObstacleMotif = lv <= 1 ? 'open' : lv <= 4 ? 'pillars' : 'veins';
+  // the base — Easy's clearTarget delta lowers it in initLevel. Floors alternate
+  // between organic GROVES (clumped thickets) and carved VEINS so layouts vary.
+  const motif: ObstacleMotif = lv <= 1 ? 'open' : lv <= 3 ? 'pillars' : (lv % 2 === 0 ? 'grove' : 'veins');
   return {
     ...base,
     motif,
