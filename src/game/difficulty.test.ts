@@ -97,7 +97,8 @@ describe('hero move speed', () => {
     expect(playerSpeed(50, MED)).toBe(20);                   // cap
     expect(playerSpeed(1, HARD)).toBeCloseTo(13.5, 5);
     expect(playerSpeed(6, EASY)).toBeLessThan(playerSpeed(6, MED));   // L6+ is the gripe — calmer on Easy
-    expect(playerSpeed(99, EASY)).toBe(15);                  // low cap so deep floors stay controllable
+    expect(playerSpeed(13, EASY)).toBeLessThan(15);          // deep floors stay slow/controllable
+    expect(playerSpeed(99, EASY)).toBe(13);                  // low cap
   });
 });
 

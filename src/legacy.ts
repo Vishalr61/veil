@@ -14,7 +14,7 @@ import { genObstacles, openInteriorCount } from './sim/terrain';
 import { todayKey, seedFromDateKey, shareText, isConsecutive } from './daily/daily';
 import { shareResult } from './platform/share';
 import { EMPTY, FILLED, OBSTACLE, SS } from './core/constants';
-import { bandForLevel, LEVELS_PER_BAND, RIFT_BAND } from './core/bands';
+import { bandForLevel, LEVELS_PER_BAND, RIFT_BAND, BLOOM_BAND } from './core/bands';
 import { genNebula, genFog } from './render/background';
 import { canvas, ctx } from './render/surface';
 import { glowText, drawVignette, roundRectPath } from './render/primitives';
@@ -163,10 +163,13 @@ function initLevel(lv) {
   G.rng = new SeededRng(G.gameSeed).fork('lv' + lv); // deterministic per-level simulation stream
   // The daily is its own zone (The Rift) with a dedicated 10-floor blueprint set;
   // the campaign uses the band + authored/procedural blueprint for the level.
-  G.pal = G.isDaily ? RIFT_BAND : bandForLevel(lv);
-  let bp = G.isDaily ? dailyBlueprint(lv) : blueprintForLevel(lv);
   const diff = effectiveDiff();   // the daily forces Medium inside effectiveDiff()
-  if (diff.key === 'easy' && !G.isDaily) bp = bloomBlueprint(bp, lv);   // Easy = the Bloom garden
+  const isBloom = diff.key === 'easy' && !G.isDaily;
+  // The daily is the Rift; Easy is its own continuous garden (the Bloom); the
+  // campaign uses the per-level band. The palette+style drives every backdrop.
+  G.pal = G.isDaily ? RIFT_BAND : isBloom ? BLOOM_BAND : bandForLevel(lv);
+  let bp = G.isDaily ? dailyBlueprint(lv) : blueprintForLevel(lv);
+  if (isBloom) bp = bloomBlueprint(bp, lv);   // Easy = the Bloom garden
   G.grid = new Uint8Array(COLS * ROWS);
   for (let y = 0; y < ROWS; y++)
     for (let x = 0; x < COLS; x++)
@@ -208,9 +211,12 @@ function initLevel(lv) {
   recomputeBorderPath(); recomputePercent(); G.dispPercent = G.percent;
   const floors = G.isDaily ? DAILY_FLOORS : LEVELS_PER_BAND;
   const floor = G.isDaily ? lv : ((lv - 1) % LEVELS_PER_BAND) + 1;   // which floor of the band / daily run
+  // Easy/Bloom is one continuous run, so it numbers progressively (floor 6, not
+  // "1/5"); the campaign + daily keep their banded "n/N" floor indicator.
+  const floorLabel = (diff.key === 'easy' && !G.isDaily) ? 'floor ' + lv : 'floor ' + floor + '/' + floors;
   // just the zone name (no per-level titles) — keep the banner simple
   G.banner = { text: G.pal.name.toUpperCase(),
-    sub: 'floor ' + floor + '/' + floors + '  ·  reveal ' + Math.round(G.target * 100) + '%', t: 2.0 };
+    sub: floorLabel + '  ·  reveal ' + Math.round(G.target * 100) + '%', t: 2.0 };
   // a level that introduces a new enemy always teaches what it does (wins over the title)
   const newType = G.isDaily ? dailyNewEnemy(lv) : diff.key === 'easy' ? bloomNewEnemy(lv) : newEnemyAtLevel(lv);
   if (newType) G.banner = { text: ENEMY_INFO[newType].name, sub: ENEMY_INFO[newType].desc, t: 3.4, enemy: newType };

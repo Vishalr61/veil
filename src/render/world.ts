@@ -638,6 +638,15 @@ function drawFireflyBody(e, o) {
 // Sprite (Bloom) — a curled bud: a calm core ringed by petals that swell and
 // brighten while it charges, telegraphing the coming hop.
 function drawSpriteBody(e, o) {
+  // brief green zip streak from where it just hopped (motion-on only)
+  if (e.zipT > 0 && e.zipFrom) {
+    const k = e.zipT / 0.22;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round'; ctx.strokeStyle = o.glow; ctx.shadowColor = o.glow; ctx.shadowBlur = 8;
+    ctx.globalAlpha = 0.55 * k; ctx.lineWidth = e.r * 0.6 * k;
+    ctx.beginPath(); ctx.moveTo(e.zipFrom.x, e.zipFrom.y); ctx.lineTo(e.x, e.y); ctx.stroke();
+    ctx.restore();
+  }
   const charging = e.charging > 0;
   const k = charging ? 1 - e.charging / 0.6 : 0;     // 0 -> 1 over the tell
   const swell = 1 + k * 0.5;
@@ -651,7 +660,7 @@ function drawSpriteBody(e, o) {
   ctx.restore();
   if (charging) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = o.glow; ctx.globalAlpha = 0.3 + 0.5 * Math.abs(Math.sin(G.time * 26)); ctx.lineWidth = 1.4;
+    ctx.strokeStyle = o.glow; ctx.globalAlpha = G.reduceMotion ? 0.45 : 0.3 + 0.5 * Math.abs(Math.sin(G.time * 26)); ctx.lineWidth = 1.4;
     ctx.beginPath(); ctx.arc(e.x, e.y, e.r * (1.2 + k * 1.0), 0, TAU); ctx.stroke(); ctx.restore();
   }
 }
@@ -678,7 +687,7 @@ export function drawWorld() {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   for (const t of G.twinkles) {
-    ctx.globalAlpha = 0.25 + 0.55 * (0.5 + 0.5 * Math.sin(G.time * t.spd + t.phase));
+    ctx.globalAlpha = G.reduceMotion ? 0.5 : 0.25 + 0.55 * (0.5 + 0.5 * Math.sin(G.time * t.spd + t.phase));
     ctx.fillStyle = G.pal.star;
     ctx.beginPath(); ctx.arc(t.x, t.y, t.r, 0, TAU); ctx.fill();
   }
@@ -688,6 +697,11 @@ export function drawWorld() {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   for (const m of G.motes) {
+    if (G.reduceMotion) {   // motion off: steady, no flicker
+      ctx.globalAlpha = m.a * 0.6;
+      ctx.fillStyle = m.pr ? '#7fd0ff' : (m.em || m.du) ? G.pal.blobs[3] : m.sn ? G.pal.star : G.pal.blobs[4];
+      ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, TAU); ctx.fill(); continue;
+    }
     if (m.em) { ctx.globalAlpha = m.a * (0.55 + 0.45 * Math.sin(G.time * 8 + m.x)); ctx.fillStyle = G.pal.blobs[3]; }
     else if (m.cr) { ctx.globalAlpha = m.a * (0.35 + 0.65 * Math.abs(Math.sin(G.time * 3 + m.x * 0.5))); ctx.fillStyle = G.pal.blobs[4]; }
     else if (m.bu) { ctx.globalAlpha = m.a * 0.8; ctx.fillStyle = G.pal.blobs[4]; }   // rising bubble

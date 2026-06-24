@@ -97,7 +97,7 @@ export function genEnemies(lv, counts: EnemyCounts = enemyCounts(lv)) {
   for (let i = 0; i < n.cutter; i++) place('cutter', spd * 0.8);
   for (let i = 0; i < n.sentinel; i++) place('sentinel', spd * 0.82);
   for (let i = 0; i < (n.wraith || 0); i++) place('wraith', spd * 0.7);
-  for (let i = 0; i < (n.firefly || 0); i++) placeFirefly(spd * 0.6);
+  for (let i = 0; i < (n.firefly || 0); i++) placeFirefly(spd * 0.8);   // a touch livelier than before
   for (let i = 0; i < (n.sprite || 0); i++) placeSprite(spd * 0.9);
   for (let i = 0; i < (n.qix || 0); i++) {
     const p = spawnCell(9, false), s = spd * 0.45, r = CELL * 1.15;   // a slow roamer (moderate size)
@@ -147,6 +147,7 @@ export function moveEnemy(e, dt) {
   // sprite (Bloom): holds still, telegraphs (~0.6s glow-swell), then hops a fixed
   // distance in a RANDOM cardinal direction (not aimed at you), pauses, repeats.
   if (e.type === 'sprite') {
+    if (e.zipT > 0) e.zipT -= dt;   // fade the post-hop zip trail
     if (e.charging > 0) {
       e.charging -= dt;
       if (e.charging <= 0) {
@@ -155,8 +156,10 @@ export function moveEnemy(e, dt) {
         const tx = e.x + d[0] * e.hopDist, ty = e.y + d[1] * e.hopDist;
         const cc = clamp(Math.floor(ty / CELL), 1, ROWS - 2) * COLS + clamp(Math.floor(tx / CELL), 1, COLS - 2);
         if (G.grid[cc] !== OBSTACLE && G.grid[cc] !== FILLED) {
+          const ox = e.x, oy = e.y;
           e.x = clamp(tx, CELL * 1.5, (COLS - 1.5) * CELL);
           e.y = clamp(ty, CELL * 1.5, (ROWS - 1.5) * CELL);
+          if (!G.reduceMotion) { e.zipFrom = { x: ox, y: oy }; e.zipT = 0.22; }   // brief green zip streak
         }
         e.hopT = Math.max(0.5, 1.4 - G.level * 0.02);   // shorter pauses deeper (gentle escalation)
       }

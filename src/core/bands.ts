@@ -46,6 +46,16 @@ export const RIFT_BAND: Band = {
   star: '#f0e6ff', edge: '#9a6cff', edge2: '#d8c0ff', trail: '#f2ecff', player: '#ffffff', accent: '#c06cff',
 };
 
+// The Bloom — Easy mode's own zone (a lush bioluminescent garden), deliberately
+// OUTSIDE the BANDS progression (like the Rift) so it never shifts the campaign
+// mapping. It reuses the rich 'flora' backdrop/terrain pipeline with a distinct
+// teal-bio palette + warm flower accent, so Easy is one coherent garden across
+// every floor instead of riding the campaign zones.
+export const BLOOM_BAND: Band = {
+  name: 'the bloom', style: 'flora', blobs: ['#04140f', '#083020', '#0e7058', '#2fe0b0', '#a6ffe0'],
+  star: '#e2fff4', edge: '#3fe8c0', edge2: '#bafff0', trail: '#ecfff8', player: '#ffffff', accent: '#ff9ad8',
+};
+
 export const LEVELS_PER_BAND = 5;
 
 export function bandForLevel(level: number): Band {
