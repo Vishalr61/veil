@@ -158,7 +158,7 @@ function triggerDeath() {
   }
   G.lives--; G.combo = 0; G.comboT = 0;
   G.shakeAmt = G.reduceMotion ? 0 : 16; G.flash = G.reduceMotion ? 0.25 : 0.8; G.deathFreeze = 0.5;
-  if (!G.reduceMotion) G.timeScaleTarget = 0.22;
+  // (no death slow-mo — the world keeps full speed; removed, it felt jarring)
   sfxDeath(); hapticHeavy();
   for (let i = 0; i < 46; i++) {
     const ang = Math.random() * TAU, sp = rand(40, 220);

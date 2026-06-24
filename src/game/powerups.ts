@@ -27,9 +27,10 @@ const PU_TYPES = [
   // daily-only (The Rift): a score surge
   { type: 'surge',  w: 16, col: '#ffce5c', label: 'surge', daily: true },
 ];
-// Easy/Bloom runs a tight set of FIVE direct, obvious power-ups (no time — there's
-// no clock; no slow — freeze is the clearer "stop the enemies"; no daily surge).
-const EASY_PU = new Set(['score', 'freeze', 'shield', 'bomb', 'life']);
+// Easy/Bloom runs a tight set of FIVE direct, obvious power-ups: POINTS, FREEZE
+// (enemies stop), SLOW (enemies crawl), SHIELD (block a hit), +1 LIFE. No BOMB
+// (its blast radius wasn't obvious), no TIME (no clock), no daily surge.
+const EASY_PU = new Set(['score', 'freeze', 'slow', 'shield', 'life']);
 function pickPU() {
   const easy = effectiveDiff().key === 'easy';
   const pool = easy
