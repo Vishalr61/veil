@@ -1,6 +1,7 @@
 /* Difficulty config + pure levers. Asserts the SPEC: Medium reproduces today's
-   formulas exactly; Easy removes time pressure (fuse + clock off) and delays the
-   enemy schedule; Hard tightens; the daily is always Medium. */
+   formulas exactly (the soon-to-be-redesigned themed mode still uses them for now);
+   Easy is the Bloom garden (fuse + clock off); Hard is the standard campaign baseline
+   parked from the old Medium; the daily runs that baseline. */
 import '../test/browser-env';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { G } from '../game/state';
@@ -108,18 +109,17 @@ describe('hero move speed', () => {
   });
 });
 
-describe('Hard turns the screws', () => {
-  it('tightens fuse + clock, fewer lives, faster enemies, less invuln', () => {
-    expect(fuseWindow(1, HARD)).toBeCloseTo(5.88 * 0.8, 5);
-    expect(levelClock(60, HARD)).toBeCloseTo(48, 5);
-    expect(HARD.lives).toBe(2);
-    expect(enemySpeed(1, HARD)).toBeCloseTo(154, 5);         // 140 * 1.1
-    expect(invulnFor(1.0, HARD)).toBeCloseTo(0.7, 5);
+describe('Hard = the standard campaign (parked from the old Medium)', () => {
+  it('reproduces the baseline: fuse + clock on, 3 lives, today\'s enemy speed + invuln', () => {
+    expect(fuseWindow(1, HARD)).toBeCloseTo(5.88, 5);        // no fuse scale (baseline)
+    expect(levelClock(60, HARD)).toBe(60);                   // full clock budget
+    expect(HARD.lives).toBe(3);
+    expect(enemySpeed(1, HARD)).toBe(140);                   // baseline speed (no 1.1 screw)
+    expect(invulnFor(1.0, HARD)).toBeCloseTo(1, 5);
   });
-  it('adds an enemy on non-summit floors only, never delays the schedule', () => {
-    expect(applyDiffCounts(counts({ drifter: 2 }), 4, false, HARD).drifter).toBe(3);
-    expect(applyDiffCounts(counts({ drifter: 2 }), 5, true, HARD).drifter).toBe(2);   // summit -> no +1
-    expect(applyDiffCounts(counts(), 3, false, HARD).chaser).toBe(1);                  // no delay
+  it('leaves the enemy counts + schedule untouched (no +1, no delay)', () => {
+    expect(applyDiffCounts(counts({ drifter: 2 }), 4, false, HARD).drifter).toBe(2);  // countDelta 0
+    expect(applyDiffCounts(counts(), 3, false, HARD).chaser).toBe(1);
   });
 });
 
@@ -132,14 +132,14 @@ describe('rift density', () => {
   });
 });
 
-describe('effectiveDiff: the daily is always Medium', () => {
-  beforeEach(() => { G.isDaily = false; G.diff = 'medium'; });
+describe('effectiveDiff: the daily runs the standard-campaign baseline', () => {
+  beforeEach(() => { G.isDaily = false; G.diff = 'easy'; });
   it('returns the chosen mode for normal play', () => {
     G.diff = 'easy'; expect(effectiveDiff().key).toBe('easy');
     G.diff = 'hard'; expect(effectiveDiff().key).toBe('hard');
   });
-  it('forces Medium during the daily, ignoring the choice', () => {
+  it('forces the baseline (Hard) during the daily, ignoring the choice', () => {
     G.diff = 'easy'; G.isDaily = true;
-    expect(effectiveDiff().key).toBe('medium');
+    expect(effectiveDiff().key).toBe('hard');
   });
 });
