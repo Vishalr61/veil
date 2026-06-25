@@ -542,8 +542,12 @@ function pointerDown(p) {
     anyKeyAction(); return;   // anywhere else: retry (or share + menu for the daily)
   }
   if (G.state === 'levelclear') { anyKeyAction(); return; }
-  // menu — a tap while the intro is still running skips it to the finished title.
-  if (G.menuIntroT < MENU_INTRO_DONE) { G.menuIntroT = 999; return; }
+  // menu — a DELIBERATE tap while the intro runs skips it to the finished title.
+  // But ignore the very first beat: on mobile the same physical tap that dismissed
+  // the splash also fires a leftover event (the other pointer type, or a synthesized
+  // mouse click up to ~300ms later) that would otherwise skip the intro the instant
+  // it starts — which is exactly the "it jumps straight to home" bug on phones.
+  if (G.menuIntroT < MENU_INTRO_DONE) { if (G.menuIntroT > 0.7) G.menuIntroT = 999; return; }
   // start a run ONLY from the PLAY button; clicking empty space does nothing.
   for (const r of diffBtnRects()) if (inRect(p.x, p.y, r)) { setDiff(r.key); sfxBlip(); return; }   // EASY/MED/HARD
   if (inRect(p.x, p.y, dailyBtnRect())) { startDaily(); sfxBlip(); return; }
