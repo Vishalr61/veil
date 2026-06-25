@@ -94,15 +94,15 @@ export function doCapture() {
       G.score += bonus;
       spawnPopup(origin.x, origin.y + 14, 'BOLD CUT  +' + bonus, '#ffe27a', 18);
       sfxBold(); hapticHeavy();
-      G.flash = G.reduceMotion ? 0.2 : 0.55;
-      G.zoom = G.reduceMotion ? 1 : 1 + Math.min(0.05, area * 0.0006);
+      G.flash = G.reduceMotion ? 0.2 : 0.3;   // softened so the claimed area isn't whited-out — it must SNAP
     } else {
       if (area < 14) hapticLight(); else hapticMedium();       // tactile tier by cut size
-      G.flash = G.reduceMotion ? 0.08 : Math.min(0.35, 0.1 + area * 0.003);
-      G.zoom = G.reduceMotion ? 1 : 1 + Math.min(0.025, area * 0.0004);
+      G.flash = G.reduceMotion ? 0.08 : Math.min(0.22, 0.08 + area * 0.002);
     }
+    // No capture zoom-punch: it eased back over ~0.5s, which read as the board
+    // "settling" instead of the area snapping closed. Snappiness > pop. (zoom stays 1.)
     // (no capture hitstop/slow-mo — removed; the world never crawls)
-    G.shakeAmt = G.reduceMotion ? 0 : Math.min(10, 2.5 + area * 0.04);
+    G.shakeAmt = G.reduceMotion ? 0 : Math.min(5, 1 + area * 0.03);   // gentler: a quick tap of impact, not a lingering wobble
     captureBurst(origin.x, origin.y, G.pal.edge2, area, G.reduceMotion);
     if (!G.reduceMotion) spawnRing(origin.x, origin.y, G.pal.edge2, area);   // detonation shockwave
     sfxCapture(G.combo, area);
