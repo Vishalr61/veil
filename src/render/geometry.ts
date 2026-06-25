@@ -5,7 +5,7 @@
    in one place to keep the two in sync.
    ========================================================================= */
 
-import { CW, CH, safeTop } from '../core/dims';
+import { CW, CH, safeTop, safeBottom } from '../core/dims';
 
 export function menuBtnW() { return Math.min(300, CW - 48); }
 
@@ -17,21 +17,23 @@ type Rect = { x: number; y: number; w: number; h: number };
 export interface BarLayout { wide: boolean; play: Rect; daily: Rect; scores: Rect; chips: Rect[]; dividerX: number; dividerY: number; dividerH: number; }
 export function barLayout(): BarLayout {
   const wide = CW >= 720;
-  if (!wide) {   // stacked column, bottom-anchored
+  const bottom = CH - Math.max(safeBottom, 14);   // clear the home indicator
+  if (!wide) {   // stacked column, anchored to the visible bottom
     const w = menuBtnW(), hw = (w - 14) / 2, gap = 10, cw = (w - gap * 2) / 3, x0 = CW / 2 - w / 2;
+    const chipsY = bottom - 40, dsY = chipsY - 62, playY = dsY - 70;
     return {
       wide: false,
-      play: { x: CW / 2 - w / 2, y: CH - 206, w, h: 58 },
-      daily: { x: CW / 2 - w / 2, y: CH - 134, w: hw, h: 50 },
-      scores: { x: CW / 2 - w / 2 + hw + 14, y: CH - 134, w: hw, h: 50 },
-      chips: [0, 1, 2].map((i) => ({ x: x0 + i * (cw + gap), y: CH - 70, w: cw, h: 40 })),
+      play: { x: CW / 2 - w / 2, y: playY, w, h: 58 },
+      daily: { x: CW / 2 - w / 2, y: dsY, w: hw, h: 50 },
+      scores: { x: CW / 2 - w / 2 + hw + 14, y: dsY, w: hw, h: 50 },
+      chips: [0, 1, 2].map((i) => ({ x: x0 + i * (cw + gap), y: chipsY, w: cw, h: 40 })),
       dividerX: 0, dividerY: 0, dividerH: 0,
     };
   }
   const h = 56, chipH = 42, chipW = 66, chipGap = 8, gap = 16, dsW = 128, playW = 200, divGap = 20;
   const chipsW = chipW * 3 + chipGap * 2;
   const totalW = playW + gap + dsW + gap + dsW + divGap + 1 + divGap + chipsW;
-  let x = CW / 2 - totalW / 2; const y = CH - 116;
+  let x = CW / 2 - totalW / 2; const y = bottom - 16 - h;
   const play = { x, y, w: playW, h }; x += playW + gap;
   const daily = { x, y, w: dsW, h }; x += dsW + gap;
   const scores = { x, y, w: dsW, h }; x += dsW + divGap;
