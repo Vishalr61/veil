@@ -61,10 +61,13 @@ export function drawMenu() {
   // BEST — top-left, mono, only when there's a score
   if (G.highScore > 0) glowText('BEST  ' + fmtScore(G.highScore), 22, 40, 12, '#8fa6c8', { font: 'mono', spacing: 4, weight: 700, blur: 0, align: 'left', alpha: A });
 
-  // wordmark — large, crisp, light, generously tracked, with a soft glow
-  const titleY = CH * 0.33;
-  glowText('VEIL', cx, titleY, 104, INK, { weight: 700, spacing: 26, blur: 10, core: '#fff', alpha: A });
-  glowText('draw light into the dark', cx, titleY + 70, 15, '#8fa6c8', { font: 'mono', weight: 400, spacing: 6, blur: 0, alpha: A });
+  // wordmark — large, crisp, light, generously tracked; scales down on short
+  // (landscape) screens so it never crowds the frontier + bar.
+  const short = CH < 560;
+  const titleY = short ? CH * 0.25 : CH * 0.33;
+  const wm = short ? Math.min(76, CH * 0.19) : 104;
+  glowText('VEIL', cx, titleY, wm, INK, { weight: 700, spacing: short ? 18 : 26, blur: short ? 7 : 10, core: '#fff', alpha: A });
+  glowText('draw light into the dark', cx, titleY + wm * 0.62, short ? 11 : 15, '#8fa6c8', { font: 'mono', weight: 400, spacing: short ? 4 : 6, blur: 0, alpha: A });
 
   // the button bar — one horizontal row on wide screens, stacked on phones
   const bar = barLayout();
@@ -99,7 +102,7 @@ export function drawMenu() {
   }
 
   const liveStreak = (G.dailyStreakDate === tk || isConsecutive(G.dailyStreakDate, tk)) ? G.dailyStreak : 0;
-  if (liveStreak > 1) glowText(liveStreak + ' DAY STREAK', cx, CH * 0.9, 11, MUTED, { font: 'mono', spacing: 2, weight: 600, blur: 0, alpha: A });
+  if (liveStreak > 1) glowText(liveStreak + ' DAY STREAK', cx, titleY + wm * 0.62 + 26, 11, MUTED, { font: 'mono', spacing: 2, weight: 600, blur: 0, alpha: A });
 }
 export function drawScores() {
   dim(0.74);
