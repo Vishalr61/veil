@@ -9,7 +9,7 @@ import { G } from '../game/state';
 import { CW, CH, OFF_X, OFF_Y, PW, PH } from '../core/dims';
 import { TAU, clamp } from '../core/math';
 import { glowText, fmtScore, roundRectPath } from './primitives';
-import { playBtnRect, dailyBtnRect, scoresBtnRect, diffBtnRects, pauseHomeRect, pauseControlRect, pauseMuteRect, pauseMotionRect, goBtnRects } from './geometry';
+import { barLayout, diffBtnRects, pauseHomeRect, pauseControlRect, pauseMuteRect, pauseMotionRect, goBtnRects } from './geometry';
 import { isMuted } from '../audio/audio';
 import { todayKey, isConsecutive } from '../daily/daily';
 import { getScores, justSetEntry } from '../game/leaderboard';
@@ -66,15 +66,22 @@ export function drawMenu() {
   glowText('VEIL', cx, titleY, 104, INK, { weight: 700, spacing: 26, blur: 10, core: '#fff', alpha: A });
   glowText('draw light into the dark', cx, titleY + 70, 15, '#8fa6c8', { font: 'mono', weight: 400, spacing: 6, blur: 0, alpha: A });
 
-  // a confident light PLAY + quiet outlined DAILY / SCORES
-  minBtn(playBtnRect(), 'PLAY', true, undefined, A);
+  // the button bar — one horizontal row on wide screens, stacked on phones
+  const bar = barLayout();
+  minBtn(bar.play, 'PLAY', true, undefined, A);
   const tk = todayKey(new Date()), done = G.dailyPlayedKey === tk;
-  minBtn(dailyBtnRect(), done ? 'DAILY ✓' : 'DAILY', false, undefined, A);
-  minBtn(scoresBtnRect(), 'SCORES', false, undefined, A);
+  minBtn(bar.daily, done ? 'DAILY ✓' : 'DAILY', false, undefined, A);
+  minBtn(bar.scores, 'SCORES', false, undefined, A);
+  if (bar.wide) {   // divider between SCORES and the difficulty chips
+    ctx.save(); ctx.globalAlpha = 0.3 * A; ctx.strokeStyle = '#cfdaea'; ctx.lineWidth = 1;
+    const dy = bar.dividerY + bar.dividerH * 0.18;
+    ctx.beginPath(); ctx.moveTo(bar.dividerX, dy); ctx.lineTo(bar.dividerX, dy + bar.dividerH * 0.64); ctx.stroke(); ctx.restore();
+  }
 
-  // difficulty — a quiet three-up selector; the chosen mode reads as a light fill.
-  // (The daily ignores this and always runs Medium — see effectiveDiff.)
-  const diffLabels: Record<string, string> = { easy: 'EASY', medium: 'MEDIUM', hard: 'HARD' };
+  // difficulty — the chosen mode reads as a solid white chip (MED abbreviated on the bar).
+  const diffLabels: Record<string, string> = bar.wide
+    ? { easy: 'EASY', medium: 'MED', hard: 'HARD' }
+    : { easy: 'EASY', medium: 'MEDIUM', hard: 'HARD' };
   const chips = diffBtnRects();
   for (const r of chips) {
     const on = G.diff === r.key, rad = 3;
