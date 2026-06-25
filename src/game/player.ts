@@ -98,8 +98,8 @@ export function updatePlayer(dt) {
   G.player.px = { x: lerp(a.x, b.x, G.player.t), y: lerp(a.y, b.y, G.player.t) };
   G.player.tail.push({ x: G.player.px.x, y: G.player.px.y });
   if (G.player.tail.length > 14) G.player.tail.shift();
-  if (G.hasTrail && !G.reduceMotion && Math.random() < 0.5)   // no trail sparkle in reduce-motion
-    G.particles.push({ x: G.player.px.x, y: G.player.px.y, vx: rand(-12, 12), vy: rand(-12, 12), life: rand(0.25, 0.5), max: 0.5, r: rand(0.8, 1.8), col: G.pal.trail });
+  // (no trail sparkle — the clean glowing wire reads smoother and less distracting,
+  // matching reduce-motion; in a speed game the eye wants the line, not specks.)
 }
 function nearestFilled(idx) {
   if (G.grid[idx] === FILLED) return idx;

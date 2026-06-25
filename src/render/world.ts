@@ -880,13 +880,8 @@ export function drawWorld() {
     ctx.globalAlpha = 0.5; ctx.lineWidth = 6 * ls; ctx.stroke();
     ctx.strokeStyle = G.pal.trail; ctx.globalAlpha = 1; ctx.shadowBlur = 8 * BLUR_SCALE; ctx.lineWidth = 2.4 * ls; ctx.stroke();
     let total = 0; for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
-    // live energy pulse running along the wire — subtle (decorative; off in reduce-motion)
-    if (!G.reduceMotion && total > 4) {
-      const pos = pointAlong(pts, (G.time * 150) % total);
-      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.55;
-      drawGlowOrb(pos.x, pos.y, 1.5 * ls, '#fff', G.pal.edge2, 6 * ls);
-      ctx.globalAlpha = 1;
-    }
+    // (no decorative energy pulse — the clean wire reads smoother; the only thing
+    //  that travels the line now is the fuse spark below, which is real information.)
     // the FUSE spark — crawls the line from its base; reddens + grows as it nears you
     const f = clamp(G.fuseT / G.fuseMax, 0, 1);
     if (total > 2 && f > 0.001) {
