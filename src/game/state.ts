@@ -19,7 +19,7 @@ export const G = {
   // settings
   reduceMotion: false,
   controlMode: 'drag',   // mobile steering: 'drag' joystick | 'tap' a direction | 'swipe' a flick
-  diff: 'medium',        // difficulty: 'easy' | 'medium' | 'hard' (the daily always runs medium)
+  diff: 'easy',          // difficulty: 'easy' | 'medium' | 'hard' — app opens in Easy/Bloom (daily runs the baseline)
 
   // grid + run identity
   grid: new Uint8Array(COLS * ROWS),

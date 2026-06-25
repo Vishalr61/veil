@@ -60,6 +60,10 @@ function relayout(force) {
 }
 window.addEventListener('resize', () => relayout(false));
 window.addEventListener('orientationchange', () => relayout(true));
+// Entering/leaving fullscreen changes the usable viewport — force a re-layout so
+// the board + bottom UI re-fit immediately (the resize threshold can swallow it).
+document.addEventListener('fullscreenchange', () => relayout(true));
+document.addEventListener('webkitfullscreenchange' as any, () => relayout(true));
 lastVW = window.innerWidth | 0; lastVH = window.innerHeight | 0;
 computeLayout(); applyCanvasSize();
 // Safe-area insets can populate a frame or two after load in a WKWebView;

@@ -74,30 +74,34 @@ const easy: DiffConfig = {
   pickupFreq: 1.5, riftScale: 1, scoreMult: 0.75,   // rifts controlled by bloomBlueprint, so no extra scale
 };
 
-// HARD = Medium with the screws turned — the optimization mode.
+// HARD = the standard campaign, parked here from the old Medium: timed + fused, the
+// full hunter roster across the seven zones. (The old "screws" Hard is retired; the
+// NEW Medium becomes its own themed mode — see the Medium plan.)
 const hard: DiffConfig = {
   key: 'hard', label: 'HARD',
-  fuse: true, fuseScale: 0.8, clock: true, clockScale: 0.8, lives: 2,
+  fuse: true, fuseScale: 1, clock: true, clockScale: 1, lives: 3,
   targetDelta: 0, targetFloor: 0,
-  speedBase: 1.1, speedRamp: 1.1, speedCap: 240, countDelta: 1, chaserFromLevel: 0, cutterFromLevel: 0, invulnScale: 0.7,
-  heroBase: 13.5, heroRamp: 0.5, heroCap: 20, heroLevelCap: 999,   // hero speed as today (Hard's bite is enemies/clock/fuse)
-  pickupFreq: 0.6, riftScale: 1, scoreMult: 1.5,
+  speedBase: 1, speedRamp: 1, speedCap: 240, countDelta: 0, chaserFromLevel: 0, cutterFromLevel: 0, invulnScale: 1,
+  heroBase: 13.5, heroRamp: 0.5, heroCap: 20, heroLevelCap: 999,
+  pickupFreq: 1, riftScale: 1, scoreMult: 1,
 };
 
 export const DIFFS: Record<Diff, DiffConfig> = { easy, medium, hard };
 export const DIFF_ORDER: Diff[] = ['easy', 'medium', 'hard'];
 
-// The difficulty actually in force. The daily is always Medium for fairness.
+// The difficulty actually in force. The daily runs the standard-campaign config
+// (now Hard, after the old Medium was parked there) so every player gets the same
+// fair baseline — and it stays put when the NEW Medium becomes its own themed mode.
 export function effectiveDiff(): DiffConfig {
-  if (G.isDaily) return DIFFS.medium;
-  return DIFFS[(G.diff as Diff)] || DIFFS.medium;
+  if (G.isDaily) return DIFFS.hard;
+  return DIFFS[(G.diff as Diff)] || DIFFS.easy;
 }
 
 /* ----------------------------- persistence ----------------------------- */
 const KEY = 'veil_diff';
 export function loadDiff(): Diff {
   try { const v = localStorage.getItem(KEY); if (v === 'easy' || v === 'medium' || v === 'hard') return v; } catch (e) {}
-  return 'medium';
+  return 'easy';   // Bloom is the default mode the app opens in
 }
 export function setDiff(d: Diff) {
   G.diff = d;

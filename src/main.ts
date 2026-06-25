@@ -12,6 +12,7 @@ import '@fontsource/space-grotesk/700.css';
 import '@fontsource/space-mono/400.css';
 import '@fontsource/space-mono/700.css';
 import { initAudio } from './audio/audio';
+import { requestFullscreen } from './platform/fullscreen';
 import { G } from './game/state';
 import './legacy';
 
@@ -22,6 +23,9 @@ import './legacy';
 function enter(e: Event) {
   e.stopImmediatePropagation();
   initAudio();
+  // This first gesture is also our chance to claim the whole screen (desktop /
+  // Android / iPad). No-op on iPhone Safari, where Add-to-Home-Screen is the path.
+  requestFullscreen();
   G.menuStarted = true; G.menuIntroT = 0;   // the title is now visible — play the draw-and-flood intro
   const s = document.getElementById('splash');
   if (s) { s.classList.add('hide'); setTimeout(() => s.remove(), 700); }
