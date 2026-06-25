@@ -140,4 +140,9 @@ describe('assignObstacleKinds', () => {
   it('labels a long thin cluster as a LOG', () => {
     expect(assignObstacleKinds(grid8([9, 10, 11, 12, 13, 14]), 8, 8)[9]).toBe(OBK_LOG);
   });
+  it('staggers kinds in: a not-yet-unlocked kind falls back to the BASE (BOULDER)', () => {
+    const log = grid8([9, 10, 11, 12, 13, 14]);                 // a LOG-shaped cluster
+    expect(assignObstacleKinds(log, 8, 8, 1)[9]).toBe(OBK_BOULDER);   // unlocked=1 → only the base
+    expect(assignObstacleKinds(log, 8, 8, 2)[9]).toBe(OBK_LOG);       // unlocked=2 → LOG is in
+  });
 });

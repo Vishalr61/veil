@@ -26,7 +26,7 @@ export function eCell(e) {
   const cy = clamp(Math.floor(e.y / CELL), 0, ROWS - 1);
   return cy * COLS + cx;
 }
-export interface EnemyCounts { drifter: number; chaser: number; cutter: number; sentinel: number; sleeper: number; wraith?: number; qix?: number; firefly?: number; sprite?: number; }
+export interface EnemyCounts { drifter: number; chaser: number; cutter: number; charger?: number; sentinel: number; sleeper: number; wraith?: number; qix?: number; firefly?: number; sprite?: number; }
 
 // Staggered introduction: drifters alone early, then a new type every ~3 levels
 // so each enemy gets room to breathe before the next arrives. This is the
@@ -50,6 +50,11 @@ export const ENEMY_INFO = {
   // Bloom (Easy) garden critters — gentle, telegraphed, never hunters.
   firefly: { name: 'FIREFLY', desc: 'drifts in a gentle ring — time your crossing' },
   sprite: { name: 'SPRITE', desc: 'gathers light, then hops — watch the tell' },
+  // The Grid (Medium) — its two REACTIVE hunters (the base bouncer is the plain
+  // drifter, same as Easy, so it needs no card). Each responds to you with one
+  // loudly-telegraphed behaviour.
+  tracer: { name: 'TRACER', desc: 'locks on and chases — lose it on claimed ground' },
+  charger: { name: 'CHARGER', desc: 'guards a lane — when it lights up, clear the row' },
 };
 export function genEnemies(lv, counts: EnemyCounts = enemyCounts(lv)) {
   const out = [];
@@ -92,15 +97,26 @@ export function genEnemies(lv, counts: EnemyCounts = enemyCounts(lv)) {
     out.push({ x: p.x, y: p.y, vx: 0, vy: 0, r: CELL * 0.4, type: 'sprite', speed,
       hopT: G.rng.range(0.8, 1.8), charging: 0, hopDist: CELL * 2.4 });
   }
+  // CHARGER (Grid): owns a horizontal lane (its spawn row). Patrols slowly; when
+  // you enter the row it WINDS UP (a glow + danger beam), then DASHES across fast.
+  function placeCharger(speed) {
+    const p = spawnCell(7, false);
+    out.push({ x: p.x, y: p.y, vx: 0, vy: 0, r: CELL * 0.42, type: 'charger', speed,
+      phase: 'patrol', patrolDir: G.rng.next() < 0.5 ? -1 : 1,
+      patrolSpeed: speed * 0.48, dashSpeed: speed * 2.55,   // a touch quicker patrol + lunge
+
+      cd: 0, cdMax: 1.5, charging: 0, chargeMax: 0.7, dashDir: 1 });
+  }
   for (let i = 0; i < n.drifter; i++) place('drifter', spd);
   for (let i = 0; i < n.chaser; i++) place('chaser', spd * 0.74);
   for (let i = 0; i < n.cutter; i++) place('cutter', spd * 0.8);
+  for (let i = 0; i < (n.charger || 0); i++) placeCharger(spd);
   for (let i = 0; i < n.sentinel; i++) place('sentinel', spd * 0.82);
   for (let i = 0; i < (n.wraith || 0); i++) place('wraith', spd * 0.7);
   for (let i = 0; i < (n.firefly || 0); i++) placeFirefly(spd * 0.8);   // a touch livelier than before
   for (let i = 0; i < (n.sprite || 0); i++) placeSprite(spd * 0.9);
   for (let i = 0; i < (n.qix || 0); i++) {
-    const p = spawnCell(9, false), s = spd * 0.45, r = CELL * 1.15;   // a slow roamer (moderate size)
+    const p = spawnCell(9, false), s = spd * 0.45, r = CELL * 1.4;   // a slow, VAST roamer
     out.push({ x: p.x, y: p.y, vx: (G.rng.next() < 0.5 ? -1 : 1) * s * 0.7071, vy: (G.rng.next() < 0.5 ? -1 : 1) * s * 0.7071,
       r, baseR: r, type: 'qix', speed: s, comp: s * 0.7071, steerT: G.rng.range(0.8, 1.4),
       emitT: 5, emitSpd: spd });   // boss power: first drifter at 5s, then every 10s (Bloom only)
@@ -191,10 +207,10 @@ export function moveEnemy(e, dt) {
       e.vx = e.vx * 0.6 + (dx / d) * e.comp * 0.4;
       e.vy = e.vy * 0.6 + (dy / d) * e.comp * 0.4;
     }
-    // BOSS POWER — emit a drifter every 10s (Bloom/Easy only: Easy never runs the
-    // seeded daily, so the Math.random spawn carries no fairness cost; capped so it
-    // can't snowball). A readable, telegraphed "the boss spat one out" beat.
-    if (e.emitT != null && effectiveDiff().key === 'easy') {
+    // BOSS POWER — emit a drifter every 10s (Bloom + the Grid: neither runs the seeded
+    // daily, so the Math.random spawn carries no fairness cost; capped so it can't
+    // snowball). A readable, telegraphed "the boss spat one out" beat.
+    if (e.emitT != null && (effectiveDiff().key === 'easy' || effectiveDiff().key === 'medium')) {
       e.emitT -= dt;
       if (e.emitT <= 0) {
         e.emitT = 10;
@@ -208,6 +224,38 @@ export function moveEnemy(e, dt) {
         }
       }
     }
+  }
+  // charger (Grid): a lane guard. Patrols its row slowly; when you enter the row it
+  // winds up (telegraph), then dashes across fast, hits the far wall, and cools down.
+  // Self-contained movement (stays on its row) — never falls through to the generic code.
+  if (e.type === 'charger') {
+    if (e.phase === 'windup') {
+      e.charging -= dt;
+      if (e.charging <= 0) e.phase = 'dash';
+      return;   // hold still, telegraphing the sweep
+    }
+    if (e.phase === 'dash') {
+      const nx = e.x + e.dashDir * e.dashSpeed * dt;
+      const cyc = clamp(Math.floor(e.y / CELL), 0, ROWS - 1);
+      const cxn = Math.floor((nx + e.dashDir * e.r) / CELL);
+      if (cxn < 0 || cxn >= COLS || G.grid[cyc * COLS + cxn] === FILLED || G.grid[cyc * COLS + cxn] === OBSTACLE) {
+        e.phase = 'patrol'; e.cd = e.cdMax;   // reached the wall — reset + cool down
+      } else e.x = nx;
+      return;
+    }
+    // patrol: drift slowly along the lane, bouncing off walls/claimed land
+    if (e.cd > 0) e.cd -= dt;
+    const nx = e.x + e.patrolDir * e.patrolSpeed * dt;
+    const cyc = clamp(Math.floor(e.y / CELL), 0, ROWS - 1);
+    const cxn = Math.floor((nx + e.patrolDir * e.r) / CELL);
+    if (cxn < 0 || cxn >= COLS || G.grid[cyc * COLS + cxn] === FILLED || G.grid[cyc * COLS + cxn] === OBSTACLE) e.patrolDir = -e.patrolDir;
+    else e.x = nx;
+    // trigger: player in this lane band + off cooldown → wind up toward them
+    if (e.cd <= 0 && G.player && G.player.px && G.state === 'playing' && Math.abs(G.player.px.y - e.y) < CELL * 1.0) {
+      e.phase = 'windup'; e.charging = e.chargeMax; e.dashDir = G.player.px.x > e.x ? 1 : -1;
+      if (near(e, 13)) sfxSentinel();   // a wind-up warning cue
+    }
+    return;
   }
   // cutter: while you draw, beeline to the BASE of your line (a fixed point) to cut you
   // off — a predictable straight approach. Otherwise it just drifts like a regular enemy.

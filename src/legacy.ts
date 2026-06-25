@@ -185,7 +185,11 @@ function initLevel(lv) {
   for (let i = 0; i < G.grid.length; i++) if (obst[i]) G.grid[i] = OBSTACLE;
   setInteriorTotal(openInteriorCount(obst, COLS, ROWS));   // target denominator excludes rock
   // Bloom: label each obstacle cluster a garden-object kind (boulder/log/bush/…) for varied terrain
-  G.obstacleKind = isBloom ? assignObstacleKinds(G.grid, COLS, ROWS) : new Uint8Array(0);
+  // Stagger the obstacle kinds in: one new kind every 2 floors (obstacles begin on L2),
+  // so the LAST of the 5 arrives on L10 — Easy + the Grid both ease the player in rather
+  // than showing the whole set at once.
+  const unlockedKinds = Math.max(1, Math.min(5, 1 + Math.floor((lv - 2) / 2)));
+  G.obstacleKind = (isBloom || isGrid) ? assignObstacleKinds(G.grid, COLS, ROWS, unlockedKinds) : new Uint8Array(0);
   G.veilBoard = genVeilBoard(G.rng.fork('veil'), { cols: COLS, rows: ROWS, level: lv, isOpen: (i) => G.grid[i] === EMPTY, caches: bp.caches, rifts: riftCount(bp.rifts, diff) });
 
   G.nebula = genNebula(G.pal, lv, PW, PH, bp.depth); G.fog = genFog(G.pal, PW, PH, bp.depth); genTwinkles();
@@ -200,8 +204,8 @@ function initLevel(lv) {
   // Easy (Bloom) + Medium (Grid) carry their authored rosters straight from their
   // blueprint; Hard/campaign + daily go through applyDiffCounts (schedule + delta).
   let ec = (diff.key === 'easy' || isGrid) ? { ...bp.enemies } : applyDiffCounts(bp.enemies, lv, summit, diff);
-  // Grid summits get THE KERNEL boss in Increment 2 — no campaign QIX in the Grid yet.
-  if (summit && !isGrid) ec = { ...ec, qix: 1 };
+  // every summit gets THE NUCLEUS; deep Grid summits (L20+) get TWO.
+  if (summit) ec = { ...ec, qix: (isGrid && lv >= 20) ? 2 : 1 };
   G.enemies = genEnemies(lv, ec);
 
   // gentler ramp + a lower cap so high levels stay controllable (was 11 + 0.6*lv, cap 18,
@@ -237,10 +241,9 @@ function initLevel(lv) {
   // a level that introduces a new enemy always teaches what it does (wins over the title)
   const newType = G.isDaily ? dailyNewEnemy(lv) : isBloom ? bloomNewEnemy(lv) : isGrid ? gridNewEnemy(lv) : newEnemyAtLevel(lv);
   if (newType) G.banner = { text: ENEMY_INFO[newType].name, sub: ENEMY_INFO[newType].desc, t: 3.4, enemy: newType };
-  // Introduce the boss only the FIRST time it appears (first summit), not on every
-  // summit — it's the same boss with the same mechanics. (Daily has one summit.) The
-  // Grid has no campaign QIX (its KERNEL boss arrives in Increment 2), so skip it there.
-  if (summit && !isGrid && (G.isDaily || lv === LEVELS_PER_BAND)) G.banner = { text: ENEMY_INFO.qix.name, sub: ENEMY_INFO.qix.desc, t: 3.2, enemy: 'qix' };
+  // Introduce the boss only the FIRST time it appears (first summit), not on every summit
+  // — it's the same boss (THE NUCLEUS) with the same mechanics everywhere. (Daily has one.)
+  if (summit && (G.isDaily || lv === LEVELS_PER_BAND)) G.banner = { text: ENEMY_INFO.qix.name, sub: ENEMY_INFO.qix.desc, t: 3.2, enemy: 'qix' };
   G.hintActive = (lv === 1 && !G.isDaily);
   setMusicTheme(G.isDaily ? 'rift' : G.pal.style);   // soundtrack key/tempo follows the zone
   G.introT = G.reduceMotion ? 0 : 1;   // fade the level up + settle the zoom (covers the hard cut)
@@ -332,16 +335,17 @@ function update(dt) {
   } else if (G.state === 'gameover') {
     G.goTimer += dt;
   }
-  // soundtrack intensity is LEVEL-based: hold the early groove (the "initial
-  // beat") consistently, and layer in energy as the levels climb — rather than
-  // ramping within a level toward the target, which got busy too fast.
-  let mi = 0.32;   // menu / scores
+  // soundtrack intensity is LEVEL-based and SEAMLESS: the home-page groove is the
+  // base beat, and gameplay starts close to it (no leap), then layers energy gently
+  // as levels climb and caps below frantic — one continuous driving beat across the
+  // whole app, not a song that restarts or lurches when a game begins.
+  let mi = 0.34;   // menu / scores — the home-page groove (the base beat)
   if (G.state === 'playing') {
-    const perLevel = G.isDaily ? 0.042 : 0.013;        // daily is only 10 floors, so ramp faster
-    mi = Math.min(0.62 + (G.level - 1) * perLevel, 0.95);   // start with the FULL driving groove, build to near-max
-  } else if (G.state === 'levelclear') mi = 0.8;        // brief celebratory peak
+    const perLevel = G.isDaily ? 0.03 : 0.011;          // daily is only 10 floors, so ramp a bit faster
+    mi = Math.min(0.5 + (G.level - 1) * perLevel, 0.82);   // flows up from the home groove, builds, holds
+  } else if (G.state === 'levelclear') mi = 0.78;       // brief celebratory peak
   else if (G.state === 'gameover') mi = 0.12;
-  else if (G.state === 'paused') mi = 0.18;
+  else if (G.state === 'paused') mi = 0.2;
   setMusicIntensity(mi);
 }
 
@@ -462,7 +466,7 @@ function anyKeyAction() {
   else if (G.state === 'paused') G.state = 'playing';
 }
 // Abandon the current run and return to the title (from pause or game-over).
-function goHome() { G.isDaily = false; G.joyActive = false; G.joyDir = null; G.state = 'menu'; G.menuIntroT = 999; sfxBlip(); }   // skip the intro on return from a game
+function goHome() { G.isDaily = false; G.joyActive = false; G.joyDir = null; G.state = 'menu'; G.menuIntroT = 999; setMusicTheme('default'); sfxBlip(); }   // back to the home-page base groove; skip the intro
 window.addEventListener('keydown', (e) => {
   initAudio();
   const k = e.key;

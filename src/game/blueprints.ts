@@ -288,22 +288,24 @@ function gridBudget(lv: number): number {
   return Math.min(2 + Math.floor((lv - 1) / 2), GRID_ENEMY_CAP);
 }
 export function gridRoster(lv: number): EnemyCounts {
-  const z: EnemyCounts = { drifter: 0, chaser: 0, cutter: 0, sentinel: 0, sleeper: 0 };
+  const z: EnemyCounts = { drifter: 0, chaser: 0, cutter: 0, charger: 0, sentinel: 0, sleeper: 0 };
   const b = gridBudget(lv);
-  if (lv === 1) { z.drifter = b; return z; }                                   // teach: GLITCH only
-  if (lv === 2) { z.chaser = 1; z.drifter = b - 1; return z; }                 // TRACER debut (one, among glitches)
+  // Teaching band (L1-5): GLITCH alone, then each reactive type debuts GENTLY (one of it
+  // among glitches) so you meet it before the pure floors hit; L5 is the first summit.
+  if (lv === 1) { z.drifter = b; return z; }                                   // teach: GLITCH only (passive)
+  if (lv === 2) { z.chaser = 1; z.drifter = b - 1; return z; }                 // TRACER debut
   if (lv === 3) { z.chaser = Math.min(3, Math.ceil(b / 2)); z.drifter = b - z.chaser; return z; }
-  if (lv === 4) { z.cutter = 1; z.drifter = b - 1; return z; }                 // DAEMON debut (one)
-  // L5+: rotating themed floors within each 5-floor band. Hunters are capped low
-  // (chaser ≤4, cutter ≤3) with drifters filling the rest, so it stays fair.
+  if (lv === 4) { z.charger = 1; z.drifter = b - 1; return z; }                // CHARGER debut
+  // L6+: rotating PURE single-type floors (Airxonix-style) — a tracer-only swarm, a
+  // charger-only gauntlet, a glitch-only storm — then a mix, then the summit (+ NUCLEUS).
   switch ((lv - 1) % 5) {
-    case 0: z.chaser = Math.min(4, b); z.drifter = b - z.chaser; break;        // tracer net
-    case 1: z.cutter = Math.min(3, b); z.drifter = b - z.cutter; break;        // daemon patrol
-    case 2: z.drifter = b; break;                                              // glitch storm (all GLITCH)
-    case 3: z.chaser = Math.min(3, Math.ceil(b / 2)); z.cutter = Math.min(2, Math.floor(b / 3)); z.drifter = b - z.chaser - z.cutter; break;
-    default: z.chaser = Math.min(3, Math.ceil(b / 3)); z.cutter = Math.min(2, Math.ceil(b / 4)); z.drifter = b - z.chaser - z.cutter;  // summit mix (KERNEL boss = Inc 2)
+    case 0: z.chaser = Math.min(7, b); break;                                  // TRACER ONLY
+    case 1: z.charger = Math.min(5, b); break;                                 // CHARGER ONLY
+    case 2: z.drifter = b; break;                                              // GLITCH ONLY
+    case 3: z.chaser = Math.min(3, Math.ceil(b / 2)); z.charger = Math.min(2, Math.floor(b / 3)); z.drifter = b - z.chaser - z.charger; break;  // mix
+    default: z.chaser = Math.min(3, Math.ceil(b / 3)); z.charger = Math.min(2, Math.ceil(b / 4)); z.drifter = b - z.chaser - z.charger;  // summit mix
   }
-  if (z.drifter + z.chaser + z.cutter < 1) z.drifter = 1;                      // never an empty floor
+  if (z.drifter + z.chaser + (z.charger || 0) < 1) z.drifter = 1;             // never an empty floor
   return z;
 }
 export function gridBlueprint(base: LevelBlueprint, lv: number): LevelBlueprint {
@@ -320,9 +322,12 @@ export function gridBlueprint(base: LevelBlueprint, lv: number): LevelBlueprint 
     enemies: gridRoster(lv),
   };
 }
-// New Grid enemy introduced at this floor (drives the intro card). Null for now —
-// the bespoke Grid cards (GLITCH/TRACER/DAEMON designs + names) land in Increment 2.
-export function gridNewEnemy(_lv: number): string | null {
+// New Grid enemy introduced at this floor (drives the intro card). GLITCH is the L1
+// base (no card, like Bloom's drifter); the reactive pair debut with cards — TRACER
+// (chaser AI) at L2, CHARGER at L4 — matching gridRoster.
+export function gridNewEnemy(lv: number): string | null {
+  if (lv === 2) return 'tracer';
+  if (lv === 4) return 'charger';
   return null;
 }
 

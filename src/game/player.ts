@@ -123,7 +123,10 @@ export function checkCollisions() {
     // the firefly flies into your claimed land, so it's the one mob that can hit
     // you even on safe ground (it's predictable, so this is fair, not cheap).
     const ignoresSafe = e.type === 'firefly';
-    if ((!safe || ignoresSafe) && G.player.invuln <= 0 && Math.hypot(G.player.px.x - e.x, G.player.px.y - e.y) < CELL * 0.78) { triggerDeath(); return; }
+    // hitbox SCALES with the enemy's radius (+ the player's ~0.36 cell). For normal mobs
+    // (r≈0.42) this is the old ~0.78 cell; for the vast NUCLEUS it's much larger, so its
+    // hitbox finally matches its visible body instead of only killing near the centre.
+    if ((!safe || ignoresSafe) && G.player.invuln <= 0 && Math.hypot(G.player.px.x - e.x, G.player.px.y - e.y) < e.r + CELL * 0.36) { triggerDeath(); return; }
   }
 }
 // Near-miss: while drawing (vulnerable), slipping past an enemy by a hair — it

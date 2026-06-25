@@ -62,8 +62,8 @@ export const BLOOM_BAND: Band = {
 // traces + cyan over a deep-navy circuit field; the magenta signature lives in
 // the backdrop + enemies (not the palette), so the player trail stays clean cyan.
 export const GRID_BAND: Band = {
-  name: 'the grid', style: 'grid', blobs: ['#03060f', '#08182e', '#0e4a8a', '#22b8ff', '#9fe8ff'],
-  star: '#dff4ff', edge: '#2ad8ff', edge2: '#a0ecff', trail: '#eafaff', player: '#ffffff', accent: '#5fd0ff',
+  name: 'the grid', style: 'grid', blobs: ['#070b18', '#101a34', '#284e8c', '#4a82c8', '#9cc4f0'],
+  star: '#cfe0f5', edge: '#4a82c8', edge2: '#9cc4f0', trail: '#eaf2ff', player: '#ffffff', accent: '#5a90d0',
 };
 
 export const LEVELS_PER_BAND = 5;

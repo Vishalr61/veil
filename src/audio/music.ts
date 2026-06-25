@@ -20,7 +20,7 @@ const SCALES = { minor: [0, 2, 3, 5, 7, 8, 10], penta: [0, 3, 5, 7, 10], lydian:
 // A driving, on-beat 8th-note pulse with movement — relentless, not syncopated.
 const BASS = [0, -1, 0, -1, 0, -1, 3, -1, 0, -1, 0, -1, 5, -1, 7, -1];
 
-interface Theme { bpm: number; root: number; scale: number[]; wave: OscillatorType; }
+interface Theme { bpm: number; root: number; scale: number[]; wave: OscillatorType; drive?: number; }
 // One groove, recoloured per zone (root note, tempo, scale, bass timbre).
 // Tempos pushed up ~6 BPM for a more driving, Airxonix-style propulsion.
 const THEMES: Record<string, Theme> = {
@@ -33,9 +33,15 @@ const THEMES: Record<string, Theme> = {
   aurora:  { bpm: 128, root: 55.0, scale: SCALES.lydian, wave: 'sine' },      // Aurora — airy
   space:   { bpm: 124, root: 49.0, scale: SCALES.minor, wave: 'sawtooth' },   // Deep Space — vast
   rift:    { bpm: 140, root: 58.3, scale: SCALES.penta, wave: 'sawtooth' },   // The Rift — fast, edgy
-  grid:    { bpm: 138, root: 55.0, scale: SCALES.lydian, wave: 'square' },    // The Grid — electric, synthetic
+  grid:    { bpm: 130, root: 55.0, scale: SCALES.lydian, wave: 'triangle' },   // The Grid — synthetic tonal color over the shared beat
 };
 let theme: Theme = THEMES.default;
+
+// ONE app-wide tempo. The beat must be SEAMLESS from the home page through every
+// level — the drums are pitch-independent, so a locked tempo + a constant drum
+// pattern means the groove never lurches; only the melodic color (bass/arp root +
+// scale + wave) recolors per zone. (Per-theme `bpm` is now informational.)
+const APP_BPM = 130;
 
 export function initMusic(audioCtx: any, musicBus: any) {
   ctx = audioCtx; bus = musicBus;
@@ -92,17 +98,21 @@ function arp(freq: number, t: number, dur: number, g0: number) {
 }
 
 function scheduleStep(s: number, b: number, t: number) {
-  const i = cur, sps = (60 / theme.bpm) / 4;
+  const i = cur, sps = (60 / APP_BPM) / 4;
+  // Per-theme percussion "drive": 1 = full beat; lower = a calmer floor (softer
+  // drums, half-time kick, no busy 16th hats). Lets a mode like the Grid breathe
+  // without changing any other zone's groove.
+  const D = theme.drive ?? 1;
   // a snare-roll fill across the back of every 4th bar (only once there's a
   // backbeat, so calm early levels stay clean); it turns the loop over.
   const fill = i > 0.5 && (b % 4) === 3 && s >= 12;
-  if (i > 0.1 && s % 4 === 0) kick(t, 1.0);                          // punchy four-on-the-floor
+  if (i > 0.1 && s % (D < 0.6 ? 8 : 4) === 0) kick(t, 1.0 * D);      // four-on-the-floor (half-time + softer when calm)
   if (fill) {
-    snare(t, (0.16 + (s - 12) * 0.05) * Math.min(i, 1));            // rising roll into the turnaround
+    snare(t, (0.16 + (s - 12) * 0.05) * Math.min(i, 1) * D);        // rising roll into the turnaround
   } else {
-    if (i > 0.35 && (s === 4 || s === 12)) snare(t, 0.32);           // backbeat — the drive, in early
-    if (i > 0.25 && s % 4 === 2) hat(t, 0.22 * i);                   // offbeat hats
-    if (i > 0.5 && s % 2 === 1) hat(t, 0.13 * i);                    // busy 16th hats keep it propulsive
+    if (i > 0.35 && (s === 4 || s === 12)) snare(t, 0.32 * D);       // backbeat — the drive, in early
+    if (i > 0.25 && s % 4 === 2) hat(t, 0.22 * i * D);               // offbeat hats
+    if (i > 0.5 && D > 0.6 && s % 2 === 1) hat(t, 0.13 * i);         // busy 16th hats — driving themes only
   }
   const bo = BASS[s];
   if (i > 0.12 && bo >= 0) bass(theme.root * Math.pow(2, bo / 12), t, sps * 1.1, 0.4);   // tight, relentless pulse
@@ -116,7 +126,7 @@ function scheduleStep(s: number, b: number, t: number) {
 function loop() {
   if (!playing) return;
   cur += (intensity - cur) * 0.06;                                  // smooth intensity glide
-  const sps = (60 / theme.bpm) / 4;
+  const sps = (60 / APP_BPM) / 4;
   // If we fell behind (backgrounded tab, a hitch, or the context just resumed),
   // snap forward instead of scheduling a huge backlog all at once — that flood
   // is what made the audio glitch/"get stuck".

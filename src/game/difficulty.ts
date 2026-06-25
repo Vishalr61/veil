@@ -51,15 +51,20 @@ export interface DiffConfig {
 
 // MEDIUM = "The Grid": its own synthetic neon-circuit mode (built by gridBlueprint,
 // like Easy=Bloom). Pressure is FUSE-ONLY — the line-close spark stays, but the level
-// CLOCK is off — a clean skill step above Bloom without the ticking dread. Speed sits
-// between Bloom and the campaign: a livelier-than-Bloom hero that holds by L14, and
-// enemies a touch slower than the campaign. (The campaign baseline now lives in Hard.)
+// CLOCK is off — a clean skill step above Bloom without the ticking dread. Both the
+// hero AND the enemies mirror Easy's STRUCTURE, just a gentle step higher: same ramps,
+// a modest offset. Grid's real bite is the fuse + the hunters, not raw speed. (The
+// campaign baseline now lives in Hard.)
 const medium: DiffConfig = {
   key: 'medium', label: 'MED',
   fuse: true, fuseScale: 1, clock: false, clockScale: 1, lives: 3,
   targetDelta: 0, targetFloor: 0,
-  speedBase: 0.9, speedRamp: 0.7, speedCap: 190, countDelta: 0, chaserFromLevel: 0, cutterFromLevel: 0, invulnScale: 1.2,
-  heroBase: 12.5, heroRamp: 0.18, heroCap: 16, heroLevelCap: 14,   // ramps L1-14, then HOLDS (controllable, never twitchy)
+  // Enemy speed: a gentle ramp PARALLEL to Easy (same 0.15 ramp) — base 0.8 (112 px/s)
+  // vs Easy's 0.7 (98), cap 130 vs Easy's 120. A constant ~+14 px/s over Easy.
+  speedBase: 0.8, speedRamp: 0.15, speedCap: 130, countDelta: 0, chaserFromLevel: 0, cutterFromLevel: 0, invulnScale: 1.2,
+  // Hero speed mirrors Easy's STRUCTURE — same gentle 0.06 ramp, same L10 hold — just
+  // a touch faster across the board (base 11 vs Easy's 10).
+  heroBase: 11, heroRamp: 0.06, heroCap: 13, heroLevelCap: 10,
   pickupFreq: 1.2, riftScale: 1, scoreMult: 1,
 };
 
@@ -74,7 +79,7 @@ const easy: DiffConfig = {
   // speed is intentionally near-flat: a low ramp + a low cap so deeper Bloom
   // floors escalate via the other levers, never twitch.
   speedBase: 0.7, speedRamp: 0.15, speedCap: 120, countDelta: 0, chaserFromLevel: 0, cutterFromLevel: 0, invulnScale: 1.5,
-  heroBase: 11, heroRamp: 0.06, heroCap: 12, heroLevelCap: 10,   // ramps over L1-10, then HOLDS (L10 speed forever)
+  heroBase: 10, heroRamp: 0.06, heroCap: 12, heroLevelCap: 10,   // ramps over L1-10, then HOLDS (L10 speed forever)
   pickupFreq: 1.5, riftScale: 1, scoreMult: 0.75,   // rifts controlled by bloomBlueprint, so no extra scale
 };
 

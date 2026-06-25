@@ -195,7 +195,14 @@ export const OBK_BOULDER = 0, OBK_LOG = 1, OBK_BUSH = 2, OBK_FLOWERBED = 3, OBK_
 // Flood-fill the OBSTACLE cells of a (cols x rows) grid into connected clusters and
 // label every cell with its cluster's kind. Deterministic (a position hash picks the
 // kind), so re-running on the same layout is stable. Pure: no rendering, no globals.
-export function assignObstacleKinds(grid: Uint8Array, cols: number, rows: number): Uint8Array {
+//
+// `unlocked` = how many of the 5 kinds have been introduced so far (in OBK order:
+// BOULDER, LOG, BUSH, FLOWERBED, MUSHROOM). A cluster whose natural (shape-picked) kind
+// isn't unlocked yet is REMAPPED across the kinds that ARE unlocked (by position hash) —
+// so the newest kind reliably SHOWS UP at its unlock floor regardless of cluster shape,
+// rather than only appearing when the terrain happens to make the matching shape. The
+// kinds therefore arrive ONE AT A TIME as floors climb. Default 5 = every kind.
+export function assignObstacleKinds(grid: Uint8Array, cols: number, rows: number, unlocked = 5): Uint8Array {
   const n = cols * rows, kind = new Uint8Array(n), seen = new Uint8Array(n);
   for (let start = 0; start < n; start++) {
     if (grid[start] !== OBSTACLE || seen[start]) continue;
@@ -217,6 +224,7 @@ export function assignObstacleKinds(grid: Uint8Array, cols: number, rows: number
     else if (aspect >= 2.4) k = OBK_LOG;                                   // long & thin
     else if (sz >= 10) k = (hsh % 3 === 0) ? OBK_MUSHROOM : OBK_BOULDER;   // big & compact
     else k = [OBK_BOULDER, OBK_BUSH, OBK_FLOWERBED, OBK_MUSHROOM][hsh % 4]; // medium: mixed
+    if (k >= unlocked) k = hsh % unlocked;   // not introduced yet → spread across the unlocked kinds
     for (const c of cells) kind[c] = k;
   }
   return kind;

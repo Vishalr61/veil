@@ -22,11 +22,14 @@ describe('Medium = the Grid (fuse-only, its own themed mode)', () => {
     expect(MED.clock).toBe(false);
     expect(levelClock(60, MED)).toBe(Infinity);              // no level clock
   });
-  it('sits between Bloom and the campaign: 3 lives, slower-than-baseline enemies, more invuln', () => {
+  it('enemies are a gentle ramp PARALLEL to Easy — same ramp, a constant ~+14 px/s', () => {
     expect(MED.lives).toBe(3);
-    expect(enemySpeed(1, MED)).toBeCloseTo(126, 5);          // 140 * 0.9
-    expect(enemySpeed(99, MED)).toBe(190);                   // capped below the campaign baseline (240)
-    expect(enemySpeed(1, MED)).toBeLessThan(enemySpeed(1, HARD));   // gentler than the baseline (Hard)
+    expect(enemySpeed(1, MED)).toBeCloseTo(112, 5);          // 140 * 0.8
+    expect(enemySpeed(99, MED)).toBe(130);                   // gentle cap (Easy's is 120)
+    expect(enemySpeed(1, MED)).toBeLessThan(enemySpeed(1, HARD));   // far gentler than the baseline (Hard, 140+)
+    // same ramp as Easy → a constant offset over Easy (until the caps)
+    expect(enemySpeed(1, MED) - enemySpeed(1, EASY)).toBeCloseTo(14, 5);
+    expect(enemySpeed(10, MED) - enemySpeed(10, EASY)).toBeCloseTo(14, 5);
     expect(invulnFor(1.0, MED)).toBeCloseTo(1.2, 5);
   });
   it('leaves the clear target to the blueprint (delta 0, still capped at 0.74)', () => {
@@ -101,21 +104,26 @@ describe('Easy = the Bloom garden roster + map transform', () => {
 });
 
 describe('Medium = the Grid roster + blueprint', () => {
-  const total = (r: any) => r.drifter + r.chaser + r.cutter;
-  it('teaches GLITCH-only on L1, then debuts TRACER (L2) and DAEMON (L4)', () => {
-    expect(gridRoster(1).chaser).toBe(0); expect(gridRoster(1).cutter).toBe(0);
+  const total = (r: any) => r.drifter + r.chaser + (r.charger || 0);
+  it('teaches GLITCH-only on L1 (passive), then debuts TRACER (L2) and CHARGER (L4)', () => {
+    expect(gridRoster(1).chaser).toBe(0); expect(gridRoster(1).charger).toBe(0);
     expect(gridRoster(1).drifter).toBeGreaterThan(0);
-    expect(gridRoster(2).chaser).toBe(1);                    // TRACER debut (one, among glitches)
-    expect(gridRoster(4).cutter).toBe(1);                    // DAEMON debut (one)
+    expect(gridRoster(2).chaser).toBe(1);                    // TRACER debut (the reactive pursuer)
+    expect(gridRoster(4).charger).toBe(1);                   // CHARGER debut (the lane guard)
   });
-  it('is never an empty floor, caps the total at 10, and holds hunters low (fair Medium)', () => {
-    for (const lv of [1, 2, 5, 8, 20, 99]) {
+  it('is never an empty floor, total caps at 10, chaser ≤7 / charger ≤5', () => {
+    for (const lv of [1, 2, 5, 6, 7, 8, 11, 12, 20, 99]) {
       const r = gridRoster(lv);
       expect(total(r)).toBeGreaterThanOrEqual(1);
       expect(total(r)).toBeLessThanOrEqual(10);
-      expect(r.chaser).toBeLessThanOrEqual(4);
-      expect(r.cutter).toBeLessThanOrEqual(3);
+      expect(r.chaser).toBeLessThanOrEqual(7);
+      expect(r.charger || 0).toBeLessThanOrEqual(5);
     }
+  });
+  it('has PURE single-type floors past the teaching band: tracer-only / charger-only / glitch-only', () => {
+    const t = gridRoster(6);  expect(t.chaser).toBeGreaterThan(0); expect(t.drifter).toBe(0); expect(t.charger).toBe(0);   // TRACER ONLY
+    const g = gridRoster(7);  expect(g.charger!).toBeGreaterThan(0); expect(g.drifter).toBe(0); expect(g.chaser).toBe(0);   // CHARGER ONLY
+    const d = gridRoster(8);  expect(d.drifter).toBeGreaterThan(0); expect(d.chaser).toBe(0); expect(d.charger).toBe(0);    // GLITCH ONLY
   });
   it('escalates the budget deeper, then caps at 10', () => {
     expect(total(gridRoster(8))).toBeGreaterThan(total(gridRoster(2)));
@@ -130,23 +138,25 @@ describe('Medium = the Grid roster + blueprint', () => {
     expect(gridBlueprint(base, 99).target).toBeLessThanOrEqual(0.72);
     expect(gridBlueprint(base, 4).caches).toBe(base.caches + 1);
   });
-  it('introduces no card yet (bespoke GLITCH/TRACER/DAEMON cards land in Increment 2)', () => {
-    expect(gridNewEnemy(2)).toBe(null);
-    expect(gridNewEnemy(4)).toBe(null);
+  it('debuts the TRACER card at L2 and the CHARGER card at L4 (GLITCH is the L1 base, no card)', () => {
+    expect(gridNewEnemy(1)).toBe(null);
+    expect(gridNewEnemy(2)).toBe('tracer');
+    expect(gridNewEnemy(4)).toBe('charger');
+    expect(gridNewEnemy(7)).toBe(null);
   });
 });
 
 describe('hero move speed', () => {
-  it('Hard reproduces today; Medium/Grid is livelier than Bloom but holds by L14; Easy gentlest', () => {
+  it('Hard reproduces today; Easy starts at 10, Medium at 11, same gentle ramp, both hold at L10', () => {
     expect(playerSpeed(1, HARD)).toBeCloseTo(13.5, 5);        // the baseline (old Medium) now lives in Hard
     expect(playerSpeed(50, HARD)).toBe(20);                   // ramps to its cap, no level clamp
-    expect(playerSpeed(1, MED)).toBeCloseTo(12.5, 5);         // Grid: between Bloom (11) and the baseline (13.5)
-    expect(playerSpeed(20, MED)).toBe(playerSpeed(14, MED));  // holds L14 speed forever after L14
-    expect(playerSpeed(100, MED)).toBe(playerSpeed(14, MED));
-    expect(playerSpeed(6, EASY)).toBeLessThan(playerSpeed(6, MED));   // Easy calmer than the Grid
-    expect(playerSpeed(20, EASY)).toBe(playerSpeed(10, EASY));        // Easy holds L10 speed forever after L10
-    expect(playerSpeed(100, EASY)).toBe(playerSpeed(10, EASY));
-    expect(playerSpeed(10, EASY)).toBeLessThan(12);                  // and it's slow/controllable
+    expect(playerSpeed(1, EASY)).toBeCloseTo(10, 5);          // Easy base
+    expect(playerSpeed(1, MED)).toBeCloseTo(11, 5);           // Medium base = Easy + 1
+    expect(playerSpeed(10, MED) - playerSpeed(10, EASY)).toBeCloseTo(1, 5);   // +1 across the board, every level
+    expect(playerSpeed(20, MED)).toBe(playerSpeed(10, MED));  // holds L10 speed forever after L10
+    expect(playerSpeed(100, EASY)).toBe(playerSpeed(10, EASY));   // Easy holds L10 speed forever after L10
+    expect(playerSpeed(6, EASY)).toBeLessThan(playerSpeed(6, MED));   // Easy a touch calmer than the Grid
+    expect(playerSpeed(10, EASY)).toBeLessThan(11);                  // and it's slow/controllable
   });
 });
 

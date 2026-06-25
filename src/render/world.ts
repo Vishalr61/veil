@@ -554,6 +554,65 @@ function drawRiftCell(px: number, py: number, x: number, y: number, idx: number)
   else drawRiftShard(px, py, x, y, idx);
 }
 
+// The Grid (Medium) obstacle: a CHIP on the circuit board — dark substrate, teal
+// edge-lighting (so a multi-cell block reads as one raised component), internal
+// traces, and an occasional lit pad. Replaces generic rock with a synthetic look.
+// The Grid obstacle: a real circuit COMPONENT, with a DISTINCT MATERIAL per kind so a
+// board reads as varied parts (not uniform blocks): near-black IC, gold connector, tan
+// resistor, silver heatsink, capacitor can. Matte/grounded; the cluster reads as one part
+// (raised-edge lighting + the kind feature tiling across cells; chip pins on outer edges).
+const GRID_EDGE = '#4a6aa8';
+function drawGridRock(px: number, py: number, x: number, y: number, idx: number) {
+  const s = CELL;
+  const h = ((x * 374761393) ^ (y * 668265263)) >>> 0;
+  const k = G.obstacleKind.length ? G.obstacleKind[idx] : 0;
+  const cx = px + s / 2, cy = py + s / 2;
+  const topOpen = G.grid[idx - COLS] === EMPTY, leftOpen = G.grid[idx - 1] === EMPTY;
+  const botOpen = G.grid[idx + COLS] === EMPTY, rightOpen = G.grid[idx + 1] === EMPTY;
+  // distinct real-component MATERIAL per kind: black IC, gold connector, deep-blue
+  // electrolytic cap, tan resistor, bright-silver heatsink — each its own colour.
+  const sub = k === OBK_LOG ? '#16202c' : k === OBK_BUSH ? '#22305a' : k === OBK_FLOWERBED ? '#6a5238'
+    : k === OBK_MUSHROOM ? '#5a6678' : ((h & 1) ? '#0a0b11' : '#0c0d15');
+  ctx.fillStyle = sub; ctx.fillRect(px, py, s, s);
+  // raised look: cool highlight top/left where meeting open, dark shadow bottom/right
+  if (topOpen) { ctx.fillStyle = 'rgba(150,180,225,0.16)'; ctx.fillRect(px, py, s, 1.2); }
+  if (leftOpen) { ctx.fillStyle = 'rgba(150,180,225,0.1)'; ctx.fillRect(px, py, 1, s); }
+  if (botOpen) { ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(px, py + s - 1.4, s, 1.4); }
+  if (rightOpen) { ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(px + s - 1.4, py, 1.4, s); }
+  ctx.save();
+  if (k === OBK_LOG) {                                             // CONNECTOR — gold pin contacts
+    ctx.fillStyle = '#9a7a3a';
+    for (let xx = px + 3; xx < px + s - 2; xx += 4) ctx.fillRect(xx, py + s * 0.28, 2, s * 0.44);
+  } else if (k === OBK_BUSH) {                                     // CAPACITOR — a deep-blue electrolytic CAN:
+    // a bright silver top sheen + a light polarity stripe down one side (clearly a cap).
+    if (topOpen) { ctx.fillStyle = 'rgba(180,196,224,0.5)'; ctx.fillRect(px + 2, py + 2, s - 4, 2.2); }
+    if (leftOpen) { ctx.fillStyle = '#cdd6e8'; ctx.fillRect(px + 1.6, py + 4, 2.6, s - 7); }
+    ctx.fillStyle = 'rgba(190,202,230,0.22)'; ctx.fillRect(px + s * 0.44, py + s * 0.46, s * 0.16, 1.4);   // a "−" mark
+  } else if (k === OBK_FLOWERBED) {                               // RESISTOR — beige body, metal end-caps, clean bands
+    if (leftOpen) { ctx.fillStyle = '#9a9aa2'; ctx.fillRect(px, py + 3, 3, s - 6); }
+    if (rightOpen) { ctx.fillStyle = '#9a9aa2'; ctx.fillRect(px + s - 3, py + 3, 3, s - 6); }
+    const bands = ['#5a3418', '#9a2a26', '#c07020', '#caa436'];   // brown / red / orange / gold (resistor code)
+    for (let i = 0; i < 3; i++) { ctx.fillStyle = bands[(h >> (i * 3)) % bands.length]; ctx.fillRect(px + s * (0.27 + i * 0.18), py + 4, 2.8, s - 8); }
+  } else if (k === OBK_MUSHROOM) {                               // HEATSINK — bright aluminium with bold fin grooves
+    ctx.strokeStyle = 'rgba(18,26,42,0.5)'; ctx.lineWidth = 1.5;
+    for (let xx = px + 3; xx < px + s - 1; xx += 3.5) { ctx.beginPath(); ctx.moveTo(xx, py + 2); ctx.lineTo(xx, py + s - 2); ctx.stroke(); }
+  } else {                                                        // IC — a BLACK chip: white silkscreen edge + label,
+    // silver legs sticking out of the cluster, and a pin-1 dot. High-contrast, clearly a chip.
+    if (topOpen) { ctx.fillStyle = 'rgba(208,218,236,0.4)'; ctx.fillRect(px + 2, py + 2, s - 4, 1); }
+    if (botOpen) { ctx.fillStyle = 'rgba(208,218,236,0.28)'; ctx.fillRect(px + 2, py + s - 3, s - 4, 1); }
+    if (leftOpen) { ctx.fillStyle = 'rgba(208,218,236,0.28)'; ctx.fillRect(px + 2, py + 2, 1, s - 4); }
+    if (rightOpen) { ctx.fillStyle = 'rgba(208,218,236,0.28)'; ctx.fillRect(px + s - 3, py + 2, 1, s - 4); }
+    ctx.fillStyle = '#7e8aa4';   // silver legs
+    if (topOpen) for (let xx = px + 5; xx < px + s - 4; xx += 6) ctx.fillRect(xx, py - 2, 2, 2);
+    if (botOpen) for (let xx = px + 5; xx < px + s - 4; xx += 6) ctx.fillRect(xx, py + s, 2, 2);
+    if (leftOpen) for (let yy = py + 5; yy < py + s - 4; yy += 6) ctx.fillRect(px - 2, yy, 2, 2);
+    if (rightOpen) for (let yy = py + 5; yy < py + s - 4; yy += 6) ctx.fillRect(px + s, yy, 2, 2);
+    if (topOpen && leftOpen) { ctx.fillStyle = 'rgba(210,220,236,0.75)'; ctx.beginPath(); ctx.arc(px + 5, py + 5, 1.2, 0, TAU); ctx.fill(); }   // pin-1 dot
+    ctx.fillStyle = 'rgba(180,192,216,0.22)'; ctx.fillRect(px + s * 0.3, cy - 0.7, s * 0.4, 1.4);   // silkscreen label dash
+  }
+  ctx.restore();
+}
+
 function drawObstacles() {
   const style = G.pal.style;
   ctx.save();
@@ -580,6 +639,8 @@ function drawObstacles() {
         drawAsteroid(px, py, x, y, idx);
       } else if (style === 'rift') {
         drawRiftCell(px, py, x, y, idx);
+      } else if (style === 'grid') {
+        drawGridRock(px, py, x, y, idx);
       } else {
         ctx.fillStyle = G.pal.blobs[1];                      // band-tinted solid mass (ice/coral/rock/asteroid)
         ctx.fillRect(px, py, CELL, CELL);
@@ -606,6 +667,61 @@ function molNode(x, y, r, core, glow) {
 function bond(x1, y1, x2, y2, col) {
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.25;
   ctx.strokeStyle = col; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.restore();
+}
+// CHARGER (Grid): a molecule like the rest, PLUS a lane telegraph — a danger beam down
+// its row that brightens as it winds up ("clear this row"), then a dash smear. The body
+// pulses white + swells during the wind-up so the threat reads loud and early.
+function drawChargerBody(e, o) {
+  const rm = G.reduceMotion;
+  const winding = e.phase === 'windup', dashing = e.phase === 'dash';
+  const k = winding ? 1 - clamp((e.charging || 0) / (e.chargeMax || 0.7), 0, 1) : 0;   // 0→1 as it completes
+  if (winding) {                                   // the danger beam along the lane
+    const dir = e.dashDir || 1;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.2 + 0.55 * k; ctx.strokeStyle = o.glow; ctx.lineWidth = 1 + 3 * k;
+    ctx.beginPath(); ctx.moveTo(e.x + dir * e.r, e.y); ctx.lineTo(e.x + dir * CELL * 5, e.y); ctx.stroke();
+    const ax = e.x + dir * CELL * 5;
+    ctx.globalAlpha = 0.3 + 0.6 * k; ctx.fillStyle = o.glow;
+    ctx.beginPath(); ctx.moveTo(ax + dir * CELL * 0.45, e.y); ctx.lineTo(ax, e.y - CELL * 0.34); ctx.lineTo(ax, e.y + CELL * 0.34); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+  if (dashing && !rm) {                            // dash motion smear
+    const dir = e.dashDir || 1, x0 = e.x - dir * CELL * 2.4;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const grad = ctx.createLinearGradient(x0, e.y, e.x, e.y);
+    grad.addColorStop(0, 'rgba(0,0,0,0)'); grad.addColorStop(1, hexA(o.glow, 0.55));
+    ctx.fillStyle = grad; ctx.fillRect(Math.min(x0, e.x), e.y - e.r * 0.5, CELL * 2.4, e.r); ctx.restore();
+  }
+  // REACTOR body: a hot core ringed by spoked satellite nodes — a heavy, energized guard
+  // (not a flat line). The ring REVS faster + the core swells/whitens as it winds up, then
+  // spins hard during the dash, so the charge reads as building power → release.
+  const swell = winding ? 1 + 0.32 * k : 1;
+  const n = 6, rr = e.r * 0.82 * swell;
+  const spin = rm ? 0 : G.time * (dashing ? 8 : winding ? 1.4 + 7 * k : 1.1);
+  for (let i = 0; i < n; i++) {
+    const a = spin + i * (TAU / n);
+    const sx = e.x + Math.cos(a) * rr, sy = e.y + Math.sin(a) * rr;
+    bond(e.x, e.y, sx, sy, o.glow);
+    molNode(sx, sy, e.r * 0.22, o.col, o.glow);
+  }
+  molNode(e.x, e.y, e.r * 0.52 * swell, winding ? '#ffffff' : o.col, o.glow);
+}
+// TRACER (Grid): a rounded SENSOR molecule — a body inside a bright targeting halo, with
+// three 'blip' nodes sweeping around the ring and a prominent pulsing white lock-core, so
+// it reads clearly as "scanning, locked on you." Circular like the other enemies.
+function drawTracerBody(e, o) {
+  const rm = G.reduceMotion, t = rm ? 0 : G.time, r = e.r;
+  const spin = rm ? 0 : t * 2.8, ring = r * 0.92;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';           // targeting halo ring
+  ctx.globalAlpha = rm ? 0.4 : 0.32 + 0.22 * Math.sin(t * 5);
+  ctx.strokeStyle = o.glow; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.arc(e.x, e.y, ring, 0, TAU); ctx.stroke();
+  ctx.restore();
+  for (let i = 0; i < 3; i++) {                                   // blip nodes sweeping the ring
+    const a = spin + i * (TAU / 3);
+    molNode(e.x + Math.cos(a) * ring, e.y + Math.sin(a) * ring, r * 0.16, o.col, o.glow);
+  }
+  molNode(e.x, e.y, r * 0.5, o.col, o.glow);                      // body
+  molNode(e.x, e.y, r * 0.3 * (rm ? 1 : 0.85 + 0.15 * Math.sin(t * 6)), '#ffffff', o.glow);   // pulsing lock-core
 }
 // Drifter — a calm drifting CELL: a bright core inside a softly-breathing,
 // slightly irregular membrane, trailing a short comet smear opposite its travel
@@ -901,8 +1017,8 @@ export function drawWorld() {
   // capture shockwave rings — expand-and-fade (ease-out), drawn additively
   for (const r of G.rings) {
     const k = clamp(r.life / r.dur, 0, 1), e = 1 - (1 - k) * (1 - k), a = (1 - k) * (1 - k);
-    ctx.globalAlpha = a; ctx.strokeStyle = r.col; ctx.lineWidth = Math.max(0.5, r.w0 * (1 - k));
-    ctx.shadowColor = r.col; ctx.shadowBlur = 8 * (1 - k);
+    ctx.globalAlpha = a * (r.a0 ?? 1); ctx.strokeStyle = r.col; ctx.lineWidth = Math.max(0.5, r.w0 * (1 - k));
+    ctx.shadowColor = r.col; ctx.shadowBlur = 4 * (1 - k);
     ctx.beginPath(); ctx.arc(r.x, r.y, r.max * e, 0, TAU); ctx.stroke();
   }
   ctx.shadowBlur = 0;
@@ -922,14 +1038,24 @@ export function drawWorld() {
       continue;
     }
     const isCh = e.type === 'chaser', isSent = e.type === 'sentinel', isCut = e.type === 'cutter', isWr = e.type === 'wraith', isQix = e.type === 'qix';
-    const isFf = e.type === 'firefly', isSp = e.type === 'sprite';
+    const isFf = e.type === 'firefly', isSp = e.type === 'sprite', isChg = e.type === 'charger';
     let prox = 0;
     if (G.player && G.player.px && G.state === 'playing') prox = clamp(1 - Math.hypot(G.player.px.x - e.x, G.player.px.y - e.y) / (CELL * 6), 0, 1);
-    const col = frozen ? '#bfe9ff' : isFf ? '#ffe69a' : isSp ? '#c98cff' : isCut ? '#ffe93b' : isSent ? '#ffb14a' : isWr ? '#c89cff' : isQix ? '#d8404e' : isCh ? CHASER_COL : ENEMY_COL;
-    const glow = frozen ? '#bfe9ff' : isFf ? '#ffd45c' : isSp ? '#9a4cff' : isCut ? '#fff07a' : isSent ? '#ffd07a' : isWr ? '#5cf0ff' : isQix ? '#ef5a4e' : isCh ? CHASER_GLOW : ENEMY_GLOW;
+    // The Grid keeps the same MOLECULE bodies as every other mode. Its BASE bouncer is
+    // the regular drifter exactly as Easy renders it (default red) — only the two reactive
+    // hunters recolour: TRACER magenta, CHARGER orange.
+    const grid = G.pal.style === 'grid';
+    const col = frozen ? '#bfe9ff'
+      : grid ? (isChg ? '#ff7a2e' : isCh ? '#3a8aff' : ENEMY_COL)
+      : isFf ? '#ffe69a' : isSp ? '#c98cff' : isCut ? '#ffe93b' : isSent ? '#ffb14a' : isWr ? '#c89cff' : isQix ? '#d8404e' : isCh ? CHASER_COL : ENEMY_COL;
+    const glow = frozen ? '#bfe9ff'
+      : grid ? (isChg ? '#ff5a1e' : isCh ? '#2a6ae0' : ENEMY_GLOW)
+      : isFf ? '#ffd45c' : isSp ? '#9a4cff' : isCut ? '#fff07a' : isSent ? '#ffd07a' : isWr ? '#5cf0ff' : isQix ? '#ef5a4e' : isCh ? CHASER_GLOW : ENEMY_GLOW;
     const o = { col, glow, frozen };
     // distinct silhouette per type (each telegraphs its behaviour)
-    if (isCh) drawChaserBody(e, o);
+    if (isChg) drawChargerBody(e, o);
+    else if (isCh && grid) drawTracerBody(e, o);   // Grid's pursuer has its own packet silhouette
+    else if (isCh) drawChaserBody(e, o);
     else if (isCut) drawCutterBody(e, o);
     else if (isSent) drawSentinelBody(e, o);
     else if (isWr) drawWraithBody(e, o);
@@ -955,19 +1081,9 @@ export function drawWorld() {
     // hero size scales with the cell so it stays a chunky, trackable token on big
     // boards instead of a fixed tiny dot (reference cell ~18).
     const hs = CELL / 18;
-    // a flowing speed streak through the recent positions — tapered + brightest
-    // near the hero — so motion reads as fast/alive instead of a faint bead trail.
-    const tl = G.player.tail;
-    if (tl.length > 1 && !G.reduceMotion) {   // the motion streak is decorative — drop it in reduce-motion
-      ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = G.pal.trail;
-      ctx.shadowColor = G.pal.trail; ctx.shadowBlur = 6 * hs;
-      for (let i = 1; i < tl.length; i++) {
-        const a = i / tl.length;
-        ctx.globalAlpha = a * a * 0.6 * blink; ctx.lineWidth = (0.8 + i * 0.45) * hs;
-        ctx.beginPath(); ctx.moveTo(tl[i - 1].x, tl[i - 1].y); ctx.lineTo(tl[i].x, tl[i].y); ctx.stroke();
-      }
-      ctx.shadowBlur = 0;
-    }
+    // (no hero motion-streak even in full motion: the tapered after-image through the
+    //  recent positions smeared behind the hero and read as LAG. The hero now moves
+    //  clean in both modes — motion-on's life comes from captures/world, not a hero trail.)
     ctx.globalAlpha = blink; ctx.globalCompositeOperation = 'source-over';
     const px = G.player.px.x, py = G.player.px.y;
     // shield bubble (kept)
@@ -1046,15 +1162,17 @@ export function drawWorld() {
     if (G.banner.enemy) {
       const bloom = G.banner.enemy === 'firefly' || G.banner.enemy === 'sprite';
       const be = G.banner.enemy;
-      const ec = be === 'chaser' ? CHASER_COL : be === 'cutter' ? '#ffe93b' : be === 'sentinel' ? '#ffb14a' : be === 'firefly' ? '#ffe69a' : be === 'sprite' ? '#c98cff' : be === 'qix' ? '#d8404e' : '#ff3a4e';
-      const eg = be === 'chaser' ? CHASER_GLOW : be === 'cutter' ? '#fff07a' : be === 'sentinel' ? '#ffd07a' : be === 'firefly' ? '#ffd45c' : be === 'sprite' ? '#9a4cff' : be === 'qix' ? '#ef5a4e' : '#ff6a4a';
+      const ec = be === 'tracer' ? '#3a8aff' : be === 'charger' ? '#ff7a2e' : be === 'chaser' ? CHASER_COL : be === 'cutter' ? '#ffe93b' : be === 'sentinel' ? '#ffb14a' : be === 'firefly' ? '#ffe69a' : be === 'sprite' ? '#c98cff' : be === 'qix' ? '#d8404e' : '#ff3a4e';
+      const eg = be === 'tracer' ? '#2a6ae0' : be === 'charger' ? '#ff5a1e' : be === 'chaser' ? CHASER_GLOW : be === 'cutter' ? '#fff07a' : be === 'sentinel' ? '#ffd07a' : be === 'firefly' ? '#ffd45c' : be === 'sprite' ? '#9a4cff' : be === 'qix' ? '#ef5a4e' : '#ff6a4a';
       // preview the ACTUAL creature design (not a generic orb) — kept high + small
       // so its glow/electrons never crowd the "NEW BLOOM/THREAT" label below it
       const bx = PW / 2, by = PH / 2 - 96, br = CELL * 0.66;
       const fe: any = { x: bx, y: by, r: br, ax: bx, ay: by, orad: 0, oang: 0, ow: 1, charging: 0, baseR: br, vx: br, vy: 0 };
       const bo = { col: ec, glow: eg };
       ctx.save(); ctx.globalAlpha = a;
-      if (be === 'firefly') drawFireflyBody(fe, bo);
+      if (be === 'tracer') drawTracerBody(fe, bo);
+      else if (be === 'charger') drawChargerBody(fe, bo);
+      else if (be === 'firefly') drawFireflyBody(fe, bo);
       else if (be === 'sprite') drawSpriteBody(fe, bo);
       else if (be === 'qix') drawQixBody(fe, bo);
       else if (be === 'chaser') drawChaserBody(fe, bo);
