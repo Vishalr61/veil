@@ -38,6 +38,7 @@ import { updatePlayer, checkCollisions, checkNearMiss, respawnAt, clearTrail, ti
 import { playBtnRect, dailyBtnRect, pauseBtnRect, pauseHomeRect, pauseControlRect, pauseMuteRect, pauseMotionRect, muteBtnRect, goBtnRects, scoresBtnRect } from './render/geometry';
 import { drawHUD } from './render/hud';
 import { drawMenu, drawLevelClear, drawGameOver, drawPaused, drawAttractWorld, drawScores, MENU_INTRO_DONE } from './render/overlays';
+import { FPS_ON, sampleFrame, drawFpsMeter } from './render/fpsmeter';
 import {
   initAudio, resumeAudio, setMuted, isMuted, setPadLevel,
   sfxStartDraw, sfxCapture, sfxBold, sfxDeath, sfxLevel, sfxPickup, sfxShield, sfxBlip, sfxBest, sfxDailyClear,
@@ -404,9 +405,11 @@ function render() {
 let last = 0;
 function frame(now) {
   if (!last) last = now;
-  let dt = (now - last) / 1000; last = now;
+  const rawMs = now - last;            // true frame interval (pre-clamp) for the meter
+  let dt = rawMs / 1000; last = now;
   if (dt > 1 / 30) dt = 1 / 30;
   update(dt); render();
+  if (FPS_ON) { sampleFrame(rawMs); drawFpsMeter(); }
   requestAnimationFrame(frame);
 }
 try { document.fonts.load("700 16px 'Press Start 2P'"); document.fonts.load("400 16px 'VT323'"); } catch (e) {}
