@@ -49,14 +49,18 @@ export interface DiffConfig {
   scoreMult: number;        // score multiplier
 }
 
-// MEDIUM = today. All-neutral on purpose; do NOT retune.
+// MEDIUM = "The Grid": its own synthetic neon-circuit mode (built by gridBlueprint,
+// like Easy=Bloom). Pressure is FUSE-ONLY — the line-close spark stays, but the level
+// CLOCK is off — a clean skill step above Bloom without the ticking dread. Speed sits
+// between Bloom and the campaign: a livelier-than-Bloom hero that holds by L14, and
+// enemies a touch slower than the campaign. (The campaign baseline now lives in Hard.)
 const medium: DiffConfig = {
   key: 'medium', label: 'MED',
-  fuse: true, fuseScale: 1, clock: true, clockScale: 1, lives: 3,
+  fuse: true, fuseScale: 1, clock: false, clockScale: 1, lives: 3,
   targetDelta: 0, targetFloor: 0,
-  speedBase: 1, speedRamp: 1, speedCap: 240, countDelta: 0, chaserFromLevel: 0, cutterFromLevel: 0, invulnScale: 1,
-  heroBase: 13.5, heroRamp: 0.5, heroCap: 20, heroLevelCap: 999,   // today's hero-speed curve (no level clamp)
-  pickupFreq: 1, riftScale: 1, scoreMult: 1,
+  speedBase: 0.9, speedRamp: 0.7, speedCap: 190, countDelta: 0, chaserFromLevel: 0, cutterFromLevel: 0, invulnScale: 1.2,
+  heroBase: 12.5, heroRamp: 0.18, heroCap: 16, heroLevelCap: 14,   // ramps L1-14, then HOLDS (controllable, never twitchy)
+  pickupFreq: 1.2, riftScale: 1, scoreMult: 1,
 };
 
 // EASY = "Bloom": its own lush garden mode, not Medium-lite. No time pressure,

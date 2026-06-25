@@ -276,6 +276,56 @@ export function bloomNewEnemy(lv: number): string | null {
   return null;
 }
 
+/* ============================ MEDIUM = THE GRID =========================== */
+// Medium's own themed mode, built like Bloom. Increment 1 maps the Grid roster
+// onto existing AI — GLITCH = drifter (straight bouncer), TRACER = chaser
+// (re-aims at you), DAEMON = cutter (races your line). Bespoke renders, intro
+// cards, Grid names + THE KERNEL boss land in Increment 2; the floor structure
+// here is final. Same +1-every-2-floors budget, capped at 10 (hunters held lower
+// so a Medium floor never becomes an all-homing wall).
+export const GRID_ENEMY_CAP = 10;
+function gridBudget(lv: number): number {
+  return Math.min(2 + Math.floor((lv - 1) / 2), GRID_ENEMY_CAP);
+}
+export function gridRoster(lv: number): EnemyCounts {
+  const z: EnemyCounts = { drifter: 0, chaser: 0, cutter: 0, sentinel: 0, sleeper: 0 };
+  const b = gridBudget(lv);
+  if (lv === 1) { z.drifter = b; return z; }                                   // teach: GLITCH only
+  if (lv === 2) { z.chaser = 1; z.drifter = b - 1; return z; }                 // TRACER debut (one, among glitches)
+  if (lv === 3) { z.chaser = Math.min(3, Math.ceil(b / 2)); z.drifter = b - z.chaser; return z; }
+  if (lv === 4) { z.cutter = 1; z.drifter = b - 1; return z; }                 // DAEMON debut (one)
+  // L5+: rotating themed floors within each 5-floor band. Hunters are capped low
+  // (chaser ≤4, cutter ≤3) with drifters filling the rest, so it stays fair.
+  switch ((lv - 1) % 5) {
+    case 0: z.chaser = Math.min(4, b); z.drifter = b - z.chaser; break;        // tracer net
+    case 1: z.cutter = Math.min(3, b); z.drifter = b - z.cutter; break;        // daemon patrol
+    case 2: z.drifter = b; break;                                              // glitch storm (all GLITCH)
+    case 3: z.chaser = Math.min(3, Math.ceil(b / 2)); z.cutter = Math.min(2, Math.floor(b / 3)); z.drifter = b - z.chaser - z.cutter; break;
+    default: z.chaser = Math.min(3, Math.ceil(b / 3)); z.cutter = Math.min(2, Math.ceil(b / 4)); z.drifter = b - z.chaser - z.cutter;  // summit mix (KERNEL boss = Inc 2)
+  }
+  if (z.drifter + z.chaser + z.cutter < 1) z.drifter = 1;                      // never an empty floor
+  return z;
+}
+export function gridBlueprint(base: LevelBlueprint, lv: number): LevelBlueprint {
+  // open start, then alternating pillar/vein mazes (the bespoke Grid terrain motif
+  // — chip blocks / data buses — is Increment 3; pillars/veins read fine for now).
+  const motif: ObstacleMotif = lv <= 1 ? 'open' : lv <= 3 ? 'pillars' : (lv % 2 === 0 ? 'pillars' : 'veins');
+  return {
+    ...base,
+    motif,
+    density: Math.min(0.04 + 0.016 * (lv - 1), 0.13),                // gentle start, denser deeper
+    target: Math.min(0.58 + 0.012 * (lv - 1), 0.72),                 // moderate, rising (between Bloom + campaign)
+    caches: base.caches + 1,                                          // a touch more reward than the campaign base
+    rifts: lv <= 2 ? 0 : Math.min(1 + Math.floor((lv - 3) / 2), 5),   // gentle hazard ramp
+    enemies: gridRoster(lv),
+  };
+}
+// New Grid enemy introduced at this floor (drives the intro card). Null for now —
+// the bespoke Grid cards (GLITCH/TRACER/DAEMON designs + names) land in Increment 2.
+export function gridNewEnemy(_lv: number): string | null {
+  return null;
+}
+
 /* ============================ THE DAILY CHALLENGE ========================= */
 // A self-contained 10-floor gauntlet in The Rift (its own zone), distinct from
 // the campaign. Same difficulty curve every day; the date seeds the actual

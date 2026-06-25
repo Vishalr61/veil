@@ -33,6 +33,7 @@ const THEMES: Record<string, Theme> = {
   aurora:  { bpm: 128, root: 55.0, scale: SCALES.lydian, wave: 'sine' },      // Aurora — airy
   space:   { bpm: 124, root: 49.0, scale: SCALES.minor, wave: 'sawtooth' },   // Deep Space — vast
   rift:    { bpm: 140, root: 58.3, scale: SCALES.penta, wave: 'sawtooth' },   // The Rift — fast, edgy
+  grid:    { bpm: 138, root: 55.0, scale: SCALES.lydian, wave: 'square' },    // The Grid — electric, synthetic
 };
 let theme: Theme = THEMES.default;
 
