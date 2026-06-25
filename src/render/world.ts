@@ -264,8 +264,9 @@ function drawFloraRock(px: number, py: number, x: number, y: number, idx: number
 
 const BLOOM_SHADES = ['#08231a', '#0c2e22', '#11392b', '#174634'];    // mossy teal-green stone (flowerbed/mushroom base)
 const BOULDER_SHADES = ['#1e2622', '#28322c', '#323c36', '#3c4640'];  // bare grey-green stone
-const LOG_SHADES = ['#16210f', '#1e2b15', '#28351b', '#323f23'];      // mossy green-olive wood (fits the garden)
+const LOG_SHADES = ['#2a2016', '#342a1e', '#3e3424', '#4a3e2c'];      // muted bark-brown — visible like the boulder, not loud
 const BUSH_SHADES = ['#0a2410', '#0e2e16', '#13381c', '#184224'];     // deep saturated leaf green
+const CRYSTAL_SHADES = ['#1c1828', '#241f32', '#2c273c', '#342f48'];  // dark violet-grey geode stone (the 'mushroom' slot is a CRYSTAL in Bloom)
 // The Bloom's crafted terrain. Each obstacle CLUSTER is a garden-object KIND
 // (G.obstacleKind, from assignObstacleKinds): boulder / log / bush / flowerbed /
 // mushroom mound — rendered distinctly but still neighbor edge-lit, so a multi-cell
@@ -275,48 +276,60 @@ function drawBloomRock(px: number, py: number, x: number, y: number, idx: number
   const h = ((x * 374761393) ^ (y * 668265263)) >>> 0;
   const k = G.obstacleKind.length ? G.obstacleKind[idx] : 0;
   const m = Math.sin(x * 0.5 + y * 0.3) + Math.sin(y * 0.65 - x * 0.2);
-  const shades = k === OBK_LOG ? LOG_SHADES : k === OBK_BUSH ? BUSH_SHADES : k === OBK_BOULDER ? BOULDER_SHADES : BLOOM_SHADES;
+  const shades = k === OBK_LOG ? LOG_SHADES : k === OBK_BUSH ? BUSH_SHADES : k === OBK_BOULDER ? BOULDER_SHADES : k === OBK_MUSHROOM ? CRYSTAL_SHADES : BLOOM_SHADES;
   ctx.fillStyle = shades[Math.max(0, Math.min(3, Math.round((m + 2) / 4 * 3)))];
   ctx.fillRect(px, py, s, s);
-  ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.fillRect(px, py + s * 0.62, s, s * 0.38);          // grounding shadow
-  // edge lighting where this object meets open (bare stone gets a cool grey rim, plants green)
-  const topOpen = G.grid[idx - COLS] === EMPTY;
-  const litCol = k === OBK_BOULDER ? '#9fb0a8' : G.pal.blobs[3];
-  if (topOpen) { ctx.fillStyle = hexA(litCol, 0.32); ctx.fillRect(px, py, s, 1.4); }
-  if (G.grid[idx - 1] === EMPTY) { ctx.fillStyle = hexA(litCol, 0.2); ctx.fillRect(px, py, 1.2, s); }
-  if (G.grid[idx + COLS] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(px, py + s - 1.6, s, 1.6); }
-  if (G.grid[idx + 1] === EMPTY) { ctx.fillStyle = 'rgba(0,0,0,0.32)'; ctx.fillRect(px + s - 1.6, py, 1.6, s); }
   const cx = px + s / 2, cy = py + s / 2;
-  ctx.save();
-  if (k === OBK_LOG) {                                           // a MOSSY log: horizontal grain banding + green moss
-    ctx.globalAlpha = 0.34; ctx.fillStyle = '#0b1207';
-    ctx.fillRect(px, py + s * 0.34, s, 1); ctx.fillRect(px, py + s * 0.64, s, 1);
-    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.3; ctx.fillStyle = G.pal.blobs[3];
-    for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(px + 3 + ((h >> (i * 3)) % Math.max(1, s - 6)), py + 2 + ((h >> (i * 3 + 1)) % 4), 1.6, 0, TAU); ctx.fill(); }
-    ctx.restore();
-  } else if (k === OBK_BUSH) {                                   // dense overlapping leaves + an occasional berry
+  const topOpen = G.grid[idx - COLS] === EMPTY, leftOpen = G.grid[idx - 1] === EMPTY;
+  const botOpen = G.grid[idx + COLS] === EMPTY, rightOpen = G.grid[idx + 1] === EMPTY;
+  // raised look: a soft warm rim where the object meets open, a dark shadow underneath
+  const litCol = k === OBK_BOULDER ? '#a8b8ac' : k === OBK_LOG ? '#5e4a30' : k === OBK_MUSHROOM ? '#8a78b4' : G.pal.blobs[3];
+  if (topOpen) { ctx.fillStyle = hexA(litCol, k === OBK_LOG ? 0.26 : 0.34); ctx.fillRect(px, py, s, 1.4); }
+  if (leftOpen) { ctx.fillStyle = hexA(litCol, 0.2); ctx.fillRect(px, py, 1.2, s); }
+  if (botOpen) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(px, py + s - 1.6, s, 1.6); }
+  if (rightOpen) { ctx.fillStyle = 'rgba(0,0,0,0.32)'; ctx.fillRect(px + s - 1.6, py, 1.6, s); }
+  // clip every object's detail to its own cell so nothing spills into the open field
+  ctx.save(); ctx.beginPath(); ctx.rect(px, py, s, s); ctx.clip();
+  if (k === OBK_LOG) {                                           // LOG — brown wood: grain bands, cut-end rings, moss
+    ctx.globalAlpha = 0.4; ctx.fillStyle = '#180f06';
+    ctx.fillRect(px, py + s * 0.32, s, 1); ctx.fillRect(px, py + s * 0.62, s, 1);                 // grain
+    if (leftOpen || rightOpen) {                                                                  // a sawn end-ring
+      const ex = leftOpen ? px + s * 0.28 : px + s * 0.72;
+      ctx.globalAlpha = 0.55; ctx.strokeStyle = '#7a5a34'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(ex, cy, s * 0.2, 0, TAU); ctx.stroke();
+      ctx.beginPath(); ctx.arc(ex, cy, s * 0.1, 0, TAU); ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.32; ctx.fillStyle = G.pal.blobs[3];
+    for (let i = 0; i < 3; i++) ctx.fillRect(px + 2 + ((h >> (i * 3)) % Math.max(1, s - 4)), py + 1 + ((h >> (i * 3 + 1)) % 4), 2.2, 1.6);   // moss
+  } else if (k === OBK_BUSH) {                                   // BUSH — clumped leaves + a berry
     ctx.globalCompositeOperation = 'lighter';
     for (let i = 0; i < 6; i++) {
-      const ox = px + 2 + ((h >> (i * 3)) % Math.max(1, s - 4)), oy = py + 1 + ((h >> (i * 3 + 1)) % Math.max(1, s - 4)), rr = 1.8 + ((h >> (i * 3 + 2)) % 3) * 0.7;
-      ctx.globalAlpha = 0.36; ctx.fillStyle = G.pal.blobs[3]; ctx.beginPath(); ctx.arc(ox, oy, rr, 0, TAU); ctx.fill();
+      const ox = px + 2 + ((h >> (i * 3)) % Math.max(1, s - 4)), oy = py + 1 + ((h >> (i * 3 + 1)) % Math.max(1, s - 4)), rr = 2 + ((h >> (i * 3 + 2)) % 3) * 0.8;
+      ctx.globalAlpha = 0.4; ctx.fillStyle = G.pal.blobs[3]; ctx.beginPath(); ctx.arc(ox, oy, rr, 0, TAU); ctx.fill();
     }
-    if (h % 3 === 0) { ctx.globalAlpha = 0.9; ctx.fillStyle = '#ff6a8a'; ctx.beginPath(); ctx.arc(cx, cy, 1.4, 0, TAU); ctx.fill(); }
-  } else if (k === OBK_FLOWERBED) {                              // a bed of bright pink/gold flowers
+    if (h % 3 === 0) { ctx.globalAlpha = 0.95; ctx.fillStyle = '#ff5a7a'; ctx.beginPath(); ctx.arc(cx, cy, 1.7, 0, TAU); ctx.fill(); }   // berry
+  } else if (k === OBK_FLOWERBED) {                              // FLOWERBED — a cluster of bright 5-petal flowers
     ctx.globalCompositeOperation = 'lighter';
-    const fcol = (h % 2) ? '#ff9ad8' : '#ffd45c';
-    ctx.globalAlpha = 0.6; ctx.fillStyle = fcol;
-    for (let i = 0; i < 5; i++) { const a = i / 5 * TAU + h; ctx.beginPath(); ctx.arc(cx + Math.cos(a) * 3, cy + Math.sin(a) * 3, 1.7, 0, TAU); ctx.fill(); }
-    ctx.globalAlpha = 0.95; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy, 1.5, 0, TAU); ctx.fill();
-  } else if (k === OBK_MUSHROOM && topOpen) {                    // a big glowing cap poking up
+    for (let f = 0; f < 2; f++) {
+      const fx = px + 5 + ((h >> (f * 5)) % Math.max(1, s - 10)), fy = py + 5 + ((h >> (f * 5 + 2)) % Math.max(1, s - 10));
+      ctx.globalAlpha = 0.7; ctx.fillStyle = ((h >> f) % 2) ? '#ff9ad8' : '#ffd45c';
+      for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; ctx.beginPath(); ctx.arc(fx + Math.cos(a) * 2.4, fy + Math.sin(a) * 2.4, 1.5, 0, TAU); ctx.fill(); }
+      ctx.globalAlpha = 0.95; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(fx, fy, 1.3, 0, TAU); ctx.fill();
+    }
+  } else if (k === OBK_MUSHROOM) {                              // CRYSTAL — one clean faceted amethyst gem per cell
+    const gx = cx + ((h % 5) - 2) * 0.6, top = py + s * 0.24, bot = py + s * 0.8, mid = py + s * 0.52;
+    const hw = s * (0.19 + (h % 3) * 0.03);
+    ctx.fillStyle = '#574779';                                                 // gem body (right/shadow facet)
+    ctx.beginPath(); ctx.moveTo(gx, top); ctx.lineTo(gx + hw, mid); ctx.lineTo(gx, bot); ctx.lineTo(gx - hw, mid); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#6a5892';                                                 // lit left facet
+    ctx.beginPath(); ctx.moveTo(gx, top); ctx.lineTo(gx - hw, mid); ctx.lineTo(gx, bot); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = hexA('#c2aee8', 0.45);                                     // top crown highlight
+    ctx.beginPath(); ctx.moveTo(gx, top); ctx.lineTo(gx - hw, mid); ctx.lineTo(gx + hw, mid); ctx.closePath(); ctx.fill();
+  } else {                                                       // BOULDER — smooth grey stone, a soft lit dome + moss
     ctx.globalCompositeOperation = 'lighter';
-    const my = py, cr = s * 0.44, g = ctx.createRadialGradient(cx, my, 0, cx, my, cr);
-    g.addColorStop(0, '#ffffff'); g.addColorStop(0.4, hexA(G.pal.blobs[4], 0.8)); g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.globalAlpha = 0.9; ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(cx, my, cr, cr * 0.7, 0, Math.PI, TAU); ctx.fill();
-  } else {                                                       // BOULDER: smooth bare stone — a soft grey lit dome
-    ctx.globalCompositeOperation = 'lighter';
-    if (topOpen) { ctx.globalAlpha = 0.18; ctx.fillStyle = '#9fb0a8'; ctx.beginPath(); ctx.ellipse(px + s * 0.36, py + s * 0.32, s * 0.34, s * 0.22, -0.5, 0, TAU); ctx.fill(); }
-    const ox = px + 3 + (h % Math.max(1, s - 6)), oy = py + 3 + ((h >> 6) % Math.max(1, s - 6));
-    ctx.globalAlpha = 0.1; ctx.fillStyle = G.pal.blobs[4]; ctx.beginPath(); ctx.arc(ox, oy, 1.8, 0, TAU); ctx.fill();
+    if (topOpen) { ctx.globalAlpha = 0.2; ctx.fillStyle = '#a8b8ac'; ctx.beginPath(); ctx.ellipse(px + s * 0.36, py + s * 0.32, s * 0.34, s * 0.22, -0.5, 0, TAU); ctx.fill(); }
+    ctx.globalAlpha = 0.12; ctx.fillStyle = G.pal.blobs[4];
+    ctx.beginPath(); ctx.arc(px + 3 + (h % Math.max(1, s - 6)), py + 3 + ((h >> 6) % Math.max(1, s - 6)), 1.8, 0, TAU); ctx.fill();
   }
   ctx.restore();
 }

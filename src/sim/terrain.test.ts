@@ -1,7 +1,7 @@
 import '../test/browser-env';
 import { describe, it, expect } from 'vitest';
 import { SeededRng } from '../core/rng';
-import { genObstacles, obstacleBudget, openInteriorCount, assignObstacleKinds, OBK_BOULDER, OBK_LOG, OBK_MUSHROOM } from './terrain';
+import { genObstacles, obstacleBudget, openInteriorCount, assignObstacleKinds, OBK_BOULDER, OBK_LOG, OBK_BUSH, OBK_MUSHROOM } from './terrain';
 import { OBSTACLE } from '../core/constants';
 
 const COLS = 24, ROWS = 40, START = COLS >> 1; // top-middle border cell, as in-game
@@ -144,5 +144,17 @@ describe('assignObstacleKinds', () => {
     const log = grid8([9, 10, 11, 12, 13, 14]);                 // a LOG-shaped cluster
     expect(assignObstacleKinds(log, 8, 8, 1)[9]).toBe(OBK_BOULDER);   // unlocked=1 → only the base
     expect(assignObstacleKinds(log, 8, 8, 2)[9]).toBe(OBK_LOG);       // unlocked=2 → LOG is in
+  });
+  it('an `allowed` palette caps the board to only those kinds', () => {
+    // many clusters of mixed shapes across the board
+    const grid = grid8([1, 2, 9, 18, 27, 36, 5, 6, 7, 13, 21, 29, 40, 41, 42, 50, 58]);
+    const palette = [OBK_BOULDER, OBK_BUSH];                          // restrict to 2 kinds
+    const kind = assignObstacleKinds(grid, 8, 8, 5, palette);
+    for (let i = 0; i < grid.length; i++)
+      if (grid[i] === OBSTACLE) expect(palette).toContain(kind[i]);   // nothing off-palette
+  });
+  it('keeps a cluster\'s shape-kind when it IS in the palette', () => {
+    const log = grid8([9, 10, 11, 12, 13, 14]);                       // LOG-shaped
+    expect(assignObstacleKinds(log, 8, 8, 5, [OBK_LOG, OBK_BOULDER])[9]).toBe(OBK_LOG);
   });
 });
