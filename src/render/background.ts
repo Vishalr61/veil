@@ -802,63 +802,68 @@ function genRiftNebula(c, p, PW, PH, depth) {
 }
 
 function genGridNebula(c, p, PW, PH, depth) {
-  const B = p.blobs;                       // [navy black, deep navy, electric blue, cyan, pale cyan]
-  const CY = '#2ad8ff', MG = '#ff3df0';    // trace cyan + the magenta signature
+  // A grounded, crafted dark PCB — the circuit reads from LAYOUT, not glow: matte
+  // copper/teal traces (source-over, NOT additive neon), copper-pour ground regions with
+  // a hatch texture, dim IC silhouettes + solder pads, and only a FEW faint live glints.
+  // It sits quietly behind the play instead of shouting.
+  const BLUE = '#4a6aa8', COP = '#8a6a3a', SILK = '#34466a', PAD = '#5a6a88', GLINT = '#7fb8ff';
+  const step = 34;
 
-  const base = c.createLinearGradient(0, 0, 0, PH);   // deep navy circuit field
-  base.addColorStop(0, '#05070f'); base.addColorStop(0.5, '#070a16'); base.addColorStop(1, '#0a0c1e');
+  const base = c.createLinearGradient(0, 0, 0, PH);   // dark indigo-navy board (a touch lifted)
+  base.addColorStop(0, '#0a1024'); base.addColorStop(0.5, '#0c142c'); base.addColorStop(1, '#101a38');
   c.fillStyle = base; c.fillRect(0, 0, PW, PH);
 
-  const step = 34;                         // faint PCB substrate grid
-  c.strokeStyle = hexA(B[2], 0.10); c.lineWidth = 1; c.beginPath();
+  // copper-pour ground regions — large dim filled areas with a 45° hatch (depth/craft)
+  for (let i = 0; i < 4; i++) {
+    const x = rand(0, PW * 0.65), y = rand(0, PH * 0.65), w = rand(PW * 0.25, PW * 0.5), h = rand(PH * 0.2, PH * 0.4);
+    c.fillStyle = 'rgba(30,48,86,0.5)'; c.fillRect(x, y, w, h);
+    c.save(); c.beginPath(); c.rect(x, y, w, h); c.clip();
+    c.strokeStyle = 'rgba(52,74,120,0.35)'; c.lineWidth = 1;
+    for (let hx = x - h; hx < x + w; hx += 6) { c.beginPath(); c.moveTo(hx, y); c.lineTo(hx + h, y + h); c.stroke(); }
+    c.restore();
+  }
+
+  c.strokeStyle = 'rgba(64,86,134,0.12)'; c.lineWidth = 1; c.beginPath();   // faint substrate grid
   for (let x = step; x < PW; x += step) { c.moveTo(x, 0); c.lineTo(x, PH); }
   for (let y = step; y < PH; y += step) { c.moveTo(0, y); c.lineTo(PW, y); }
   c.stroke();
 
-  c.globalCompositeOperation = 'lighter';
-
-  for (let i = 0, n = 3 + Math.round(depth * 2); i < n; i++) {   // soft electric-blue blooms
-    const x = rand(0, PW), y = rand(0, PH), r = rand(120, 260);
-    const g = c.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, hexA(B[2], 0.14)); g.addColorStop(1, 'rgba(0,0,0,0)');
-    c.globalAlpha = 0.6; c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
-  }
-  c.globalAlpha = 1;
-
-  // glowing circuit traces — orthogonal (Manhattan) routes with a via/pad at each end
-  const via = (x, y, col, r) => {
-    const g = c.createRadialGradient(x, y, 0, x, y, r * 3);
-    g.addColorStop(0, col); g.addColorStop(0.4, hexA(col, 0.5)); g.addColorStop(1, 'rgba(0,0,0,0)');
-    c.globalAlpha = 0.85; c.fillStyle = g; c.beginPath(); c.arc(x, y, r * 3, 0, TAU); c.fill();
-    c.globalAlpha = 1; c.fillStyle = '#eafaff'; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
-  };
+  // routed traces — MATTE (source-over), orthogonal, with dim solder pads at the ends
   c.lineJoin = 'round'; c.lineCap = 'round';
-  for (let i = 0, n = 10 + Math.round(depth * 8); i < n; i++) {
-    const col = Math.random() < 0.18 ? MG : CY;
+  const pad = (x, y) => { c.fillStyle = PAD; c.beginPath(); c.arc(x, y, 2.2, 0, TAU); c.fill(); c.fillStyle = '#0a1020'; c.beginPath(); c.arc(x, y, 0.9, 0, TAU); c.fill(); };
+  for (let i = 0, n = 14 + Math.round(depth * 6); i < n; i++) {
+    const col = Math.random() < 0.25 ? COP : BLUE;
     let x = Math.round(rand(0, PW) / step) * step, y = Math.round(rand(0, PH) / step) * step;
     const pts = [{ x, y }]; const segs = 2 + ((Math.random() * 3) | 0); let horiz = Math.random() < 0.5;
-    for (let s = 0; s < segs; s++) {
-      const len = (1 + ((Math.random() * 3) | 0)) * step * (Math.random() < 0.5 ? 1 : -1);
-      if (horiz) x = Math.max(0, Math.min(PW, x + len)); else y = Math.max(0, Math.min(PH, y + len));
-      pts.push({ x, y }); horiz = !horiz;
-    }
-    c.globalAlpha = 0.42; c.strokeStyle = col; c.lineWidth = 2.6;
+    for (let s = 0; s < segs; s++) { const len = (1 + ((Math.random() * 3) | 0)) * step * (Math.random() < 0.5 ? 1 : -1); if (horiz) x = Math.max(8, Math.min(PW - 8, x + len)); else y = Math.max(8, Math.min(PH - 8, y + len)); pts.push({ x, y }); horiz = !horiz; }
+    c.globalAlpha = 0.5; c.strokeStyle = col; c.lineWidth = 1.6;
     c.beginPath(); pts.forEach((q, k) => k ? c.lineTo(q.x, q.y) : c.moveTo(q.x, q.y)); c.stroke();
-    c.globalAlpha = 0.9; c.lineWidth = 1; c.stroke();
-    via(pts[0].x, pts[0].y, col, 1.8); via(pts[pts.length - 1].x, pts[pts.length - 1].y, col, 1.8);
+    c.globalAlpha = 1; pad(pts[0].x, pts[0].y); pad(pts[pts.length - 1].x, pts[pts.length - 1].y);
+  }
+
+  // IC component silhouettes — dark chips with a silkscreen outline + pin ticks
+  for (let i = 0; i < 5; i++) {
+    const w = rand(26, 54), h = rand(16, 30), x = rand(10, PW - w - 10), y = rand(10, PH - h - 10);
+    c.fillStyle = '#0c1626'; c.fillRect(x, y, w, h);
+    c.strokeStyle = SILK; c.lineWidth = 1; c.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+    c.fillStyle = PAD;
+    for (let px = x + 4; px < x + w - 3; px += 5) { c.fillRect(px, y - 2, 2, 2); c.fillRect(px, y + h, 2, 2); }
+    c.fillStyle = 'rgba(130,160,205,0.5)'; c.beginPath(); c.arc(x + 4, y + 4, 1.2, 0, TAU); c.fill();   // pin-1 dot
+  }
+
+  for (let i = 0; i < 40; i++) {   // scattered solder pads (matte metal)
+    c.globalAlpha = rand(0.2, 0.5); c.fillStyle = PAD; c.beginPath(); c.arc(rand(0, PW), rand(0, PH), rand(0.8, 1.6), 0, TAU); c.fill();
   }
   c.globalAlpha = 1;
 
-  for (let i = 0; i < 120; i++) {   // scattered SMD pads / data points
-    c.globalAlpha = rand(0.12, 0.6); c.fillStyle = Math.random() < 0.16 ? MG : Math.random() < 0.5 ? CY : p.star;
-    c.beginPath(); c.arc(rand(0, PW), rand(0, PH), rand(0.4, 1.2), 0, TAU); c.fill();
-  }
-  c.globalAlpha = 1;
+  // a FEW faint live data-glints — the ONLY bright bits, very sparse
+  c.globalCompositeOperation = 'lighter';
+  for (let i = 0, n = 9 + Math.round(depth * 3); i < n; i++) { c.globalAlpha = rand(0.12, 0.3); c.fillStyle = GLINT; c.beginPath(); c.arc(rand(0, PW), rand(0, PH), rand(0.6, 1.2), 0, TAU); c.fill(); }
+  c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
 
-  c.globalCompositeOperation = 'source-over';
-  const VR = Math.max(PW, PH);
-  const vig = c.createRadialGradient(PW / 2, PH / 2, VR * 0.36, PW / 2, PH / 2, VR * 0.92);
-  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.45)');
+  const VR = Math.max(PW, PH);   // vignette (eased — the board was a touch too dark)
+  const vig = c.createRadialGradient(PW / 2, PH / 2, VR * 0.34, PW / 2, PH / 2, VR * 0.92);
+  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.46)');
   c.fillStyle = vig; c.fillRect(0, 0, PW, PH);
   c.globalAlpha = 1;
 }
@@ -1152,8 +1157,8 @@ export function genFog(pal, PW, PH, depth = 0) {
   const s = createSurface(PW, PH), c = s.ctx;
   // The Depths veil is COOL basalt (warm ember cracks come from fogSignature);
   // other bands keep their band-tinted near-black.
-  const d0 = style === 'magma' ? '#0a0813' : style === 'caves' ? '#0b0716' : style === 'ocean' ? '#04161c' : style === 'flora' ? '#06160c' : style === 'bloom' ? '#05140e' : style === 'grid' ? '#05060f' : style === 'sky' ? '#070a1e' : style === 'rift' ? '#08061a' : pal.blobs[0];
-  const d1 = style === 'magma' ? '#15121f' : style === 'caves' ? '#1a1030' : style === 'ocean' ? '#0a3038' : style === 'flora' ? '#0e3018' : style === 'bloom' ? '#0c2c1e' : style === 'grid' ? '#0c1024' : style === 'sky' ? '#141a3c' : style === 'rift' ? '#180c30' : pal.blobs[1];
+  const d0 = style === 'magma' ? '#0a0813' : style === 'caves' ? '#0b0716' : style === 'ocean' ? '#04161c' : style === 'flora' ? '#06160c' : style === 'bloom' ? '#05140e' : style === 'grid' ? '#080d1c' : style === 'sky' ? '#070a1e' : style === 'rift' ? '#08061a' : pal.blobs[0];
+  const d1 = style === 'magma' ? '#15121f' : style === 'caves' ? '#1a1030' : style === 'ocean' ? '#0a3038' : style === 'flora' ? '#0e3018' : style === 'bloom' ? '#0c2c1e' : style === 'grid' ? '#121e3c' : style === 'sky' ? '#141a3c' : style === 'rift' ? '#180c30' : pal.blobs[1];
   c.fillStyle = d0; c.fillRect(0, 0, PW, PH);
   const g = c.createLinearGradient(0, 0, 0, PH);
   g.addColorStop(0, hexA(d1, 0.5)); g.addColorStop(1, hexA(d0, 0));   // subtle lift up top

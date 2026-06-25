@@ -31,13 +31,12 @@ export function captureBurst(x: number, y: number, col: string, area: number, ca
   }
 }
 
-// Expanding shockwave rings from the point a capture closes — the "detonation"
-// beat. A bright fast inner ring + a wider zone-tinted outer ring; size + speed
-// scale with the area claimed. Drawn additively, ticked on real time.
+// A single faint ripple from the point a capture closes — toned WAY down from the old
+// bold double shockwave (bright white inner + wide outer). Now just a soft, small pulse
+// (low peak alpha via a0) so the claim keeps a subtle beat without splashing the screen.
 export function spawnRing(x: number, y: number, col: string, area: number) {
-  const reach = 38 + Math.min(150, area * 1.3);
-  G.rings.push({ x, y, max: reach, life: 0, dur: 0.42 + Math.min(0.3, area * 0.0018), col, w0: 3.2 });
-  G.rings.push({ x, y, max: reach * 0.55, life: 0, dur: 0.26, col: '#ffffff', w0: 2.2 });
+  const reach = 22 + Math.min(70, area * 0.6);
+  G.rings.push({ x, y, max: reach, life: 0, dur: 0.32 + Math.min(0.16, area * 0.001), col, w0: 1.6, a0: 0.32 });
 }
 export function updateRings(dt: number) {
   for (let i = G.rings.length - 1; i >= 0; i--) {
