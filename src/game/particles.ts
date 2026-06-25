@@ -7,10 +7,12 @@
 import { G } from './state';
 import { rand, TAU } from '../core/math';
 import { PW, PH } from '../core/dims';
+import { budgetSpawn, MOTE_COUNT } from '../platform/perf';
 
 // A radial burst of particles — used when the veil gives up a cache or rift.
 export function veilBurst(x: number, y: number, col: string) {
-  for (let i = 0; i < 16; i++) {
+  const n = budgetSpawn(16, G.particles.length);
+  for (let i = 0; i < n; i++) {
     const ang = Math.random() * TAU, sp = rand(40, 165);
     G.particles.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: rand(0.4, 0.9), max: 0.9, r: rand(1.2, 3), col });
   }
@@ -20,7 +22,8 @@ export function veilBurst(x: number, y: number, col: string) {
 // scaled to the area claimed. Rendered additively (no shadowBlur), so it's
 // cheap. `calm` (reduce-motion) keeps it small and gentle.
 export function captureBurst(x: number, y: number, col: string, area: number, calm?: boolean) {
-  const n = Math.min(calm ? 12 : 44, (calm ? 4 : 9) + Math.floor(area * (calm ? 0.08 : 0.26)));
+  const want = Math.min(calm ? 12 : 44, (calm ? 4 : 9) + Math.floor(area * (calm ? 0.08 : 0.26)));
+  const n = budgetSpawn(want, G.particles.length);
   const power = (calm ? 0.6 : 1) * (1 + Math.min(1.5, area * 0.006));
   for (let i = 0; i < n; i++) {
     const ang = Math.random() * TAU, sp = rand(50, 230) * power;
@@ -71,7 +74,7 @@ export function initMotes() {
   const aurora = style === 'aurora'; // Aurora: gently falling snow
   const space = style === 'space';   // Deep Space: slow-drifting twinkling stardust
   const rift = style === 'rift';     // The Rift: flickering prism sparks
-  for (let i = 0; i < 46; i++)
+  for (let i = 0; i < MOTE_COUNT; i++)
     G.motes.push({
       x: Math.random() * PW, y: Math.random() * PH,
       vx: caves ? rand(-3, 3) : ocean ? rand(-4, 4) : flora ? rand(-4, 4) : sky ? rand(-12, 12) : aurora ? rand(-7, 7) : space ? rand(-2, 2) : rift ? rand(-9, 9) : rand(-5, 5),
