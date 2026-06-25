@@ -189,7 +189,14 @@ function initLevel(lv) {
   // so the LAST of the 5 arrives on L10 — Easy + the Grid both ease the player in rather
   // than showing the whole set at once.
   const unlockedKinds = Math.max(1, Math.min(5, 1 + Math.floor((lv - 2) / 2)));
-  G.obstacleKind = (isBloom || isGrid) ? assignObstacleKinds(G.grid, COLS, ROWS, unlockedKinds) : new Uint8Array(0);
+  // Cap each board to at most 3 distinct kinds (less visual clutter), but vary WHICH 3
+  // per floor so the set still rotates. Drawn from the unlocked set; seeded per floor so
+  // it's stable within a floor but changes floor to floor (Bloom/Grid never run the daily).
+  const pool = Array.from({ length: unlockedKinds }, (_, i) => i);
+  const kr = G.rng.fork('kinds');
+  for (let i = pool.length - 1; i > 0; i--) { const j = kr.int(i + 1); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  const allowedKinds = pool.slice(0, Math.min(3, unlockedKinds));
+  G.obstacleKind = (isBloom || isGrid) ? assignObstacleKinds(G.grid, COLS, ROWS, unlockedKinds, allowedKinds) : new Uint8Array(0);
   G.veilBoard = genVeilBoard(G.rng.fork('veil'), { cols: COLS, rows: ROWS, level: lv, isOpen: (i) => G.grid[i] === EMPTY, caches: bp.caches, rifts: riftCount(bp.rifts, diff) });
 
   G.nebula = genNebula(G.pal, lv, PW, PH, bp.depth); G.fog = genFog(G.pal, PW, PH, bp.depth); genTwinkles();

@@ -202,7 +202,12 @@ export const OBK_BOULDER = 0, OBK_LOG = 1, OBK_BUSH = 2, OBK_FLOWERBED = 3, OBK_
 // so the newest kind reliably SHOWS UP at its unlock floor regardless of cluster shape,
 // rather than only appearing when the terrain happens to make the matching shape. The
 // kinds therefore arrive ONE AT A TIME as floors climb. Default 5 = every kind.
-export function assignObstacleKinds(grid: Uint8Array, cols: number, rows: number, unlocked = 5): Uint8Array {
+//
+// `allowed` (optional) caps the PALETTE for one board to a chosen subset of kinds — a
+// cluster keeps its shape-picked kind if it's in the palette, else it's spread across the
+// palette by hash. The caller varies this subset per floor, so any one board shows only a
+// few kinds (less clutter) while the set still changes floor to floor. Overrides `unlocked`.
+export function assignObstacleKinds(grid: Uint8Array, cols: number, rows: number, unlocked = 5, allowed?: number[]): Uint8Array {
   const n = cols * rows, kind = new Uint8Array(n), seen = new Uint8Array(n);
   for (let start = 0; start < n; start++) {
     if (grid[start] !== OBSTACLE || seen[start]) continue;
@@ -224,7 +229,11 @@ export function assignObstacleKinds(grid: Uint8Array, cols: number, rows: number
     else if (aspect >= 2.4) k = OBK_LOG;                                   // long & thin
     else if (sz >= 10) k = (hsh % 3 === 0) ? OBK_MUSHROOM : OBK_BOULDER;   // big & compact
     else k = [OBK_BOULDER, OBK_BUSH, OBK_FLOWERBED, OBK_MUSHROOM][hsh % 4]; // medium: mixed
-    if (k >= unlocked) k = hsh % unlocked;   // not introduced yet → spread across the unlocked kinds
+    if (allowed && allowed.length) {
+      if (allowed.indexOf(k) < 0) k = allowed[hsh % allowed.length];       // off-palette → spread across the chosen subset
+    } else if (k >= unlocked) {
+      k = hsh % unlocked;                                                   // not introduced yet → spread across the unlocked kinds
+    }
     for (const c of cells) kind[c] = k;
   }
   return kind;
