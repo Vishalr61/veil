@@ -14,7 +14,7 @@ import { genObstacles, openInteriorCount, assignObstacleKinds } from './sim/terr
 import { todayKey, seedFromDateKey, shareText, isConsecutive } from './daily/daily';
 import { shareResult } from './platform/share';
 import { EMPTY, FILLED, OBSTACLE, SS } from './core/constants';
-import { bandForLevel, LEVELS_PER_BAND, RIFT_BAND, BLOOM_BAND } from './core/bands';
+import { bandForLevel, LEVELS_PER_BAND, RIFT_BAND, BLOOM_BAND, GRID_BAND } from './core/bands';
 import { genNebula, genFog } from './render/background';
 import { canvas, ctx } from './render/surface';
 import { glowText, drawVignette, roundRectPath } from './render/primitives';
@@ -27,7 +27,7 @@ import { centerPx } from './core/grid';
 import { drawWorld, tickShootingStars, genBloomDecor } from './render/world';
 import { spawnPopup, updatePopups, updateParticles, updateRings, initMotes, updateMotes } from './game/particles';
 import { ENEMY_INFO, genEnemies, moveEnemy } from './game/enemies';
-import { blueprintForLevel, newEnemyAtLevel, dailyBlueprint, dailyNewEnemy, DAILY_FLOORS, levelTimeBudget, bloomBlueprint, bloomNewEnemy } from './game/blueprints';
+import { blueprintForLevel, newEnemyAtLevel, dailyBlueprint, dailyNewEnemy, DAILY_FLOORS, levelTimeBudget, bloomBlueprint, bloomNewEnemy, gridBlueprint, gridNewEnemy } from './game/blueprints';
 import { effectiveDiff, loadDiff, setDiff, clearTarget, levelClock, invulnFor, riftCount, applyDiffCounts, playerSpeed } from './game/difficulty';
 import { diffBtnRects } from './render/geometry';
 import { recomputeBorderPath, recomputePercent, boldClearBonus } from './game/capture';
@@ -168,13 +168,15 @@ function initLevel(lv) {
   G.rng = new SeededRng(G.gameSeed).fork('lv' + lv); // deterministic per-level simulation stream
   // The daily is its own zone (The Rift) with a dedicated 10-floor blueprint set;
   // the campaign uses the band + authored/procedural blueprint for the level.
-  const diff = effectiveDiff();   // the daily forces Medium inside effectiveDiff()
+  const diff = effectiveDiff();   // the daily forces the baseline (Hard) inside effectiveDiff()
   const isBloom = diff.key === 'easy' && !G.isDaily;
-  // The daily is the Rift; Easy is its own continuous garden (the Bloom); the
-  // campaign uses the per-level band. The palette+style drives every backdrop.
-  G.pal = G.isDaily ? RIFT_BAND : isBloom ? BLOOM_BAND : bandForLevel(lv);
+  const isGrid = diff.key === 'medium' && !G.isDaily;   // Medium = the Grid (its own themed mode)
+  // The daily is the Rift; Easy is the Bloom garden; Medium is the Grid; the
+  // campaign (Hard) uses the per-level band. The palette+style drives every backdrop.
+  G.pal = G.isDaily ? RIFT_BAND : isBloom ? BLOOM_BAND : isGrid ? GRID_BAND : bandForLevel(lv);
   let bp = G.isDaily ? dailyBlueprint(lv) : blueprintForLevel(lv);
-  if (isBloom) bp = bloomBlueprint(bp, lv);   // Easy = the Bloom garden
+  if (isBloom) bp = bloomBlueprint(bp, lv);        // Easy = the Bloom garden
+  else if (isGrid) bp = gridBlueprint(bp, lv);     // Medium = the Grid
   G.grid = new Uint8Array(COLS * ROWS);
   for (let y = 0; y < ROWS; y++)
     for (let x = 0; x < COLS; x++)
@@ -195,10 +197,11 @@ function initLevel(lv) {
   G.buffered = null; G.hasTrail = false; G.trailCells = []; G.trailPoints = [];
   // zone summits (every 5th floor, or the daily's last floor) get THE QIX boss
   const summit = G.isDaily ? lv >= DAILY_FLOORS : lv % LEVELS_PER_BAND === 0;
-  // Easy's roster comes straight from bloomBlueprint (drifter + firefly/sprite);
-  // Medium/Hard go through applyDiffCounts (schedule delays + count delta).
-  let ec = diff.key === 'easy' ? { ...bp.enemies } : applyDiffCounts(bp.enemies, lv, summit, diff);
-  if (summit) ec = { ...ec, qix: 1 };
+  // Easy (Bloom) + Medium (Grid) carry their authored rosters straight from their
+  // blueprint; Hard/campaign + daily go through applyDiffCounts (schedule + delta).
+  let ec = (diff.key === 'easy' || isGrid) ? { ...bp.enemies } : applyDiffCounts(bp.enemies, lv, summit, diff);
+  // Grid summits get THE KERNEL boss in Increment 2 — no campaign QIX in the Grid yet.
+  if (summit && !isGrid) ec = { ...ec, qix: 1 };
   G.enemies = genEnemies(lv, ec);
 
   // gentler ramp + a lower cap so high levels stay controllable (was 11 + 0.6*lv, cap 18,
@@ -218,9 +221,10 @@ function initLevel(lv) {
   G.pickupSpawnT = G.rng.range(5, 8);
   recomputeBorderPath(); recomputePercent(); G.dispPercent = G.percent;
   const revealSub = 'reveal ' + Math.round(G.target * 100) + '%';
-  if (isBloom) {
-    // Bloom is one continuous garden: name it once on floor 1, then just show the
-    // progressing floor number (repeating "THE BLOOM" every level reads as a bug).
+  if (isBloom || isGrid) {
+    // Bloom + the Grid are each one continuous themed mode: name it once on floor 1,
+    // then just show the progressing floor number (repeating the zone name every
+    // level reads as a bug).
     G.banner = lv === 1
       ? { text: G.pal.name.toUpperCase(), sub: revealSub, t: 2.0 }
       : { text: 'FLOOR ' + lv, sub: revealSub, t: 1.4 };
@@ -231,11 +235,12 @@ function initLevel(lv) {
       sub: 'floor ' + floor + '/' + floors + '  ·  ' + revealSub, t: 2.0 };
   }
   // a level that introduces a new enemy always teaches what it does (wins over the title)
-  const newType = G.isDaily ? dailyNewEnemy(lv) : diff.key === 'easy' ? bloomNewEnemy(lv) : newEnemyAtLevel(lv);
+  const newType = G.isDaily ? dailyNewEnemy(lv) : isBloom ? bloomNewEnemy(lv) : isGrid ? gridNewEnemy(lv) : newEnemyAtLevel(lv);
   if (newType) G.banner = { text: ENEMY_INFO[newType].name, sub: ENEMY_INFO[newType].desc, t: 3.4, enemy: newType };
   // Introduce the boss only the FIRST time it appears (first summit), not on every
-  // summit — it's the same boss with the same mechanics. (Daily has one summit.)
-  if (summit && (G.isDaily || lv === LEVELS_PER_BAND)) G.banner = { text: ENEMY_INFO.qix.name, sub: ENEMY_INFO.qix.desc, t: 3.2, enemy: 'qix' };
+  // summit — it's the same boss with the same mechanics. (Daily has one summit.) The
+  // Grid has no campaign QIX (its KERNEL boss arrives in Increment 2), so skip it there.
+  if (summit && !isGrid && (G.isDaily || lv === LEVELS_PER_BAND)) G.banner = { text: ENEMY_INFO.qix.name, sub: ENEMY_INFO.qix.desc, t: 3.2, enemy: 'qix' };
   G.hintActive = (lv === 1 && !G.isDaily);
   setMusicTheme(G.isDaily ? 'rift' : G.pal.style);   // soundtrack key/tempo follows the zone
   G.introT = G.reduceMotion ? 0 : 1;   // fade the level up + settle the zoom (covers the hard cut)

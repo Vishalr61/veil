@@ -56,6 +56,16 @@ export const BLOOM_BAND: Band = {
   star: '#e2fff4', edge: '#3fe8c0', edge2: '#bafff0', trail: '#eef6f2', player: '#ffffff', accent: '#dde8e4',
 };
 
+// The Grid — Medium mode's own zone: a synthetic neon-circuit world, the cold
+// counterpart to Bloom's organic garden. Deliberately OUTSIDE the BANDS array
+// (like the Rift + Bloom) so it never shifts the campaign mapping. Electric-blue
+// traces + cyan over a deep-navy circuit field; the magenta signature lives in
+// the backdrop + enemies (not the palette), so the player trail stays clean cyan.
+export const GRID_BAND: Band = {
+  name: 'the grid', style: 'grid', blobs: ['#03060f', '#08182e', '#0e4a8a', '#22b8ff', '#9fe8ff'],
+  star: '#dff4ff', edge: '#2ad8ff', edge2: '#a0ecff', trail: '#eafaff', player: '#ffffff', accent: '#5fd0ff',
+};
+
 export const LEVELS_PER_BAND = 5;
 
 export function bandForLevel(level: number): Band {

@@ -9,25 +9,29 @@ import {
   DIFFS, effectiveDiff, fuseWindow, levelClock, clearTarget, enemySpeed,
   applyDiffCounts, riftCount, invulnFor, playerSpeed,
 } from './difficulty';
-import { bloomRoster, bloomBlueprint, bloomNewEnemy, blueprintForLevel } from './blueprints';
+import { bloomRoster, bloomBlueprint, bloomNewEnemy, blueprintForLevel, gridRoster, gridBlueprint, gridNewEnemy } from './blueprints';
 
 const EASY = DIFFS.easy, MED = DIFFS.medium, HARD = DIFFS.hard;
 const counts = (o: any = {}) => ({ drifter: 2, chaser: 1, cutter: 1, sentinel: 0, sleeper: 0, ...o });
 
-describe('Medium reproduces today exactly', () => {
-  it('matches the source fuse / clock / lives / target / speed', () => {
-    expect(MED.fuse).toBe(true); expect(MED.clock).toBe(true); expect(MED.lives).toBe(3);
-    expect(fuseWindow(1, MED)).toBeCloseTo(5.88, 5);          // max(2.8, 6 - lv*0.12)
-    expect(fuseWindow(27, MED)).toBeCloseTo(2.8, 5);          // the 2.8 floor
-    expect(levelClock(60, MED)).toBe(60);                     // budget unchanged
-    expect(clearTarget(0.66, MED)).toBeCloseTo(0.66, 5);      // min(bp, 0.74)
-    expect(clearTarget(0.80, MED)).toBe(0.74);                // cap
-    expect(enemySpeed(1, MED)).toBe(140);                     // min(140 + 9*(lv-1), 240)
-    expect(enemySpeed(12, MED)).toBe(239);
-    expect(enemySpeed(50, MED)).toBe(240);                    // cap
+describe('Medium = the Grid (fuse-only, its own themed mode)', () => {
+  it('keeps the fuse but turns the level CLOCK off', () => {
+    expect(MED.fuse).toBe(true);
+    expect(fuseWindow(1, MED)).toBeCloseTo(5.88, 5);         // fuse on, scale 1: max(2.8, 6 - lv*0.12)
+    expect(fuseWindow(27, MED)).toBeCloseTo(2.8, 5);
+    expect(MED.clock).toBe(false);
+    expect(levelClock(60, MED)).toBe(Infinity);              // no level clock
   });
-  it('leaves the enemy schedule and counts untouched', () => {
-    expect(applyDiffCounts(counts(), 3, false, MED)).toMatchObject({ chaser: 1, cutter: 1, drifter: 2 });
+  it('sits between Bloom and the campaign: 3 lives, slower-than-baseline enemies, more invuln', () => {
+    expect(MED.lives).toBe(3);
+    expect(enemySpeed(1, MED)).toBeCloseTo(126, 5);          // 140 * 0.9
+    expect(enemySpeed(99, MED)).toBe(190);                   // capped below the campaign baseline (240)
+    expect(enemySpeed(1, MED)).toBeLessThan(enemySpeed(1, HARD));   // gentler than the baseline (Hard)
+    expect(invulnFor(1.0, MED)).toBeCloseTo(1.2, 5);
+  });
+  it('leaves the clear target to the blueprint (delta 0, still capped at 0.74)', () => {
+    expect(clearTarget(0.66, MED)).toBeCloseTo(0.66, 5);
+    expect(clearTarget(0.80, MED)).toBe(0.74);
   });
 });
 
@@ -96,16 +100,53 @@ describe('Easy = the Bloom garden roster + map transform', () => {
   });
 });
 
+describe('Medium = the Grid roster + blueprint', () => {
+  const total = (r: any) => r.drifter + r.chaser + r.cutter;
+  it('teaches GLITCH-only on L1, then debuts TRACER (L2) and DAEMON (L4)', () => {
+    expect(gridRoster(1).chaser).toBe(0); expect(gridRoster(1).cutter).toBe(0);
+    expect(gridRoster(1).drifter).toBeGreaterThan(0);
+    expect(gridRoster(2).chaser).toBe(1);                    // TRACER debut (one, among glitches)
+    expect(gridRoster(4).cutter).toBe(1);                    // DAEMON debut (one)
+  });
+  it('is never an empty floor, caps the total at 10, and holds hunters low (fair Medium)', () => {
+    for (const lv of [1, 2, 5, 8, 20, 99]) {
+      const r = gridRoster(lv);
+      expect(total(r)).toBeGreaterThanOrEqual(1);
+      expect(total(r)).toBeLessThanOrEqual(10);
+      expect(r.chaser).toBeLessThanOrEqual(4);
+      expect(r.cutter).toBeLessThanOrEqual(3);
+    }
+  });
+  it('escalates the budget deeper, then caps at 10', () => {
+    expect(total(gridRoster(8))).toBeGreaterThan(total(gridRoster(2)));
+    for (const lv of [20, 40, 99]) expect(total(gridRoster(lv))).toBe(10);
+  });
+  it('blueprint: a moderate rising target, more reward than base, gentle rift ramp', () => {
+    const base = blueprintForLevel(3);
+    expect(gridBlueprint(base, 1).rifts).toBe(0);
+    expect(gridBlueprint(base, 3).rifts).toBe(1);
+    expect(gridBlueprint(base, 99).rifts).toBeLessThanOrEqual(5);
+    expect(gridBlueprint(base, 1).target).toBeCloseTo(0.58, 5);
+    expect(gridBlueprint(base, 99).target).toBeLessThanOrEqual(0.72);
+    expect(gridBlueprint(base, 4).caches).toBe(base.caches + 1);
+  });
+  it('introduces no card yet (bespoke GLITCH/TRACER/DAEMON cards land in Increment 2)', () => {
+    expect(gridNewEnemy(2)).toBe(null);
+    expect(gridNewEnemy(4)).toBe(null);
+  });
+});
+
 describe('hero move speed', () => {
-  it('Medium/Hard reproduce today; Easy ramps gentler and caps lower', () => {
-    expect(playerSpeed(1, MED)).toBeCloseTo(13.5, 5);        // 13.5 + 0.5*(lv-1)
-    expect(playerSpeed(50, MED)).toBe(20);                   // cap
-    expect(playerSpeed(1, HARD)).toBeCloseTo(13.5, 5);
-    expect(playerSpeed(6, EASY)).toBeLessThan(playerSpeed(6, MED));   // L6+ is the gripe — calmer on Easy
-    expect(playerSpeed(20, EASY)).toBe(playerSpeed(10, EASY));   // holds L10 speed forever after L10
+  it('Hard reproduces today; Medium/Grid is livelier than Bloom but holds by L14; Easy gentlest', () => {
+    expect(playerSpeed(1, HARD)).toBeCloseTo(13.5, 5);        // the baseline (old Medium) now lives in Hard
+    expect(playerSpeed(50, HARD)).toBe(20);                   // ramps to its cap, no level clamp
+    expect(playerSpeed(1, MED)).toBeCloseTo(12.5, 5);         // Grid: between Bloom (11) and the baseline (13.5)
+    expect(playerSpeed(20, MED)).toBe(playerSpeed(14, MED));  // holds L14 speed forever after L14
+    expect(playerSpeed(100, MED)).toBe(playerSpeed(14, MED));
+    expect(playerSpeed(6, EASY)).toBeLessThan(playerSpeed(6, MED));   // Easy calmer than the Grid
+    expect(playerSpeed(20, EASY)).toBe(playerSpeed(10, EASY));        // Easy holds L10 speed forever after L10
     expect(playerSpeed(100, EASY)).toBe(playerSpeed(10, EASY));
-    expect(playerSpeed(10, EASY)).toBeLessThan(12);             // and it's slow/controllable
-    expect(playerSpeed(50, MED)).toBe(20);                     // Medium still ramps to its cap (no L10 clamp)
+    expect(playerSpeed(10, EASY)).toBeLessThan(12);                  // and it's slow/controllable
   });
 });
 
