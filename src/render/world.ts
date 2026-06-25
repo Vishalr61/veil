@@ -16,6 +16,7 @@ import { OBK_BOULDER, OBK_LOG, OBK_BUSH, OBK_FLOWERBED, OBK_MUSHROOM } from '../
 import { hexA } from './background';
 import { roundRectPath, drawGlowOrb, pointAlong, glowText } from './primitives';
 import { CHASER_COL, CHASER_GLOW, ENEMY_COL, ENEMY_GLOW } from '../core/palettes';
+import { BLUR_SCALE } from '../platform/perf';
 
 // "Read the veil": a faint disturbance bleeds through the fog where content
 // is hidden — it tells you WHERE, never WHAT, so the cache-or-rift gamble
@@ -839,9 +840,9 @@ export function drawWorld() {
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     // tamed: a soft warm glow + a crisp hot-WHITE core, so the captured edge
     // reads as light cutting the rock rather than a screaming orange band.
-    ctx.shadowColor = G.pal.edge; ctx.shadowBlur = 8; ctx.strokeStyle = G.pal.edge;
+    ctx.shadowColor = G.pal.edge; ctx.shadowBlur = 8 * BLUR_SCALE; ctx.strokeStyle = G.pal.edge;
     ctx.globalAlpha = 0.32; ctx.lineWidth = 2.5; ctx.stroke(G.borderPath);
-    ctx.globalAlpha = 0.9; ctx.lineWidth = 1; ctx.shadowBlur = 4; ctx.strokeStyle = '#fff'; ctx.stroke(G.borderPath);
+    ctx.globalAlpha = 0.9; ctx.lineWidth = 1; ctx.shadowBlur = 4 * BLUR_SCALE; ctx.strokeStyle = '#fff'; ctx.stroke(G.borderPath);
     ctx.restore();
   }
 
@@ -875,9 +876,9 @@ export function drawWorld() {
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
     for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-    ctx.shadowColor = G.pal.accent; ctx.shadowBlur = 18; ctx.strokeStyle = G.pal.accent;
+    ctx.shadowColor = G.pal.accent; ctx.shadowBlur = 18 * BLUR_SCALE; ctx.strokeStyle = G.pal.accent;
     ctx.globalAlpha = 0.5; ctx.lineWidth = 6 * ls; ctx.stroke();
-    ctx.strokeStyle = G.pal.trail; ctx.globalAlpha = 1; ctx.shadowBlur = 8; ctx.lineWidth = 2.4 * ls; ctx.stroke();
+    ctx.strokeStyle = G.pal.trail; ctx.globalAlpha = 1; ctx.shadowBlur = 8 * BLUR_SCALE; ctx.lineWidth = 2.4 * ls; ctx.stroke();
     let total = 0; for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
     // live energy pulse running along the wire — subtle (decorative; off in reduce-motion)
     if (!G.reduceMotion && total > 4) {
