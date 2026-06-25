@@ -8,16 +8,44 @@
 import { CW, CH, safeTop } from '../core/dims';
 
 export function menuBtnW() { return Math.min(300, CW - 48); }
-// Bottom-anchored title bar (Horizon reference): PLAY primary, DAILY + SCORES a
-// row below, then the difficulty chips at the very bottom — over the teal frontier.
-export function playBtnRect() { const w = menuBtnW(); return { x: CW / 2 - w / 2, y: CH - 206, w, h: 58 }; }
-export function dailyBtnRect() { const w = menuBtnW(), hw = (w - 14) / 2; return { x: CW / 2 - w / 2, y: CH - 134, w: hw, h: 50 }; }
-export function scoresBtnRect() { const w = menuBtnW(), hw = (w - 14) / 2; return { x: CW / 2 - w / 2 + hw + 14, y: CH - 134, w: hw, h: 50 }; }
-// EASY / MED / HARD — a three-up row at the very bottom.
+
+// The title button bar (Horizon reference). WIDE/landscape screens get the single
+// horizontal row — PLAY · DAILY · SCORES · divider · EASY MED HARD; narrow phones
+// fall back to the stacked column (one row can't fit). Computed in one place so the
+// renderer and the input layer agree.
+type Rect = { x: number; y: number; w: number; h: number };
+export interface BarLayout { wide: boolean; play: Rect; daily: Rect; scores: Rect; chips: Rect[]; dividerX: number; dividerY: number; dividerH: number; }
+export function barLayout(): BarLayout {
+  const wide = CW >= 720;
+  if (!wide) {   // stacked column, bottom-anchored
+    const w = menuBtnW(), hw = (w - 14) / 2, gap = 10, cw = (w - gap * 2) / 3, x0 = CW / 2 - w / 2;
+    return {
+      wide: false,
+      play: { x: CW / 2 - w / 2, y: CH - 206, w, h: 58 },
+      daily: { x: CW / 2 - w / 2, y: CH - 134, w: hw, h: 50 },
+      scores: { x: CW / 2 - w / 2 + hw + 14, y: CH - 134, w: hw, h: 50 },
+      chips: [0, 1, 2].map((i) => ({ x: x0 + i * (cw + gap), y: CH - 70, w: cw, h: 40 })),
+      dividerX: 0, dividerY: 0, dividerH: 0,
+    };
+  }
+  const h = 56, chipH = 42, chipW = 66, chipGap = 8, gap = 16, dsW = 128, playW = 200, divGap = 20;
+  const chipsW = chipW * 3 + chipGap * 2;
+  const totalW = playW + gap + dsW + gap + dsW + divGap + 1 + divGap + chipsW;
+  let x = CW / 2 - totalW / 2; const y = CH - 116;
+  const play = { x, y, w: playW, h }; x += playW + gap;
+  const daily = { x, y, w: dsW, h }; x += dsW + gap;
+  const scores = { x, y, w: dsW, h }; x += dsW + divGap;
+  const dividerX = x; x += 1 + divGap;
+  const chipY = y + (h - chipH) / 2;
+  const chips = [0, 1, 2].map((i) => ({ x: x + i * (chipW + chipGap), y: chipY, w: chipW, h: chipH }));
+  return { wide: true, play, daily, scores, chips, dividerX, dividerY: y, dividerH: h };
+}
+export function playBtnRect() { return barLayout().play; }
+export function dailyBtnRect() { return barLayout().daily; }
+export function scoresBtnRect() { return barLayout().scores; }
 export function diffBtnRects(): { x: number; y: number; w: number; h: number; key: 'easy' | 'medium' | 'hard' }[] {
-  const w = menuBtnW(), gap = 10, cw = (w - gap * 2) / 3, x0 = CW / 2 - w / 2, y = CH - 70, h = 40;
   const keys: ('easy' | 'medium' | 'hard')[] = ['easy', 'medium', 'hard'];
-  return keys.map((key, i) => ({ x: x0 + i * (cw + gap), y, w: cw, h, key }));
+  return barLayout().chips.map((c, i) => ({ ...c, key: keys[i] }));
 }
 export function pauseBtnRect() { return { x: CW - 56, y: safeTop + 8, w: 46, h: 46 }; }
 // tappable mute glyph in the HUD (so phones can mute without a keyboard)
